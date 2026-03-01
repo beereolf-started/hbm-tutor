@@ -1,196 +1,50 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HBM — Вход</title>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --bg:#0f1a0f;--surface:#1a2e1a;--border:#2e4a2e;
-      --accent:#00ff88;--text:#e8f5e8;--text-dim:#7aab7a;
-      --danger:#ff4444;--radius:12px;
-      --font:'Segoe UI',system-ui,sans-serif;
-    }
-    body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-    .login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:36px 32px;width:100%;max-width:380px}
-    .login-card h1{font-size:1.4rem;margin-bottom:4px;text-align:center}
-    .login-card h1 span{color:var(--accent)}
-    .login-card .subtitle{text-align:center;font-size:.85rem;color:var(--text-dim);margin-bottom:28px}
-    .form-group{margin-bottom:16px}
-    .form-group label{display:block;font-size:.85rem;color:var(--text-dim);margin-bottom:6px}
-    .form-group input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.95rem;font-family:var(--font);outline:none;transition:border-color .2s}
-    .form-group input:focus{border-color:var(--accent)}
-    .btn{display:block;width:100%;padding:12px;border-radius:8px;border:none;font-size:1rem;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:var(--font)}
-    .btn-primary{background:var(--accent);color:#0f1a0f}
-    .btn:hover{opacity:.85}
-    .error-msg{color:var(--danger);font-size:.85rem;text-align:center;margin-bottom:12px;min-height:1.2em}
-
-    /* Форма смены пароля */
-    .change-pw{display:none}
-    .change-pw.active{display:block}
-    .login-form.hidden{display:none}
-  </style>
-</head>
-<body>
-  <div class="login-card">
-    <h1>HBM <span>Репетитор</span></h1>
-    <p class="subtitle">Вход в систему</p>
-
-    <!-- Форма логина -->
-    <div class="login-form" id="loginForm">
-      <div class="error-msg" id="loginError"></div>
-      <div class="form-group">
-        <label>Логин</label>
-        <input type="text" id="inputLogin" placeholder="admin" autofocus />
-      </div>
-      <div class="form-group">
-        <label>Пароль</label>
-        <input type="password" id="inputPassword" placeholder="••••••" />
-      </div>
-      <button class="btn btn-primary" onclick="doLogin()">Войти</button>
-    </div>
-
-    <!-- Форма смены пароля (при первом входе) -->
-    <div class="change-pw" id="changePwForm">
-      <div class="error-msg" id="changePwError"></div>
-      <p style="font-size:.88rem;color:var(--text-dim);margin-bottom:16px;text-align:center">
-        Необходимо сменить пароль
-      </p>
-      <div class="form-group">
-        <label>Новый пароль (мин. 6 символов)</label>
-        <input type="password" id="inputNewPassword" placeholder="••••••" />
-      </div>
-      <div class="form-group">
-        <label>Повторите пароль</label>
-        <input type="password" id="inputNewPassword2" placeholder="••••••" />
-      </div>
-      <button class="btn btn-primary" onclick="doChangePassword()">Сменить и продолжить</button>
-    </div>
-  </div>
-
-  <script>
-    const API = '/api';
-    let tempToken = null;
-    let tempOldPassword = null;
-
-    // Если уже залогинен — сразу редирект
-    const saved = localStorage.getItem('hbm_token');
-    if (saved) {
-      redirect(localStorage.getItem('hbm_role'));
-    }
-
-    function redirect(role) {
-      if (role === 'tutor')   location.href = '/hbm_tutor.html';
-      else if (role === 'student') location.href = '/student_lk.html';
-      else if (role === 'parent')  location.href = '/parent_lk.html';
-      else location.href = '/hbm_tutor.html';
-    }
-
-    async function doLogin() {
-      const login    = document.getElementById('inputLogin').value.trim();
-      const password = document.getElementById('inputPassword').value;
-      document.getElementById('loginError').textContent = '';
-
-      if (!login || !password) {
-        document.getElementById('loginError').textContent = 'Введите логин и пароль';
-        return;
-      }
-
-      try {
-        const res = await fetch(API + '/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, password }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          document.getElementById('loginError').textContent = err.detail || 'Ошибка входа';
-          return;
-        }
-
-        const data = await res.json();
-
-        if (data.must_change_password) {
-          // Показать форму смены пароля
-          tempToken = data.token;
-          tempOldPassword = password;
-          document.getElementById('loginForm').classList.add('hidden');
-          document.getElementById('changePwForm').classList.add('active');
-          document.getElementById('inputNewPassword').focus();
-          return;
-        }
-
-        // Сохранить и перейти
-        localStorage.setItem('hbm_token', data.token);
-        localStorage.setItem('hbm_role', data.role);
-        localStorage.setItem('hbm_name', data.name);
-        redirect(data.role);
-
-      } catch (e) {
-        document.getElementById('loginError').textContent = 'Сервер недоступен';
-      }
-    }
-
-    async function doChangePassword() {
-      const pw1 = document.getElementById('inputNewPassword').value;
-      const pw2 = document.getElementById('inputNewPassword2').value;
-      document.getElementById('changePwError').textContent = '';
-
-      if (pw1.length < 6) {
-        document.getElementById('changePwError').textContent = 'Минимум 6 символов';
-        return;
-      }
-      if (pw1 !== pw2) {
-        document.getElementById('changePwError').textContent = 'Пароли не совпадают';
-        return;
-      }
-
-      try {
-        const res = await fetch(API + '/auth/change-password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + tempToken,
-          },
-          body: JSON.stringify({ old_password: tempOldPassword, new_password: pw1 }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          document.getElementById('changePwError').textContent = err.detail || 'Ошибка';
-          return;
-        }
-
-        // Перелогиниться с новым паролем
-        const loginRes = await fetch(API + '/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login: document.getElementById('inputLogin').value.trim(), password: pw1 }),
-        });
-        const data = await loginRes.json();
-
-        localStorage.setItem('hbm_token', data.token);
-        localStorage.setItem('hbm_role', data.role);
-        localStorage.setItem('hbm_name', data.name);
-        redirect(data.role);
-
-      } catch (e) {
-        document.getElementById('changePwError').textContent = 'Сервер недоступен';
-      }
-    }
-
-    // Enter для отправки
-    document.getElementById('inputPassword').addEventListener('keydown', e => {
-      if (e.key === 'Enter') doLogin();
-    });
-    document.getElementById('inputLogin').addEventListener('keydown', e => {
-      if (e.key === 'Enter') doLogin();
-    });
-    document.getElementById('inputNewPassword2').addEventListener('keydown', e => {
-      if (e.key === 'Enter') doChangePassword();
-    });
-  </script>
-</body>
-</html>
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HBM — Вход</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#1e293b;border-radius:16px;padding:40px;width:360px;box-shadow:0 8px 32px #0004}
+h1{text-align:center;margin-bottom:8px;font-size:1.6em}
+.sub{text-align:center;color:#94a3b8;margin-bottom:24px;font-size:.9em}
+input{width:100%;padding:12px 16px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:1em;margin-bottom:12px;outline:none}
+input:focus{border-color:#3b82f6}
+button{width:100%;padding:12px;border:none;border-radius:8px;background:#3b82f6;color:#fff;font-size:1em;cursor:pointer;font-weight:600}
+button:hover{background:#2563eb}
+.err{color:#f87171;text-align:center;margin-top:12px;font-size:.9em;display:none}
+.chpw{display:none}.chpw h2{font-size:1.2em;margin-bottom:16px}
+</style></head><body>
+<div class="card">
+<div id="loginForm">
+<h1>📐 HBM</h1><p class="sub">Платформа репетитора</p>
+<input id="login" placeholder="Логин" autocomplete="username">
+<input id="pw" type="password" placeholder="Пароль" autocomplete="current-password">
+<button onclick="doLogin()">Войти</button>
+<p class="err" id="err"></p>
+</div>
+<div id="chpw" class="chpw">
+<h2>Смена пароля</h2><p class="sub">Установите новый пароль</p>
+<input id="oldPw" type="password" placeholder="Текущий пароль">
+<input id="newPw" type="password" placeholder="Новый пароль (мин. 6)">
+<button onclick="doChange()">Сменить</button>
+<p class="err" id="err2"></p>
+</div>
+</div>
+<script src="/api.js"></script>
+<script>
+const ROUTES={owner:'/hbm_tutor.html',tutor:'/hbm_tutor.html',student:'/student_lk.html',parent:'/parent_lk.html'};
+if(localStorage.getItem('token')){const r=role();if(r&&ROUTES[r])location.href=ROUTES[r]}
+async function doLogin(){
+    const e=document.getElementById('err');e.style.display='none';
+    try{
+        const d=await post('/api/auth/login',{login:document.getElementById('login').value,password:document.getElementById('pw').value});
+        localStorage.setItem('token',d.token);localStorage.setItem('role',d.role);localStorage.setItem('name',d.name);
+        if(d.must_change_password){document.getElementById('loginForm').style.display='none';document.getElementById('chpw').style.display='block';document.getElementById('oldPw').value=document.getElementById('pw').value;return}
+        location.href=ROUTES[d.role]||'/hbm_tutor.html';
+    }catch(x){e.textContent=x.detail||'Ошибка';e.style.display='block'}}
+async function doChange(){
+    const e=document.getElementById('err2');e.style.display='none';
+    try{
+        await post('/api/auth/change-password',{old_password:document.getElementById('oldPw').value,new_password:document.getElementById('newPw').value});
+        location.href=ROUTES[role()]||'/hbm_tutor.html';
+    }catch(x){e.textContent=x.detail||'Ошибка';e.style.display='block'}}
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+</script></body></html>

@@ -1,320 +1,186 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HBM Репетитор</title>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--bg:#0f1a0f;--surface:#1a2e1a;--border:#2e4a2e;--accent:#00ff88;--accent-dim:#00cc66;--text:#e8f5e8;--text-dim:#7aab7a;--danger:#ff4444;--warn:#ffaa00;--radius:12px;--font:'Segoe UI',system-ui,sans-serif}
-    body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;padding:24px}
-    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:10px}
-    .header h1{font-size:1.6rem;font-weight:700;letter-spacing:-.5px}.header h1 span{color:var(--accent)}
-    .header-right{display:flex;gap:8px;align-items:center}
-    .user-badge{font-size:.82rem;color:var(--text-dim);padding:6px 12px;border:1px solid var(--border);border-radius:99px}
-    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:var(--radius);border:none;font-size:.95rem;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;font-family:var(--font)}.btn:active{transform:scale(.97)}.btn:hover{opacity:.85}
-    .btn-primary{background:var(--accent);color:#0f1a0f}
-    .btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);padding:6px 12px;font-size:.82rem}
-    .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
-    .btn-sm{padding:6px 14px;font-size:.85rem}
-    .btn-invite{background:transparent;color:var(--accent-dim);border:1px solid var(--accent-dim);padding:5px 10px;font-size:.78rem;border-radius:8px}
-    .students-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
-    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:border-color .2s,transform .15s;position:relative}.card:hover{border-color:var(--accent);transform:translateY(-2px)}
-    .card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
-    .card-avatar{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#0f1a0f;font-weight:700;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .card-name{font-size:1.05rem;font-weight:600;margin-bottom:2px}.card-meta{font-size:.82rem;color:var(--text-dim)}
-    .card-info{display:flex;flex-direction:column;gap:4px;margin-left:12px;flex:1}
-    .card-actions{display:flex;gap:4px;flex-shrink:0}
-    .progress-label{display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-dim);margin-bottom:4px;margin-top:12px}
-    .progress-bar{height:6px;background:var(--border);border-radius:99px;overflow:hidden}.progress-fill{height:100%;background:var(--accent);border-radius:99px;transition:width .4s ease}
-    .card-rate{margin-top:12px;font-size:.85rem;color:var(--text-dim)}.card-rate strong{color:var(--accent);font-size:1rem}
-    .card-accounts{margin-top:8px;display:flex;gap:4px;flex-wrap:wrap}
-    .account-badge{font-size:.7rem;padding:2px 7px;border-radius:99px;border:1px solid var(--border);color:var(--text-dim)}
-    .account-badge.active{border-color:var(--accent-dim);color:var(--accent-dim)}
-    .empty-state{grid-column:1/-1;text-align:center;padding:64px 24px;color:var(--text-dim)}.empty-state .empty-icon{font-size:3rem;margin-bottom:16px}.empty-state p{margin-bottom:20px;font-size:1rem}
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:24px;backdrop-filter:blur(4px)}.modal-overlay.hidden{display:none}
-    .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:100%;max-width:440px}.modal h2{font-size:1.2rem;margin-bottom:20px}
-    .form-group{margin-bottom:16px}.form-group label{display:block;font-size:.85rem;color:var(--text-dim);margin-bottom:6px}
-    .form-group input,.form-group select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.95rem;font-family:var(--font);outline:none;transition:border-color .2s}.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
-    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .modal-actions{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
-    .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.75rem;font-weight:600;background:var(--border);color:var(--text-dim)}
-    .badge-ege{background:#1a3a2a;color:#00cc66}.badge-olymp{background:#2a1a3a;color:#aa88ff}.badge-base{background:#2a2a1a;color:#ccaa00}
-    .result-box{background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:14px 16px;margin-top:16px;font-size:.9rem;line-height:1.6}
-    .result-box .label{font-size:.78rem;color:var(--text-dim);margin-bottom:2px}
-    .result-box .value{color:var(--accent);font-weight:600;font-family:monospace;font-size:1rem}
-    .result-box .copy-btn{margin-top:10px;padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-size:.82rem;font-family:var(--font)}
-    .result-box .copy-btn:hover{background:var(--accent);color:#0f1a0f}
-  </style>
-</head>
-<body>
-  <header class="header">
-    <h1>HBM <span>Репетитор</span></h1>
-    <div class="header-right">
-      <span class="user-badge" id="userBadge"></span>
-      <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Ученик</button>
-      <button class="btn btn-ghost btn-sm" onclick="logout()">Выйти</button>
-    </div>
-  </header>
-  <div class="students-grid" id="studentsGrid"></div>
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HBM — Панель</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.top{background:#1e293b;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
+.top h1{font-size:1.1em}.top-r{display:flex;gap:12px;align-items:center}.top-r span{color:#94a3b8;font-size:.85em}
+.badge{background:#3b82f6;color:#fff;padding:2px 8px;border-radius:4px;font-size:.75em;font-weight:600}
+a,button.link{color:#60a5fa;text-decoration:none;background:none;border:none;cursor:pointer;font-size:.9em}
+a:hover,button.link:hover{text-decoration:underline}
+.wrap{max-width:900px;margin:0 auto;padding:24px}
+.tabs{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px;background:#1e293b;border:1px solid #334155;cursor:pointer;font-size:.9em;color:#94a3b8}
+.tab.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.card{background:#1e293b;border-radius:12px;padding:20px;margin-bottom:12px;border:1px solid #334155}
+.card:hover{border-color:#475569}
+.card h3{font-size:1em;margin-bottom:4px}.card .meta{color:#94a3b8;font-size:.8em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600}
+.btn-p{background:#3b82f6;color:#fff}.btn-p:hover{background:#2563eb}
+.btn-s{background:#334155;color:#e2e8f0}.btn-s:hover{background:#475569}
+.btn-d{background:#ef4444;color:#fff}.btn-d:hover{background:#dc2626}
+.btn-sm{padding:4px 10px;font-size:.8em}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+input,select{padding:8px 12px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;font-size:.9em}
+input:focus,select:focus{border-color:#3b82f6;outline:none}
+.modal-bg{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:100}
+.modal-bg.show{display:flex}
+.modal{background:#1e293b;border-radius:12px;padding:24px;width:420px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:1.1em;margin-bottom:16px}
+.modal label{display:block;color:#94a3b8;font-size:.85em;margin:8px 0 4px}
+.modal input,.modal select{width:100%;margin-bottom:4px}
+.empty{text-align:center;color:#64748b;padding:40px}
+.goal{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75em;font-weight:600}
+.goal-ege{background:#7c3aed33;color:#a78bfa}.goal-olymp{background:#f59e0b33;color:#fbbf24}.goal-base{background:#10b98133;color:#34d399}
+</style></head><body>
+<div class="top">
+<h1>📐 HBM</h1>
+<div class="top-r">
+<span id="userName"></span><span class="badge" id="userRole"></span>
+<a href="/courses.html">Курсы</a>
+<button class="link" onclick="logout()">Выйти</button>
+</div></div>
+<div class="wrap">
+<div class="tabs" id="tabs"></div>
+<div id="content"></div>
+</div>
 
-  <!-- Модалка: добавить ученика -->
-  <div class="modal-overlay hidden" id="addModal">
-    <div class="modal">
-      <h2>Новый ученик</h2>
-      <div class="form-group"><label>Имя и фамилия</label><input type="text" id="inputName" placeholder="Иван Петров" /></div>
-      <div class="form-row">
-        <div class="form-group"><label>Класс</label><select id="inputGrade"><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9" selected>9</option><option value="10">10</option><option value="11">11</option><option value="student">Студент</option></select></div>
-        <div class="form-group"><label>Цель</label><select id="inputGoal"><option value="ege">ЕГЭ/ОГЭ</option><option value="olymp">Олимпиады</option><option value="base">База</option></select></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Тариф (₽/час)</label><input type="number" id="inputRate" value="1500" min="0" /></div>
-        <div class="form-group"><label>Формат</label><select id="inputFormat"><option value="online">Онлайн</option><option value="offline">Очно</option></select></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeAddModal()">Отмена</button>
-        <button class="btn btn-primary" onclick="addStudent()">Добавить</button>
-      </div>
-    </div>
-  </div>
+<!-- Modal: Add Student -->
+<div class="modal-bg" id="mStudent"><div class="modal">
+<h2>Новый ученик</h2>
+<label>Имя</label><input id="sName">
+<label>Класс</label><input id="sGrade" value="9">
+<div class="row" style="margin-top:8px">
+<div><label>Цель</label><select id="sGoal"><option value="ege">ЕГЭ</option><option value="olymp">Олимпиады</option><option value="base">База</option></select></div>
+<div><label>Ставка ₽</label><input id="sRate" type="number" value="1500" style="width:100px"></div>
+<div><label>Формат</label><select id="sFormat"><option value="online">Онлайн</option><option value="offline">Офлайн</option></select></div>
+</div>
+<label>Предмет</label><select id="sSubject"></select>
+<div class="row" style="margin-top:16px;justify-content:flex-end">
+<button class="btn btn-s" onclick="closeM('mStudent')">Отмена</button>
+<button class="btn btn-p" onclick="saveStudent()">Создать</button>
+</div></div></div>
 
-  <!-- Модалка: пригласить (создать аккаунт) -->
-  <div class="modal-overlay hidden" id="inviteModal">
-    <div class="modal">
-      <h2 id="inviteTitle">Пригласить</h2>
+<!-- Modal: Add User -->
+<div class="modal-bg" id="mUser"><div class="modal">
+<h2>Новый пользователь</h2>
+<label>Роль</label><select id="uRole" onchange="onRoleChange()"><option value="tutor">Преподаватель</option><option value="student">Ученик</option><option value="parent">Родитель</option></select>
+<label>Имя</label><input id="uName">
+<label>Логин</label><input id="uLogin">
+<label>Пароль</label><input id="uPw" value="">
+<div id="uTutorFields"><label>Предмет</label><select id="uSubject"></select></div>
+<div id="uStudentFields" style="display:none"><label>Профиль ученика</label><select id="uStudent"></select></div>
+<div id="uParentFields" style="display:none"><label>Дети (ID через запятую)</label><input id="uChildren"></div>
+<div class="row" style="margin-top:16px;justify-content:flex-end">
+<button class="btn btn-s" onclick="closeM('mUser')">Отмена</button>
+<button class="btn btn-p" onclick="saveUser()">Создать</button>
+</div></div></div>
 
-      <!-- Форма создания -->
-      <div id="inviteForm">
-        <div class="form-group">
-          <label>Роль</label>
-          <select id="inviteRole">
-            <option value="student">Ученик</option>
-            <option value="parent">Родитель</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Имя (отображается в системе)</label>
-          <input type="text" id="inviteName" placeholder="Иван Петров" />
-        </div>
-        <div class="form-group">
-          <label>Логин</label>
-          <input type="text" id="inviteLogin" placeholder="ivan" />
-        </div>
-        <div class="form-group">
-          <label>Временный пароль (мин. 6 символов)</label>
-          <input type="text" id="invitePassword" />
-        </div>
-        <div class="error-msg" id="inviteError" style="color:var(--danger);font-size:.85rem;min-height:1.2em"></div>
-        <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="closeInviteModal()">Отмена</button>
-          <button class="btn btn-primary" onclick="doInvite()">Создать аккаунт</button>
-        </div>
-      </div>
+<script src="/api.js"></script>
+<script>
+if(!requireAuth(['owner','tutor']))throw'';
+const R=role(),isOwner=R==='owner';
+document.getElementById('userName').textContent=localStorage.getItem('name');
+document.getElementById('userRole').textContent=isOwner?'Владелец':'Преподаватель';
 
-      <!-- Результат -->
-      <div id="inviteResult" style="display:none">
-        <div class="result-box">
-          <div class="label">Логин:</div>
-          <div class="value" id="resultLogin"></div>
-          <div class="label" style="margin-top:8px">Пароль:</div>
-          <div class="value" id="resultPassword"></div>
-          <div style="font-size:.78rem;color:var(--text-dim);margin-top:8px">При первом входе будет предложено сменить пароль</div>
-          <button class="copy-btn" onclick="copyCredentials()">📋 Скопировать</button>
-        </div>
-        <div class="modal-actions" style="margin-top:16px">
-          <button class="btn btn-primary" onclick="closeInviteModal()">Готово</button>
-        </div>
-      </div>
-    </div>
-  </div>
+let subjects=[],students=[],users=[];
+const tabsDef=[{id:'students',label:'Ученики'},{id:'users',label:'Пользователи'}];
+if(isOwner)tabsDef.push({id:'subjects',label:'Предметы'});
+let curTab='students';
 
-  <script src="api.js"></script>
-  <script>
-    if (!requireAuth(['tutor'])) throw 'no auth';
-    document.getElementById('userBadge').textContent = '👤 ' + (getUserName() || 'Репетитор');
+function renderTabs(){
+    document.getElementById('tabs').innerHTML=tabsDef.map(t=>`<div class="tab${t.id===curTab?' active':''}" onclick="switchTab('${t.id}')">${t.label}</div>`).join('')}
+function switchTab(t){curTab=t;renderTabs();renderContent()}
 
-    function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+async function load(){
+    subjects=await get('/api/subjects').catch(()=>[]);
+    students=await get('/api/students').catch(()=>[]);
+    if(isOwner||R==='tutor')users=await get('/api/users').catch(()=>[]);
+    renderTabs();renderContent()}
 
-    // Генератор временного пароля
-    function genTempPassword() {
-      const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
-      let pw = '';
-      for (let i = 0; i < 8; i++) pw += chars[Math.floor(Math.random() * chars.length)];
-      return pw;
-    }
+function renderContent(){
+    if(curTab==='students')renderStudents();
+    else if(curTab==='users')renderUsers();
+    else if(curTab==='subjects')renderSubjects()}
 
-    function calcBlockScore(sec){const hw=(sec.items||[]).filter(i=>i.type==='hw'&&i.closed!==false);let p=0,s=0;if(hw.length>0){s+=hw.reduce((a,h)=>a+(h.total>0?h.done/h.total:0),0)/hw.length;p++}if(sec.idz_enabled){s+=(sec.idz||0)/5;p++}if(sec.control_enabled){s+=(sec.control==='passed'?1:0);p++}return p===0?0:s/p}
-    function calcProgress(secs){const l=secs||[];if(!l.length)return 0;return Math.round(l.reduce((a,s)=>a+calcBlockScore(s),0)/l.length*100)}
+function renderStudents(){
+    const c=document.getElementById('content');
+    let h=`<div class="row"><button class="btn btn-p" onclick="openM('mStudent')">+ Ученик</button></div>`;
+    if(!students.length){c.innerHTML=h+'<div class="empty">Нет учеников</div>';return}
+    h+='<div class="grid">';
+    for(const s of students){
+        const g=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
+        const gc=`goal-${s.goal}`;
+        const subj=subjects.find(x=>x.id===s.subject_id);
+        h+=`<div class="card" style="cursor:pointer" onclick="location.href='/student.html?id=${s.id}'">
+<h3>${s.name}</h3>
+<div class="meta">${s.grade} класс · <span class="goal ${gc}">${g}</span> · ${s.base_rate}₽${subj?' · '+subj.icon+' '+subj.name:''}</div>
+</div>`}
+    h+='</div>';c.innerHTML=h}
 
-    // Кэш аккаунтов — чтобы показывать бейджи на карточках
-    let usersCache = [];
-    let studentsFullCache = [];
+function renderUsers(){
+    const c=document.getElementById('content');
+    let h=`<div class="row"><button class="btn btn-p" onclick="openM('mUser')">+ Пользователь</button></div>`;
+    const rl={owner:'👑 Владелец',tutor:'👨‍🏫 Преподаватель',student:'🎓 Ученик',parent:'👨‍👩‍👧 Родитель'};
+    for(const u of users){
+        const canDel=isOwner&&u.role!=='owner';
+        h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
+<div><h3>${u.name}</h3><div class="meta">${rl[u.role]||u.role} · ${u.login}</div></div>
+${canDel?`<button class="btn btn-d btn-sm" onclick="delUser('${u.id}')">✕</button>`:''}
+</div></div>`}
+    c.innerHTML=h}
 
-    async function loadData() {
-      try {
-        const [list, users] = await Promise.all([
-          apiGet('/students'),
-          apiGet('/users'),
-        ]);
-        usersCache = users;
-        studentsFullCache = await Promise.all(list.map(s => apiGet('/students/' + s.id)));
-        return studentsFullCache;
-      } catch (e) { console.error(e); return []; }
-    }
+function renderSubjects(){
+    const c=document.getElementById('content');
+    let h=`<div class="row"><input id="newSubjName" placeholder="Название"><input id="newSubjIcon" placeholder="Иконка" value="📐" style="width:60px"><button class="btn btn-p" onclick="addSubj()">+ Предмет</button></div>`;
+    for(const s of subjects){
+        h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
+<div><h3>${s.icon} ${s.name}</h3></div>
+<button class="btn btn-d btn-sm" onclick="delSubj('${s.id}')">✕</button>
+</div></div>`}
+    c.innerHTML=h}
 
-    // Найти аккаунты, привязанные к ученику
-    function getAccountsForStudent(studentId) {
-      return usersCache.filter(u =>
-        (u.role === 'student' && u.student_id === studentId) ||
-        (u.role === 'parent') // для parent нужна связь — пока показываем всех parent
-      );
-    }
+function openM(id){document.getElementById(id).classList.add('show');
+    if(id==='mStudent')fillSubjSelect('sSubject');
+    if(id==='mUser'){fillSubjSelect('uSubject');fillStudentSelect();onRoleChange()}}
+function closeM(id){document.getElementById(id).classList.remove('show')}
 
-    // Точнее: ученические аккаунты по student_id, родительские — нужен отдельный эндпоинт
-    // Пока показываем только student-аккаунты привязанные к этому ученику
-    function getStudentAccounts(studentId) {
-      return usersCache.filter(u => u.role === 'student' && u.student_id === studentId);
-    }
+function fillSubjSelect(id){
+    const s=document.getElementById(id);s.innerHTML=subjects.map(x=>`<option value="${x.id}">${x.icon} ${x.name}</option>`).join('');
+    if(!subjects.length)s.innerHTML='<option value="">Нет предметов</option>'}
+function fillStudentSelect(){
+    const s=document.getElementById('uStudent');s.innerHTML='<option value="">—</option>'+students.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
+function onRoleChange(){
+    const r=document.getElementById('uRole').value;
+    document.getElementById('uTutorFields').style.display=r==='tutor'?'':'none';
+    document.getElementById('uStudentFields').style.display=r==='student'?'':'none';
+    document.getElementById('uParentFields').style.display=r==='parent'?'':'none';
+    if(!isOwner)document.querySelector('#uRole option[value="tutor"]').disabled=true}
 
-    async function render() {
-      const students = await loadData();
-      const grid = document.getElementById('studentsGrid');
-      if (students.length === 0) {
-        grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>Учеников пока нет.<br>Добавь первого, чтобы начать.</p><button class="btn btn-primary" onclick="openAddModal()">+ Добавить ученика</button></div>';
-        return;
-      }
-      grid.innerHTML = students.map(s => cardHTML(s)).join('');
-    }
+async function saveStudent(){
+    try{
+        const d={name:document.getElementById('sName').value,grade:document.getElementById('sGrade').value,
+            goal:document.getElementById('sGoal').value,base_rate:+document.getElementById('sRate').value,
+            format:document.getElementById('sFormat').value,subject_id:document.getElementById('sSubject').value||null};
+        await post('/api/students',d);closeM('mStudent');await load();
+    }catch(e){alert(e.detail||'Ошибка')}}
 
-    function cardHTML(s) {
-      const ini = s.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      const gl = s.grade === 'student' ? 'Студент' : s.grade + ' кл.';
-      const gm = {ege:['ege','ЕГЭ/ОГЭ'],olymp:['olymp','Олимпиады'],base:['base','База']};
-      const [bc,bl] = gm[s.goal] || ['base', s.goal];
-      const fmt = s.format === 'online' ? '🌐' : '🏠';
-      const pct = calcProgress(s.sections);
-      const disc = Math.floor(pct * 0.3);
-      const rate = Math.round(s.base_rate * (1 - disc / 100));
+async function saveUser(){
+    try{
+        const r=document.getElementById('uRole').value;
+        const d={role:r,name:document.getElementById('uName').value,login:document.getElementById('uLogin').value,
+            password:document.getElementById('uPw').value};
+        if(r==='tutor')d.subject_id=document.getElementById('uSubject').value||null;
+        if(r==='student')d.student_id=document.getElementById('uStudent').value||null;
+        if(r==='parent'){const v=document.getElementById('uChildren').value;d.children_ids=v?v.split(',').map(x=>x.trim()):[];}
+        await post('/api/users',d);closeM('mUser');await load();
+    }catch(e){alert(e.detail||'Ошибка')}}
 
-      // Аккаунты
-      const accs = getStudentAccounts(s.id);
-      const hasAccount = accs.length > 0;
-      const accHTML = hasAccount
-        ? accs.map(a => `<span class="account-badge active" title="Логин: ${esc(a.login)}">👤 ${esc(a.login)}</span>`).join('')
-        : '';
+async function delUser(id){if(confirm('Удалить?')){await del('/api/users/'+id);await load()}}
+async function addSubj(){
+    const n=document.getElementById('newSubjName').value,i=document.getElementById('newSubjIcon').value||'📐';
+    if(!n)return;try{await post('/api/subjects',{name:n,icon:i});await load()}catch(e){alert(e.detail||'Ошибка')}}
+async function delSubj(id){if(confirm('Удалить предмет?')){await del('/api/subjects/'+id);await load()}}
 
-      return `<div class="card" onclick="openStudent('${s.id}')">
-        <div class="card-header">
-          <div class="card-avatar">${esc(ini)}</div>
-          <div class="card-info">
-            <div class="card-name">${esc(s.name)}</div>
-            <div class="card-meta">${gl} · ${fmt} ${s.format==='online'?'Онлайн':'Очно'}</div>
-            <span class="badge badge-${bc}">${bl}</span>
-          </div>
-          <div class="card-actions">
-            <button class="btn-invite" onclick="event.stopPropagation();openInviteModal('${s.id}','${esc(s.name)}')" title="Пригласить">👥+</button>
-            <button class="btn btn-danger" style="padding:5px 8px;font-size:.78rem" onclick="event.stopPropagation();deleteStudent('${s.id}')">✕</button>
-          </div>
-        </div>
-        <div class="progress-label"><span>Прогресс</span><span>${pct}%</span></div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div class="card-rate">Тариф: <strong>${rate.toLocaleString('ru')} ₽/час</strong>${disc>0?`<span style="color:var(--text-dim)"> (−${disc}%)</span>`:''}</div>
-        ${accHTML ? `<div class="card-accounts">${accHTML}</div>` : ''}
-      </div>`;
-    }
-
-    // ── Добавить ученика ──
-    async function addStudent(){
-      const name=document.getElementById('inputName').value.trim();
-      if(!name){alert('Введи имя');return}
-      await apiPost('/students',{name,grade:document.getElementById('inputGrade').value,goal:document.getElementById('inputGoal').value,base_rate:Number(document.getElementById('inputRate').value)||1500,format:document.getElementById('inputFormat').value});
-      closeAddModal();render();
-    }
-    async function deleteStudent(id){if(!confirm('Удалить ученика?'))return;await apiDelete('/students/'+id);render()}
-    function openStudent(id){location.href='student.html?id='+id}
-    function openAddModal(){document.getElementById('addModal').classList.remove('hidden');document.getElementById('inputName').focus()}
-    function closeAddModal(){document.getElementById('addModal').classList.add('hidden');document.getElementById('inputName').value='';document.getElementById('inputRate').value='1500';document.getElementById('inputGrade').value='9';document.getElementById('inputGoal').value='ege';document.getElementById('inputFormat').value='online'}
-    document.getElementById('addModal').addEventListener('click',function(e){if(e.target===this)closeAddModal()});
-
-    // ── Приглашение (создание аккаунта) ──
-    let inviteStudentId = null;
-
-    function openInviteModal(studentId, studentName) {
-      inviteStudentId = studentId;
-      document.getElementById('inviteTitle').textContent = 'Пригласить — ' + studentName;
-      document.getElementById('inviteForm').style.display = 'block';
-      document.getElementById('inviteResult').style.display = 'none';
-      document.getElementById('inviteError').textContent = '';
-      document.getElementById('inviteRole').value = 'student';
-      document.getElementById('inviteName').value = studentName;
-      document.getElementById('inviteLogin').value = '';
-      document.getElementById('invitePassword').value = genTempPassword();
-      document.getElementById('inviteModal').classList.remove('hidden');
-      document.getElementById('inviteLogin').focus();
-    }
-
-    function closeInviteModal() {
-      document.getElementById('inviteModal').classList.add('hidden');
-      inviteStudentId = null;
-    }
-
-    async function doInvite() {
-      const role = document.getElementById('inviteRole').value;
-      const name = document.getElementById('inviteName').value.trim();
-      const login = document.getElementById('inviteLogin').value.trim();
-      const password = document.getElementById('invitePassword').value;
-      const errEl = document.getElementById('inviteError');
-      errEl.textContent = '';
-
-      if (!name) { errEl.textContent = 'Введите имя'; return; }
-      if (!login) { errEl.textContent = 'Введите логин'; return; }
-      if (password.length < 6) { errEl.textContent = 'Пароль — минимум 6 символов'; return; }
-
-      const body = { login, password, role, name };
-      if (role === 'student') body.student_id = inviteStudentId;
-      if (role === 'parent') body.children_ids = [inviteStudentId];
-
-      try {
-        const res = await apiFetch('/users', {
-          method: 'POST',
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          errEl.textContent = err.detail || 'Ошибка создания';
-          return;
-        }
-      } catch (e) {
-        errEl.textContent = 'Ошибка: ' + e.message;
-        return;
-      }
-
-      // Показать результат
-      document.getElementById('inviteForm').style.display = 'none';
-      document.getElementById('inviteResult').style.display = 'block';
-      document.getElementById('resultLogin').textContent = login;
-      document.getElementById('resultPassword').textContent = password;
-
-      // Обновить список
-      render();
-    }
-
-    function copyCredentials() {
-      const login = document.getElementById('resultLogin').textContent;
-      const pw = document.getElementById('resultPassword').textContent;
-      const text = `Вход в HBM Репетитор:\nЛогин: ${login}\nПароль: ${pw}\nПри первом входе нужно сменить пароль.`;
-      navigator.clipboard.writeText(text).then(() => {
-        const btn = document.querySelector('.copy-btn');
-        btn.textContent = '✓ Скопировано';
-        setTimeout(() => btn.textContent = '📋 Скопировать', 2000);
-      });
-    }
-
-    document.getElementById('inviteModal').addEventListener('click', function(e) {
-      if (e.target === this) closeInviteModal();
-    });
-
-    render();
-  </script>
-</body>
-</html>
+load();
+</script></body></html>

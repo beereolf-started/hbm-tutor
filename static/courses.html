@@ -1,0 +1,180 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HBM — Курсы</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.top{background:#1e293b;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
+.top h1{font-size:1.1em}a{color:#60a5fa;text-decoration:none;font-size:.9em}a:hover{text-decoration:underline}
+.wrap{max-width:900px;margin:0 auto;padding:24px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600}
+.btn-p{background:#3b82f6;color:#fff}.btn-p:hover{background:#2563eb}
+.btn-s{background:#334155;color:#e2e8f0}.btn-s:hover{background:#475569}
+.btn-d{background:#ef4444;color:#fff}.btn-d:hover{background:#dc2626}
+.btn-sm{padding:4px 10px;font-size:.8em}
+.card{background:#1e293b;border-radius:12px;padding:16px;margin-bottom:10px;border:1px solid #334155}
+.card:hover{border-color:#475569}
+.card h3{font-size:1em;margin-bottom:4px}.meta{color:#94a3b8;font-size:.8em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+input,select,textarea{padding:8px 12px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;font-size:.9em;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#3b82f6}
+textarea{resize:vertical;min-height:60px;width:100%}
+.modal-bg{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:100}
+.modal-bg.show{display:flex}
+.modal{background:#1e293b;border-radius:12px;padding:24px;width:460px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:1.1em;margin-bottom:16px}
+.modal label{display:block;color:#94a3b8;font-size:.85em;margin:8px 0 4px}
+.modal input,.modal select,.modal textarea{width:100%}
+.empty{text-align:center;color:#64748b;padding:40px}
+.sec{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:10px}
+.sec h4{font-size:.95em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.item{display:flex;align-items:center;gap:8px;padding:4px 8px;background:#0f172a;border-radius:6px;margin-bottom:4px;font-size:.9em}
+.item span{flex:1}
+.back{margin-bottom:16px}
+.access{font-size:.75em;padding:2px 8px;border-radius:4px;font-weight:600}
+.access-public{background:#10b98133;color:#34d399}.access-private{background:#f59e0b33;color:#fbbf24}
+</style></head><body>
+<div class="top"><h1>📐 Курсы</h1><a href="/hbm_tutor.html">← Панель</a></div>
+<div class="wrap">
+<!-- LIST VIEW -->
+<div id="listView">
+<div class="row">
+<select id="filterSubj" onchange="renderList()"><option value="">Все предметы</option></select>
+<button class="btn btn-p" onclick="openNewCourse()">+ Курс</button>
+</div>
+<div id="courseList"></div>
+</div>
+<!-- EDITOR VIEW -->
+<div id="editView" style="display:none">
+<div class="back"><a href="#" onclick="backToList();return false">← К списку курсов</a></div>
+<div class="row" style="justify-content:space-between">
+<h2 id="courseTitle" style="font-size:1.2em"></h2>
+<div class="row"><button class="btn btn-s btn-sm" onclick="openEditCourse()">✏️</button><button class="btn btn-d btn-sm" onclick="delCourse()">🗑</button></div>
+</div>
+<p class="meta" id="courseMeta"></p>
+<div id="sectionsList" style="margin-top:16px"></div>
+<button class="btn btn-s" onclick="addSection()" style="margin-top:8px">+ Раздел</button>
+</div>
+</div>
+
+<!-- Modal: New/Edit Course -->
+<div class="modal-bg" id="mCourse"><div class="modal">
+<h2 id="mCourseTitle">Новый курс</h2>
+<label>Предмет</label><select id="cSubject"></select>
+<label>Название</label><input id="cTitle">
+<label>Описание</label><textarea id="cDesc"></textarea>
+<label>Доступ</label><select id="cAccess"><option value="public">Публичный</option><option value="private">Приватный</option></select>
+<div class="row" style="margin-top:16px;justify-content:flex-end">
+<button class="btn btn-s" onclick="closeM('mCourse')">Отмена</button>
+<button class="btn btn-p" id="cSaveBtn" onclick="saveCourse()">Создать</button>
+</div></div></div>
+
+<!-- Modal: New Section -->
+<div class="modal-bg" id="mSec"><div class="modal">
+<h2>Новый раздел</h2>
+<label>Название</label><input id="secTitle">
+<div class="row" style="margin-top:8px">
+<label><input type="checkbox" id="secIdz" checked> ИДЗ</label>
+<label><input type="checkbox" id="secCtrl" checked> Контрольная</label>
+</div>
+<div class="row" style="margin-top:16px;justify-content:flex-end">
+<button class="btn btn-s" onclick="closeM('mSec')">Отмена</button>
+<button class="btn btn-p" onclick="saveSec()">Создать</button>
+</div></div></div>
+
+<script src="/api.js"></script>
+<script>
+if(!requireAuth(['owner','tutor']))throw'';
+let subjects=[],courses=[],curCourse=null,editingId=null;
+
+async function load(){
+    subjects=await get('/api/subjects').catch(()=>[]);
+    courses=await get('/api/courses').catch(()=>[]);
+    const f=document.getElementById('filterSubj');
+    f.innerHTML='<option value="">Все предметы</option>'+subjects.map(s=>`<option value="${s.id}">${s.icon} ${s.name}</option>`).join('');
+    fillSubj('cSubject');renderList()}
+
+function fillSubj(id){
+    document.getElementById(id).innerHTML=subjects.map(s=>`<option value="${s.id}">${s.icon} ${s.name}</option>`).join('')}
+
+function renderList(){
+    const filt=document.getElementById('filterSubj').value;
+    let list=filt?courses.filter(c=>c.subject_id===filt):courses;
+    if(!list.length){document.getElementById('courseList').innerHTML='<div class="empty">Нет курсов</div>';return}
+    document.getElementById('courseList').innerHTML='<div class="grid">'+list.map(c=>{
+        const acc=c.access==='public'?'public':'private';
+        const lbl=c.access==='public'?'публичный':'приватный';
+        return`<div class="card" style="cursor:pointer" onclick="openCourse('${c.id}')">
+<h3>${c.title} <span class="access access-${acc}">${lbl}</span></h3>
+<div class="meta">${c.subject_name||''} · ${c.sections_count} разд. · ${c.author_name||''}</div>
+${c.description?`<div class="meta" style="margin-top:4px">${c.description.slice(0,80)}</div>`:''}</div>`}).join('')+'</div>'}
+
+function openM(id){document.getElementById(id).classList.add('show')}
+function closeM(id){document.getElementById(id).classList.remove('show')}
+
+function openNewCourse(){
+    editingId=null;document.getElementById('mCourseTitle').textContent='Новый курс';
+    document.getElementById('cSaveBtn').textContent='Создать';
+    document.getElementById('cTitle').value='';document.getElementById('cDesc').value='';
+    document.getElementById('cAccess').value='public';openM('mCourse')}
+
+function openEditCourse(){
+    if(!curCourse)return;editingId=curCourse.id;
+    document.getElementById('mCourseTitle').textContent='Редактировать';
+    document.getElementById('cSaveBtn').textContent='Сохранить';
+    document.getElementById('cTitle').value=curCourse.title;
+    document.getElementById('cDesc').value=curCourse.description||'';
+    document.getElementById('cAccess').value=curCourse.access;
+    document.getElementById('cSubject').value=curCourse.subject_id;openM('mCourse')}
+
+async function saveCourse(){
+    const d={subject_id:document.getElementById('cSubject').value,title:document.getElementById('cTitle').value,
+        description:document.getElementById('cDesc').value,access:document.getElementById('cAccess').value};
+    if(!d.title){alert('Введите название');return}
+    try{
+        if(editingId){await patch('/api/courses/'+editingId,{title:d.title,description:d.description,access:d.access})}
+        else{const c=await post('/api/courses',d);editingId=c.id}
+        closeM('mCourse');courses=await get('/api/courses');renderList();
+        if(editingId)await openCourse(editingId);
+    }catch(e){alert(e.detail||'Ошибка')}}
+
+async function openCourse(id){
+    try{curCourse=await get('/api/courses/'+id)}catch(e){alert('Не найден');return}
+    document.getElementById('listView').style.display='none';
+    document.getElementById('editView').style.display='';
+    document.getElementById('courseTitle').textContent=curCourse.title;
+    const subj=subjects.find(s=>s.id===curCourse.subject_id);
+    const acc=curCourse.access==='public'?'публичный':'приватный';
+    document.getElementById('courseMeta').innerHTML=`${subj?subj.icon+' '+subj.name:''} · <span class="access access-${curCourse.access}">${acc}</span> · ${curCourse.description||''}`;
+    renderSections()}
+
+function backToList(){document.getElementById('listView').style.display='';document.getElementById('editView').style.display='none';curCourse=null;load()}
+
+function renderSections(){
+    const el=document.getElementById('sectionsList');
+    if(!curCourse.sections.length){el.innerHTML='<div class="empty">Добавьте разделы</div>';return}
+    el.innerHTML=curCourse.sections.map(s=>`<div class="sec">
+<h4><span>${s.title}</span><span>
+<button class="btn btn-d btn-sm" onclick="delSec('${s.id}')">✕</button></span></h4>
+<div class="meta" style="margin-bottom:8px">${s.idz_enabled?'ИДЗ ':''}${s.control_enabled?'Контр.':''}</div>
+${s.items.map(i=>`<div class="item"><span>📝 ${i.name}</span><button class="btn btn-d btn-sm" onclick="delItem('${i.id}')">✕</button></div>`).join('')}
+<div class="row" style="margin-top:8px">
+<input id="ni_${s.id}" placeholder="Новая тема" style="flex:1" onkeydown="if(event.key==='Enter')addItem('${s.id}')">
+<button class="btn btn-s btn-sm" onclick="addItem('${s.id}')">+</button></div>
+</div>`).join('')}
+
+function addSection(){openM('mSec')}
+async function saveSec(){
+    const t=document.getElementById('secTitle').value;if(!t)return;
+    try{await post(`/api/courses/${curCourse.id}/sections`,{title:t,idz_enabled:document.getElementById('secIdz').checked,control_enabled:document.getElementById('secCtrl').checked});
+        closeM('mSec');document.getElementById('secTitle').value='';await openCourse(curCourse.id);
+    }catch(e){alert(e.detail||'Ошибка')}}
+
+async function delSec(id){if(!confirm('Удалить раздел?'))return;await del('/api/course-sections/'+id);await openCourse(curCourse.id)}
+async function addItem(secId){
+    const inp=document.getElementById('ni_'+secId);const n=inp.value.trim();if(!n)return;
+    try{await post(`/api/course-sections/${secId}/items`,{name:n,type:'topic'});inp.value='';await openCourse(curCourse.id)}catch(e){alert(e.detail||'Ошибка')}}
+async function delItem(id){await del('/api/course-items/'+id);await openCourse(curCourse.id)}
+async function delCourse(){if(!confirm('Удалить курс?'))return;await del('/api/courses/'+curCourse.id);backToList()}
+
+load();
+</script></body></html>

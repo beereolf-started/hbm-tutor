@@ -1,183 +1,56 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HBM — Мой курс</title>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--bg:#0f1a0f;--surface:#1a2e1a;--surface2:#142214;--border:#2e4a2e;--accent:#00ff88;--text:#e8f5e8;--text-dim:#7aab7a;--danger:#ff4444;--warn:#ffaa00;--radius:12px;--font:'Segoe UI',system-ui,sans-serif}
-    body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;padding:24px;max-width:900px;margin:0 auto}
-    .top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px}
-    .top-bar h1{font-size:1.4rem;font-weight:700}.top-bar h1 span{color:var(--accent)}
-    .top-right{display:flex;gap:8px;align-items:center}
-    .user-badge{font-size:.82rem;color:var(--text-dim);padding:6px 12px;border:1px solid var(--border);border-radius:99px}
-    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;font-size:.88rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:opacity .15s}.btn:hover{opacity:.85}
-    .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
-    .btn-sm{padding:5px 10px;font-size:.78rem}
-    .profile-header{display:flex;align-items:center;gap:16px;margin-bottom:24px}
-    .profile-avatar{width:56px;height:56px;border-radius:50%;background:var(--accent);color:#0f1a0f;font-weight:700;font-size:1.3rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .profile-info h2{font-size:1.4rem;font-weight:700}.profile-info p{font-size:.85rem;color:var(--text-dim);margin-top:2px}
-    .progress-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-    .progress-circle{position:relative;width:64px;height:64px;flex-shrink:0}.progress-circle svg{transform:rotate(-90deg)}.progress-circle .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;color:var(--accent)}
-    .progress-stats{flex:1;min-width:160px}.progress-stats h3{font-size:.95rem;margin-bottom:6px}.stats-row{display:flex;gap:16px;flex-wrap:wrap}.stat-item{font-size:.82rem;color:var(--text-dim)}.stat-item strong{color:var(--text);font-size:.95rem}
-    .rate-block{text-align:right;flex-shrink:0}.rate-block .rate-label{font-size:.75rem;color:var(--text-dim);margin-bottom:2px}.rate-block .rate-value{font-size:1.4rem;font-weight:700;color:var(--accent)}.rate-block .rate-base{font-size:.75rem;color:var(--text-dim)}
-    .section-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}.section-card.closed{border-color:var(--accent)}
-    .section-header{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;user-select:none}.section-header:hover{background:var(--surface2)}
-    .section-toggle{font-size:.7rem;color:var(--text-dim);transition:transform .2s}.section-toggle.open{transform:rotate(90deg)}
-    .section-title{flex:1;font-weight:600;font-size:.98rem}
-    .section-score{font-size:.82rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--border);color:var(--text-dim)}.section-score.good{background:#1a3a2a;color:var(--accent)}.section-score.mid{background:#2a2a1a;color:var(--warn)}.section-score.low{background:#2a1a1a;color:var(--danger)}.section-score.done{background:#0a2a1a;color:var(--accent)}
-    .section-body{padding:0 16px 16px;display:none}.section-body.open{display:block}
-    .timeline{margin-bottom:16px}.timeline-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start}.timeline-item:last-child{border-bottom:none}
-    .timeline-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;margin-top:1px}.icon-topic{background:#1a3a2a;color:var(--accent)}.icon-hw{background:#2a2a1a;color:var(--warn)}.icon-note{background:#1a1a2a;color:#88aaff}
-    .timeline-content{flex:1;min-width:0}.timeline-label{font-size:.72rem;color:var(--text-dim);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}.timeline-main{font-size:.9rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.timeline-meta{font-size:.75rem;color:var(--text-dim);margin-top:2px}
-    .topic-status{display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid var(--border);border-radius:99px;padding:2px 8px;font-size:.75rem;font-family:var(--font);color:var(--text-dim);cursor:default}.topic-status.progress{border-color:var(--warn);color:var(--warn)}.topic-status.done{border-color:var(--accent);color:var(--accent)}
-    .hw-score{font-weight:700;color:var(--warn)}.hw-pct{color:var(--text-dim);font-size:.8rem}.hw-pending-badge{font-size:.72rem;padding:2px 8px;border-radius:99px;background:var(--surface2);color:var(--text-dim);border:1px solid var(--border)}
-    .attachment-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.attachment-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 7px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;font-size:.75rem;transition:border-color .15s;max-width:220px;text-decoration:none;color:var(--text)}.attachment-chip:hover{border-color:var(--accent)}.attachment-chip .att-icon{flex-shrink:0;font-size:.8rem}.attachment-chip .att-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}.attachment-chip .att-size{color:var(--text-dim);flex-shrink:0;font-size:.7rem}
-    .optional-section{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}.optional-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}.optional-title{font-size:.85rem;font-weight:600;flex:1}.optional-body{padding:4px 0}
-    .stars{display:flex;gap:4px}.star{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:.85rem;font-weight:700;color:var(--text-dim);font-family:var(--font);display:flex;align-items:center;justify-content:center;cursor:default}.star.active{background:var(--warn);border-color:var(--warn);color:#0f1a0f}
-    .control-status{font-size:.85rem;padding:4px 12px;border-radius:99px;font-weight:600}.control-status.passed{background:#1a3a2a;color:var(--accent)}.control-status.failed{background:#2a1a1a;color:var(--danger)}
-    .roadmap-title{font-size:1.1rem;font-weight:600;margin-bottom:12px}
-  </style>
-</head>
-<body>
-  <div class="top-bar">
-    <h1>HBM <span>Репетитор</span></h1>
-    <div class="top-right">
-      <span class="user-badge" id="userBadge"></span>
-      <button class="btn btn-ghost btn-sm" onclick="logout()">Выйти</button>
-    </div>
-  </div>
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HBM — Мой кабинет</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.top{background:#1e293b;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
+.top h1{font-size:1.1em}a{color:#60a5fa;text-decoration:none;font-size:.9em}
+button.link{color:#60a5fa;background:none;border:none;cursor:pointer;font-size:.9em}
+.wrap{max-width:800px;margin:0 auto;padding:24px}
+.meta{color:#94a3b8;font-size:.85em;margin-bottom:16px}
+.sec{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:10px;overflow:hidden}
+.sec-h{padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.sec-h:hover{background:#334155}.sec-h h3{font-size:.95em}
+.sec-body{padding:0 16px 16px;display:none}.sec.open .sec-body{display:block}
+.item{padding:6px 10px;background:#0f172a;border-radius:6px;margin-bottom:4px;display:flex;align-items:center;gap:8px;font-size:.9em}
+.status{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.st-none{background:#64748b}.st-progress{background:#f59e0b}.st-done{background:#10b981}
+.hw-bar{height:4px;background:#334155;border-radius:2px;flex:1;max-width:80px}
+.hw-fill{height:100%;background:#3b82f6;border-radius:2px}
+.goal{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75em;font-weight:600}
+.goal-ege{background:#7c3aed33;color:#a78bfa}.goal-olymp{background:#f59e0b33;color:#fbbf24}.goal-base{background:#10b98133;color:#34d399}
+</style></head><body>
+<div class="top"><h1>📐 Мой кабинет</h1><div style="display:flex;gap:12px;align-items:center"><span id="uname" class="meta"></span><button class="link" onclick="logout()">Выйти</button></div></div>
+<div class="wrap">
+<div id="info" class="meta"></div>
+<div id="sections"></div>
+</div>
+<script src="/api.js"></script>
+<script>
+if(!requireAuth(['student']))throw'';
+document.getElementById('uname').textContent=localStorage.getItem('name');
+let student=null;
 
-  <div class="profile-header">
-    <div class="profile-avatar" id="profileAvatar"></div>
-    <div class="profile-info"><h2 id="profileName">—</h2><p id="profileMeta">—</p></div>
-  </div>
-  <div class="progress-block">
-    <div class="progress-circle"><svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="#2e4a2e" stroke-width="6"/><circle cx="32" cy="32" r="26" fill="none" stroke="#00ff88" stroke-width="6" stroke-dasharray="163.4" stroke-dashoffset="163.4" stroke-linecap="round" id="progressArc"/></svg><div class="pct" id="progressPct">0%</div></div>
-    <div class="progress-stats"><h3>Прогресс по программе</h3><div class="stats-row"><div class="stat-item">Закрыто: <strong id="statDone">0</strong></div><div class="stat-item">В работе: <strong id="statInProgress">0</strong></div><div class="stat-item">Не начато: <strong id="statLeft">0</strong></div></div></div>
-    <div class="rate-block"><div class="rate-label">Текущий тариф</div><div class="rate-value" id="currentRate">—</div><div class="rate-base" id="baseRateLabel">—</div></div>
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px"><div class="roadmap-title" style="margin-bottom:0">Программа</div><button class="btn btn-ghost btn-sm" onclick="openBoard()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.88rem;font-weight:600;cursor:pointer;font-family:var(--font)">🖊 Доска</button></div>
-  <div id="roadmapContainer"></div>
+async function load(){
+    const list=await get('/api/students');
+    if(!list.length){document.getElementById('sections').innerHTML='<p class="meta">Профиль не привязан</p>';return}
+    student=await get('/api/students/'+list[0].id);render()}
 
-  <script src="api.js"></script>
-  <script>
-    if (!requireAuth(['student'])) throw 'no auth';
-    document.getElementById('userBadge').textContent = '👤 ' + (getUserName() || '');
+function render(){
+    const s=student,gl=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
+    document.getElementById('info').innerHTML=`${s.name} · ${s.grade} класс · <span class="goal goal-${s.goal}">${gl}</span> · <a href="/board.html?id=${s.id}">🎨 Доска</a>`;
+    const el=document.getElementById('sections');
+    if(!s.sections.length){el.innerHTML='<p class="meta" style="text-align:center;padding:40px">Программа пока не назначена</p>';return}
+    el.innerHTML=s.sections.map(sec=>`<div class="sec${sec.is_open?' open':''}" onclick="toggle('${sec.id}',this)">
+<div class="sec-h"><h3>${sec.is_open?'▼':'▶'} ${sec.title}</h3>
+<span class="meta">${sec.idz_enabled?'ИДЗ:'+sec.idz+'/10 ':' '}${sec.control_enabled?(sec.control==='passed'?'✅':sec.control==='failed'?'❌':'—'):''}</span></div>
+<div class="sec-body">${sec.items.map(i=>{
+    let extra='';
+    if(i.type==='hw'&&i.total){const p=i.done?Math.round(i.done/i.total*100):0;extra=`<div class="hw-bar"><div class="hw-fill" style="width:${p}%"></div></div><span class="meta">${i.done||0}/${i.total}</span>`}
+    return`<div class="item"><div class="status st-${i.status||'none'}"></div><span style="flex:1">${i.name||i.type}</span>${extra}</div>`}).join('')}
+</div></div>`).join('')}
 
-    function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-    function fileIcon(m){if(!m)return'📎';if(m.startsWith('image/'))return'🖼';if(m==='application/pdf')return'📄';if(m.includes('zip'))return'🗜';if(m==='text/plain')return'📃';return'📎'}
-    function formatSize(b){if(b<1024)return b+' Б';if(b<1048576)return Math.round(b/1024)+' КБ';return(b/1048576).toFixed(1)+' МБ'}
-
-    function calcBlockScore(sec){
-      const hw=(sec.items||[]).filter(i=>i.type==='hw'&&i.closed!==false);let p=0,s=0;
-      if(hw.length>0){s+=hw.reduce((a,h)=>a+(h.total>0?h.done/h.total:0),0)/hw.length;p++}
-      if(sec.idz_enabled){s+=(sec.idz||0)/5;p++}
-      if(sec.control_enabled){s+=(sec.control==='passed'?1:0);p++}
-      const sc=p===0?0:s/p;const cl=sec.control_enabled&&sec.control==='passed';
-      const any=hw.length>0||(sec.idz_enabled&&sec.idz>0)||(sec.control_enabled&&sec.control!=='none');
-      return{score:sc,pct:Math.round(sc*100),closed:cl,inProgress:any&&!cl}
-    }
-    function calcOverall(secs){let t=0,c=0,ip=0,e=0;(secs||[]).forEach(s=>{const r=calcBlockScore(s);t+=r.score;if(r.closed)c++;else if(r.inProgress)ip++;else e++});const n=(secs||[]).length;return{pct:n===0?0:Math.round(t/n*100),closed:c,inProgress:ip,empty:e}}
-
-    let myStudentId = null;
-    function openBoard() {
-      if (myStudentId) location.href = '/board.html?id=' + myStudentId;
-    }
-
-    async function render(){
-      // Ученик видит только себя — берём первого из списка
-      let students;
-      try { students = await apiGet('/students'); } catch(e) { return; }
-      if (!students.length) { document.getElementById('roadmapContainer').innerHTML='<p style="color:var(--text-dim)">Профиль не привязан</p>'; return; }
-
-      myStudentId = students[0].id;
-      const student = await apiGet('/students/' + myStudentId);
-
-      const ini = student.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      document.getElementById('profileAvatar').textContent = ini;
-      document.getElementById('profileName').textContent = student.name;
-      const gl = student.grade==='student'?'Студент':student.grade+' класс';
-      const gm = {ege:'ЕГЭ/ОГЭ',olymp:'Олимпиады',base:'База'};
-      document.getElementById('profileMeta').textContent = gl+' · '+(gm[student.goal]||student.goal)+' · '+(student.format==='online'?'Онлайн':'Очно');
-
-      const secs = student.sections||[];
-      const{pct,closed,inProgress,empty}=calcOverall(secs);
-      document.getElementById('progressPct').textContent=pct+'%';
-      document.getElementById('statDone').textContent=closed;
-      document.getElementById('statInProgress').textContent=inProgress;
-      document.getElementById('statLeft').textContent=empty;
-      document.getElementById('progressArc').style.strokeDashoffset=163.4-163.4*pct/100;
-
-      const disc=Math.floor(pct*0.3);const rate=Math.round(student.base_rate*(1-disc/100));
-      document.getElementById('currentRate').textContent=rate.toLocaleString('ru')+' ₽/час';
-      document.getElementById('baseRateLabel').textContent=disc>0?'Базовый: '+student.base_rate.toLocaleString('ru')+' ₽ (−'+disc+'%)':'Базовый тариф';
-
-      const container=document.getElementById('roadmapContainer');
-      if(!secs.length){container.innerHTML='<p style="color:var(--text-dim);text-align:center;padding:40px">Программа пока не составлена</p>';return}
-      container.innerHTML=secs.map(s=>sectionHTML(s)).join('');
-    }
-
-    function sectionHTML(sec){
-      const{pct,closed}=calcBlockScore(sec);let sc='section-score';
-      if(closed)sc+=' done';else if(pct>=66)sc+=' good';else if(pct>=33)sc+=' mid';else if(pct>0)sc+=' low';
-      return`<div class="section-card${closed?' closed':''}"><div class="section-header" onclick="toggleSec(this)"><span class="section-toggle">▶</span><span class="section-title">${esc(sec.title)}</span><span class="${sc}">${closed?'✓ ':''}${pct}%</span></div><div class="section-body">${timelineHTML(sec)}${optionalHTML(sec)}</div></div>`;
-    }
-
-    function toggleSec(header){
-      const body=header.nextElementSibling;const tog=header.querySelector('.section-toggle');
-      body.classList.toggle('open');tog.classList.toggle('open');
-    }
-
-    function timelineHTML(sec){
-      const items=sec.items||[];if(!items.length)return'<div style="font-size:.82rem;color:var(--text-dim);padding:8px 0">Пока пусто</div>';
-      return'<div class="timeline">'+items.map(item=>{
-        const att=attachHTML(item.attachments);
-        if(item.type==='topic'){
-          return`<div class="timeline-item"><div class="timeline-icon icon-topic">📖</div><div class="timeline-content"><div class="timeline-label">Тема</div><div class="timeline-main"><span>${esc(item.name)}</span><span class="topic-status ${item.status||'none'}">${{none:'не начата',progress:'в работе',done:'пройдена'}[item.status||'none']}</span></div>${att}</div></div>`;
-        }
-        if(item.type==='hw'){
-          if(item.closed===false){
-            return`<div class="timeline-item"><div class="timeline-icon icon-hw">📝</div><div class="timeline-content"><div class="timeline-label">ДЗ · выдано ${esc(item.date||'')}</div><div class="timeline-main"><span>${item.total} задач</span><span class="hw-pending-badge">не сдано</span></div>${item.note?`<div class="timeline-meta">${esc(item.note)}</div>`:''}${att}</div></div>`;
-          }
-          const hp=item.total>0?Math.round(item.done/item.total*100):0;
-          const dl=item.closed_date?`выдано ${esc(item.date||'')} · сдано ${esc(item.closed_date)}`:esc(item.date||'');
-          return`<div class="timeline-item"><div class="timeline-icon icon-hw">📝</div><div class="timeline-content"><div class="timeline-label">ДЗ · ${dl}</div><div class="timeline-main"><span class="hw-score">${item.done}/${item.total}</span><span class="hw-pct">(${hp}%)</span></div>${item.note?`<div class="timeline-meta">${esc(item.note)}</div>`:''}${att}</div></div>`;
-        }
-        if(item.type==='note'){
-          return`<div class="timeline-item"><div class="timeline-icon icon-note">💬</div><div class="timeline-content"><div class="timeline-label">Заметка · ${esc(item.date||'')}</div><div class="timeline-main">${esc(item.text||'')}</div>${att}</div></div>`;
-        }
-        return'';
-      }).join('')+'</div>';
-    }
-
-    function attachHTML(atts){
-      if(!atts||!atts.length)return'';
-      return'<div class="attachment-list">'+atts.map(a=>{
-        const url=a.file_path?'/'+a.file_path:'#';
-        return`<a class="attachment-chip" href="${url}" target="_blank" title="${esc(a.name)}"><span class="att-icon">${fileIcon(a.mime)}</span><span class="att-name">${esc(a.name)}</span><span class="att-size">${formatSize(a.size)}</span></a>`;
-      }).join('')+'</div>';
-    }
-
-    function optionalHTML(sec){
-      const idz=sec.idz||0,ctrl=sec.control||'none';
-      let out='<div class="optional-section">';
-      if(sec.idz_enabled){
-        const stars=[1,2,3,4,5].map(n=>`<span class="star${idz>=n?' active':''}">${n}</span>`).join('');
-        out+=`<div style="margin-bottom:12px"><div class="optional-header"><span class="optional-title">📋 ИДЗ</span></div><div class="optional-body"><div class="stars">${stars}</div>${idz>0?`<div style="font-size:.78rem;color:var(--text-dim);margin-top:4px">${idz}/5 · ${Math.round(idz/5*100)}%</div>`:'<div style="font-size:.78rem;color:var(--text-dim);margin-top:4px">Не оценено</div>'}</div></div>`;
-      }
-      if(sec.control_enabled){
-        let ctrlHTML='<div style="font-size:.78rem;color:var(--text-dim)">Ожидает</div>';
-        if(ctrl==='passed')ctrlHTML='<span class="control-status passed">✓ Зачёт</span>';
-        else if(ctrl==='failed')ctrlHTML='<span class="control-status failed">✗ Незачёт</span>';
-        out+=`<div><div class="optional-header"><span class="optional-title">🎯 Контрольная</span></div><div class="optional-body">${ctrlHTML}</div></div>`;
-      }
-      out+='</div>';
-      return(sec.idz_enabled||sec.control_enabled)?out:'';
-    }
-
-    render();
-  </script>
-</body>
-</html>
+async function toggle(id,el){
+    const sec=student.sections.find(s=>s.id===id);if(!sec)return;
+    try{await patch('/api/sections/'+id,{is_open:!sec.is_open});sec.is_open=!sec.is_open;render()}catch(e){}}
+load();
+</script></body></html>
