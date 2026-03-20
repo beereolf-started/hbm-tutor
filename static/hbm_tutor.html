@@ -254,6 +254,7 @@ const rp=document.getElementById('userRole');
 rp.textContent=isOwner?'Владелец':'Преподаватель';
 if(isOwner) rp.classList.add('owner');
 
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 let subjects=[],students=[],users=[];
 let curSection=null; // null=home, 'students'|'users'|'subjects'
 
