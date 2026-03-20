@@ -12,7 +12,9 @@ from auth import (hash_password,verify_password,create_token,get_current_user,
 
 app=FastAPI(title="HBM Репетитор API",version="2.0")
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_methods=["*"],allow_headers=["*"])
-UPLOAD_DIR="uploads"; os.makedirs(UPLOAD_DIR,exist_ok=True)
+BASE_DIR=os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR=os.path.join(BASE_DIR,"uploads"); os.makedirs(UPLOAD_DIR,exist_ok=True)
+def _up(aid,ext): return os.path.join(UPLOAD_DIR,f"{aid}{ext}"),f"uploads/{aid}{ext}"
 def is_tr(u): return u.role in ("owner","tutor")
 
 # ═══ AUTH ═══
@@ -33,38 +35,113 @@ def change_pw(d:ChangePasswordRequest,u:User=Depends(get_current_user),db:Sessio
 def me(u:User=Depends(get_current_user)): return u
 
 # ═══ USERS ═══
+def _tutor_student_ids(uid,db):
+    own=[s.id for s in db.query(Student).filter(Student.created_by==uid).all()]
+    linked=[r.student_id for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.tutor_id==uid)).fetchall()]
+    return list(set(own+linked))
+
+def _user_out(u,db):
+    sids=[r.subject_id for r in db.execute(tutor_subject_link.select().where(tutor_subject_link.c.tutor_id==u.id)).fetchall()]
+    return UserOut(id=u.id,login=u.login,role=u.role,name=u.name,must_change_password=u.must_change_password,
+        student_id=u.student_id,subject_id=u.subject_id,created_at=u.created_at,subject_ids=sids)
+
 @app.get("/api/users",response_model=list[UserOut])
 def list_users(u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
-    if u.role=="owner": return db.query(User).order_by(User.created_at.desc()).all()
-    return db.query(User).filter((User.role.in_(["student","parent"]))|(User.id==u.id)).order_by(User.created_at.desc()).all()
+    if u.role=="owner": users=db.query(User).order_by(User.created_at.desc()).all()
+    else:
+        stids=_tutor_student_ids(u.id,db)
+        student_uids=[r.id for r in db.query(User.id).filter(User.student_id.in_(stids)).all()] if stids else []
+        parent_ids=[r.parent_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(stids))).fetchall()] if stids else []
+        visible=set(student_uids)|set(parent_ids)|{u.id}
+        users=db.query(User).filter(User.id.in_(visible)).order_by(User.created_at.desc()).all()
+    return [_user_out(usr,db) for usr in users]
 
 @app.post("/api/users",response_model=UserOut,status_code=201)
 def create_user(d:UserCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
-    if d.role=="tutor" and u.role!="owner": raise HTTPException(403,"Только владелец")
+    if d.role=="tutor" and u.role!="owner": raise HTTPException(403,"Только владелец может создавать преподавателей")
     if d.role not in ("tutor","student","parent"): raise HTTPException(400,"Роль: tutor/student/parent")
     if db.query(User).filter(User.login==d.login).first(): raise HTTPException(409,"Логин занят")
     if len(d.password)<6: raise HTTPException(400,"Минимум 6 символов")
+    # Tutor can only link parent to their own students
+    if d.role=="parent" and d.children_ids and u.role=="tutor":
+        allowed=set(_tutor_student_ids(u.id,db))
+        for sid in d.children_ids:
+            if sid not in allowed: raise HTTPException(403,"Нет доступа к этому ученику")
     nu=User(login=d.login,password_hash=hash_password(d.password),role=d.role,name=d.name,must_change_password=True)
-    if d.role=="tutor" and d.subject_id:
-        if not db.query(Subject).filter(Subject.id==d.subject_id).first(): raise HTTPException(404)
-        nu.subject_id=d.subject_id
+    sids=d.subject_ids or ([d.subject_id] if d.subject_id else [])
+    if d.role=="tutor" and sids:
+        nu.subject_id=sids[0]
     if d.role=="student" and d.student_id:
         if not db.query(Student).filter(Student.id==d.student_id).first(): raise HTTPException(404)
         nu.student_id=d.student_id
     db.add(nu); db.flush()
+    if d.role=="tutor" and sids:
+        for sid in sids:
+            if db.query(Subject).filter(Subject.id==sid).first():
+                db.execute(tutor_subject_link.insert().values(tutor_id=nu.id,subject_id=sid))
     if d.role=="parent" and d.children_ids:
         for sid in d.children_ids:
             if db.query(Student).filter(Student.id==sid).first():
                 db.execute(parent_student_link.insert().values(parent_id=nu.id,student_id=sid))
     db.commit(); db.refresh(nu); return nu
 
+@app.post("/api/users/{uid}/link-student/{stid}",status_code=200)
+def link_user_student(uid:str,stid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    t=db.query(User).filter(User.id==uid,User.role=="student").first()
+    if not t: raise HTTPException(404,"Пользователь не найден или не является учеником")
+    if not db.query(Student).filter(Student.id==stid).first(): raise HTTPException(404,"Профиль ученика не найден")
+    if u.role=="tutor":
+        allowed=set(_tutor_student_ids(u.id,db))
+        if stid not in allowed: raise HTTPException(403,"Нет доступа к этому ученику")
+    t.student_id=stid; db.commit()
+    return {"ok":True}
+
+@app.delete("/api/users/{uid}/unlink-student",status_code=200)
+def unlink_user_student(uid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    t=db.query(User).filter(User.id==uid).first()
+    if not t: raise HTTPException(404)
+    if u.role=="tutor":
+        stids=set(_tutor_student_ids(u.id,db))
+        student_uids={r.id for r in db.query(User.id).filter(User.student_id.in_(stids)).all()} if stids else set()
+        if t.id not in student_uids: raise HTTPException(403,"Нет доступа")
+    t.student_id=None; db.commit()
+    return {"ok":True}
+
 @app.delete("/api/users/{uid}",status_code=204)
 def del_user(uid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     t=db.query(User).filter(User.id==uid).first()
     if not t: raise HTTPException(404)
-    if t.role=="owner": raise HTTPException(400)
-    if t.role=="tutor" and u.role!="owner": raise HTTPException(403)
+    if t.role=="owner": raise HTTPException(400,"Нельзя удалить владельца")
+    if t.role=="tutor" and u.role!="owner": raise HTTPException(403,"Только владелец может удалять преподавателей")
+    if u.role=="tutor":
+        # Tutor can only delete users visible to them
+        stids=_tutor_student_ids(u.id,db)
+        student_uids={r.id for r in db.query(User.id).filter(User.student_id.in_(stids)).all()} if stids else set()
+        parent_ids={r.parent_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(stids))).fetchall()} if stids else set()
+        if t.id not in student_uids|parent_ids: raise HTTPException(403,"Нет доступа")
     db.delete(t); db.commit()
+
+# ═══ TUTOR SUBJECTS ═══
+@app.get("/api/users/{uid}/subjects")
+def get_tutor_subjects(uid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    t=db.query(User).filter(User.id==uid,User.role=="tutor").first()
+    if not t: raise HTTPException(404)
+    sids=[r.subject_id for r in db.execute(tutor_subject_link.select().where(tutor_subject_link.c.tutor_id==uid)).fetchall()]
+    subjs=db.query(Subject).filter(Subject.id.in_(sids)).all() if sids else []
+    return [{"id":s.id,"name":s.name,"icon":s.icon} for s in subjs]
+
+@app.post("/api/users/{uid}/subjects/{sid}",status_code=200)
+def add_tutor_subject(uid:str,sid:str,o:User=Depends(require_owner),db:Session=Depends(get_db)):
+    if not db.query(User).filter(User.id==uid,User.role=="tutor").first(): raise HTTPException(404)
+    if not db.query(Subject).filter(Subject.id==sid).first(): raise HTTPException(404)
+    if not db.execute(tutor_subject_link.select().where((tutor_subject_link.c.tutor_id==uid)&(tutor_subject_link.c.subject_id==sid))).first():
+        db.execute(tutor_subject_link.insert().values(tutor_id=uid,subject_id=sid)); db.commit()
+    return {"ok":True}
+
+@app.delete("/api/users/{uid}/subjects/{sid}",status_code=200)
+def del_tutor_subject(uid:str,sid:str,o:User=Depends(require_owner),db:Session=Depends(get_db)):
+    db.execute(tutor_subject_link.delete().where((tutor_subject_link.c.tutor_id==uid)&(tutor_subject_link.c.subject_id==sid))); db.commit()
+    return {"ok":True}
 
 # ═══ SUBJECTS ═══
 @app.get("/api/subjects",response_model=list[SubjectOut])
@@ -96,9 +173,28 @@ def list_courses(subject_id:str=None,u:User=Depends(require_tutor_or_owner),db:S
         description=c.description,access=c.access,author_name=c.author.name if c.author else None,
         subject_name=c.subject.name if c.subject else None,sections_count=len(c.sections),
         created_at=c.created_at) for c in q.order_by(Course.updated_at.desc()).all()]
+@app.get("/api/platform-courses",response_model=list[CourseListItem])
+def list_platform_courses(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    q=db.query(Course).options(joinedload(Course.sections),joinedload(Course.author),joinedload(Course.subject))
+    q=q.filter(Course.access=="public")
+    return [CourseListItem(id=c.id,subject_id=c.subject_id,author_id=c.author_id,title=c.title,
+        description=c.description,access=c.access,author_name=c.author.name if c.author else None,
+        subject_name=c.subject.name if c.subject else None,sections_count=len(c.sections),
+        created_at=c.created_at) for c in q.order_by(Course.updated_at.desc()).all()]
+
+@app.get("/api/platform-courses/{cid}")
+def get_platform_course(cid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    c=db.query(Course).options(
+        joinedload(Course.sections).joinedload(CourseSection.items).joinedload(CourseSectionItem.subblocks)
+    ).filter(Course.id==cid,Course.access=="public").first()
+    if not c: raise HTTPException(404)
+    return c
+
 @app.get("/api/courses/{cid}",response_model=CourseOut)
 def get_course(cid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
-    c=db.query(Course).options(joinedload(Course.sections).joinedload(CourseSection.items)).filter(Course.id==cid).first()
+    c=db.query(Course).options(
+        joinedload(Course.sections).joinedload(CourseSection.items).joinedload(CourseSectionItem.subblocks)
+    ).filter(Course.id==cid).first()
     if not c: raise HTTPException(404)
     if c.access=="private" and u.role!="owner" and c.author_id!=u.id: raise HTTPException(403)
     return c
@@ -121,6 +217,16 @@ def del_course(cid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends
     if c.author_id!=u.id and u.role!="owner": raise HTTPException(403)
     db.delete(c); db.commit()
 
+@app.patch("/api/course-items/{iid}",response_model=CourseSectionItemOut)
+def upd_citem_patch(iid:str,d:CourseSectionItemUpdate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    it=db.query(CourseSectionItem).filter(CourseSectionItem.id==iid).first()
+    if not it: raise HTTPException(404)
+    sec=db.query(CourseSection).filter(CourseSection.id==it.section_id).first()
+    c=db.query(Course).filter(Course.id==sec.course_id).first()
+    if c.author_id!=u.id and u.role!="owner": raise HTTPException(403)
+    for f,v in d.model_dump(exclude_unset=True).items(): setattr(it,f,v)
+    db.commit(); db.refresh(it); return it
+
 # Course Sections
 @app.post("/api/courses/{cid}/sections",response_model=CourseSectionOut,status_code=201)
 def create_csec(cid:str,d:CourseSectionCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
@@ -128,9 +234,9 @@ def create_csec(cid:str,d:CourseSectionCreate,u:User=Depends(require_tutor_or_ow
     if not c: raise HTTPException(404)
     if c.author_id!=u.id and u.role!="owner": raise HTTPException(403)
     mp=db.query(CourseSection.position).filter(CourseSection.course_id==cid).order_by(CourseSection.position.desc()).first()
-    sec=CourseSection(course_id=cid,title=d.title,position=(mp[0]+1) if mp else 0,idz_enabled=d.idz_enabled,control_enabled=d.control_enabled)
+    sec=CourseSection(course_id=cid,title=d.title,position=(mp[0]+1) if mp else 0,idz_enabled=d.idz_enabled,control_enabled=d.control_enabled,idz_text=d.idz_text)
     db.add(sec); db.flush()
-    for i,it in enumerate(d.items): db.add(CourseSectionItem(section_id=sec.id,type=it.type,position=i,name=it.name))
+    for i,it in enumerate(d.items): db.add(CourseSectionItem(section_id=sec.id,type=it.type,position=i,name=it.name,total=it.total,text=it.text))
     db.commit(); db.refresh(sec); return sec
 @app.patch("/api/course-sections/{sid}",response_model=CourseSectionOut)
 def upd_csec(sid:str,d:CourseSectionUpdate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
@@ -165,7 +271,96 @@ def del_citem(iid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(
     sec=db.query(CourseSection).filter(CourseSection.id==it.section_id).first()
     c=db.query(Course).filter(Course.id==sec.course_id).first()
     if c.author_id!=u.id and u.role!="owner": raise HTTPException(403)
+    if it.file_path and os.path.exists(it.file_path): os.remove(it.file_path)
+    for sb in it.subblocks:
+        if sb.file_path and os.path.exists(sb.file_path): os.remove(sb.file_path)
     db.delete(it); db.commit()
+
+# ═══ COURSE ITEM MEDIA + SUBBLOCKS ═══
+@app.post("/api/course-items/{iid}/upload",response_model=CourseSectionItemOut)
+async def upload_citem_media(iid:str,file:UploadFile=File(...),u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    it=db.query(CourseSectionItem).options(joinedload(CourseSectionItem.subblocks)).filter(CourseSectionItem.id==iid).first()
+    if not it: raise HTTPException(404)
+    if it.file_path and os.path.exists(it.file_path): os.remove(it.file_path)
+    aid=gen_id(); ext=os.path.splitext(file.filename)[1] if file.filename else ""
+    content=await file.read(); fp,dbp=_up(aid,ext)
+    if len(content)>50*1024*1024: raise HTTPException(413)
+    with open(fp,"wb") as f: f.write(content)
+    it.file_path=dbp; it.mime=file.content_type or "application/octet-stream"; it.size=len(content)
+    db.commit(); db.refresh(it); return it
+
+@app.post("/api/course-items/{iid}/subblocks",response_model=CourseItemSubblockOut,status_code=201)
+def add_course_subblock_text(iid:str,d:SubblockCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    it=db.query(CourseSectionItem).filter(CourseSectionItem.id==iid).first()
+    if not it: raise HTTPException(404)
+    mp=db.query(CourseItemSubblock.position).filter(CourseItemSubblock.item_id==iid).order_by(CourseItemSubblock.position.desc()).first()
+    sb=CourseItemSubblock(item_id=iid,type="text",content=d.content or "",position=(mp[0]+1) if mp else 0)
+    db.add(sb); db.commit(); db.refresh(sb); return sb
+
+@app.post("/api/course-items/{iid}/subblocks/media",response_model=CourseItemSubblockOut,status_code=201)
+async def add_course_subblock_media(iid:str,file:UploadFile=File(...),u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    it=db.query(CourseSectionItem).filter(CourseSectionItem.id==iid).first()
+    if not it: raise HTTPException(404)
+    aid=gen_id(); ext=os.path.splitext(file.filename)[1] if file.filename else ""
+    content=await file.read(); fp,dbp=_up(aid,ext)
+    if len(content)>50*1024*1024: raise HTTPException(413)
+    with open(fp,"wb") as f: f.write(content)
+    mp=db.query(CourseItemSubblock.position).filter(CourseItemSubblock.item_id==iid).order_by(CourseItemSubblock.position.desc()).first()
+    sb=CourseItemSubblock(item_id=iid,type="media",name=file.filename or "file",file_path=dbp,mime=file.content_type or "application/octet-stream",size=len(content),position=(mp[0]+1) if mp else 0)
+    db.add(sb); db.commit(); db.refresh(sb); return sb
+
+@app.patch("/api/course-subblocks/{sbid}",response_model=CourseItemSubblockOut)
+def upd_course_subblock(sbid:str,d:SubblockCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    sb=db.query(CourseItemSubblock).filter(CourseItemSubblock.id==sbid).first()
+    if not sb: raise HTTPException(404)
+    if d.content is not None: sb.content=d.content
+    db.commit(); db.refresh(sb); return sb
+
+@app.delete("/api/course-subblocks/{sbid}",status_code=204)
+def del_course_subblock(sbid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    sb=db.query(CourseItemSubblock).filter(CourseItemSubblock.id==sbid).first()
+    if not sb: raise HTTPException(404)
+    if sb.file_path and os.path.exists(sb.file_path): os.remove(sb.file_path)
+    db.delete(sb); db.commit()
+
+# ═══ STUDENT ITEM SUBBLOCKS ═══
+@app.post("/api/items/{iid}/subblocks",response_model=ItemSubblockOut,status_code=201)
+def add_item_subblock_text(iid:str,d:SubblockCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    it=db.query(Item).filter(Item.id==iid).first()
+    if not it: raise HTTPException(404)
+    sec=db.query(Section).filter(Section.id==it.section_id).first()
+    if sec: chk_acc(sec.student_id,u,db)
+    mp=db.query(ItemSubblock.position).filter(ItemSubblock.item_id==iid).order_by(ItemSubblock.position.desc()).first()
+    sb=ItemSubblock(item_id=iid,type="text",content=d.content or "",position=(mp[0]+1) if mp else 0)
+    db.add(sb); db.commit(); db.refresh(sb); return sb
+
+@app.post("/api/items/{iid}/subblocks/media",response_model=ItemSubblockOut,status_code=201)
+async def add_item_subblock_media(iid:str,file:UploadFile=File(...),u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    it=db.query(Item).filter(Item.id==iid).first()
+    if not it: raise HTTPException(404)
+    sec=db.query(Section).filter(Section.id==it.section_id).first()
+    if sec: chk_acc(sec.student_id,u,db)
+    aid=gen_id(); ext=os.path.splitext(file.filename)[1] if file.filename else ""
+    content=await file.read(); fp,dbp=_up(aid,ext)
+    if len(content)>50*1024*1024: raise HTTPException(413)
+    with open(fp,"wb") as f: f.write(content)
+    mp=db.query(ItemSubblock.position).filter(ItemSubblock.item_id==iid).order_by(ItemSubblock.position.desc()).first()
+    sb=ItemSubblock(item_id=iid,type="media",name=file.filename or "file",file_path=dbp,mime=file.content_type or "application/octet-stream",size=len(content),position=(mp[0]+1) if mp else 0)
+    db.add(sb); db.commit(); db.refresh(sb); return sb
+
+@app.patch("/api/item-subblocks/{sbid}",response_model=ItemSubblockOut)
+def upd_item_subblock(sbid:str,d:SubblockCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    sb=db.query(ItemSubblock).filter(ItemSubblock.id==sbid).first()
+    if not sb: raise HTTPException(404)
+    if d.content is not None: sb.content=d.content
+    db.commit(); db.refresh(sb); return sb
+
+@app.delete("/api/item-subblocks/{sbid}",status_code=204)
+def del_item_subblock(sbid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    sb=db.query(ItemSubblock).filter(ItemSubblock.id==sbid).first()
+    if not sb: raise HTTPException(404)
+    if sb.file_path and os.path.exists(sb.file_path): os.remove(sb.file_path)
+    db.delete(sb); db.commit()
 
 # ═══ ACCESS CHECK ═══
 def chk_acc(stid,u,db):
@@ -201,9 +396,34 @@ def list_students(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
 @app.get("/api/students/{stid}",response_model=StudentOut)
 def get_student(stid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     chk_acc(stid,u,db)
-    s=db.query(Student).options(joinedload(Student.sections).joinedload(Section.items).joinedload(Item.attachments)).filter(Student.id==stid).first()
+    s=db.query(Student).options(
+        joinedload(Student.sections).joinedload(Section.items).joinedload(Item.attachments),
+        joinedload(Student.sections).joinedload(Section.items).joinedload(Item.subblocks)
+    ).filter(Student.id==stid).first()
     if not s: raise HTTPException(404)
     return s
+
+@app.get("/api/students/{stid}/contacts")
+def get_contacts(stid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    chk_acc(stid,u,db)
+    st=db.query(Student).filter(Student.id==stid).first()
+    if not st: raise HTTPException(404)
+    tutor_ids=set([r.tutor_id for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id==stid)).fetchall()])
+    if st.created_by: tutor_ids.add(st.created_by)
+    tutors=db.query(User).filter(User.id.in_(tutor_ids)).all() if tutor_ids else []
+    parent_ids=[r.parent_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id==stid)).fetchall()]
+    parents=db.query(User).filter(User.id.in_(parent_ids)).all() if parent_ids else []
+    subj_map={s.id:s for s in db.query(Subject).all()}
+    def tutor_subjects(t):
+        sids=[r.subject_id for r in db.execute(tutor_subject_link.select().where(tutor_subject_link.c.tutor_id==t.id)).fetchall()]
+        subjs=[subj_map[s].icon+" "+subj_map[s].name for s in sids if s in subj_map]
+        if not subjs and t.subject_id and t.subject_id in subj_map:
+            subjs=[subj_map[t.subject_id].icon+" "+subj_map[t.subject_id].name]
+        return subjs
+    return {
+        "tutors":[{"id":t.id,"name":t.name,"subjects":tutor_subjects(t)} for t in tutors],
+        "parents":[{"id":p.id,"name":p.name} for p in parents]
+    }
 
 @app.post("/api/students",response_model=StudentOut,status_code=201)
 def create_student(d:StudentCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
@@ -238,21 +458,65 @@ def unassign_tutor(stid:str,tid:str,o:User=Depends(require_owner),db:Session=Dep
     db.execute(tutor_student_link.delete().where((tutor_student_link.c.tutor_id==tid)&(tutor_student_link.c.student_id==stid))); db.commit()
     return {"ok":True}
 
+@app.post("/api/students/{stid}/link-parent/{uid}",status_code=200)
+def link_parent(stid:str,uid:str,o:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    chk_acc(stid,o,db)
+    if not db.query(Student).filter(Student.id==stid).first(): raise HTTPException(404,"Student not found")
+    if not db.query(User).filter(User.id==uid,User.role=="parent").first(): raise HTTPException(404,"Parent user not found")
+    if not db.execute(parent_student_link.select().where((parent_student_link.c.parent_id==uid)&(parent_student_link.c.student_id==stid))).first():
+        db.execute(parent_student_link.insert().values(parent_id=uid,student_id=stid)); db.commit()
+    return {"ok":True}
+
 # Apply course
 @app.post("/api/students/{stid}/apply-course/{cid}",response_model=StudentOut)
 def apply_course(stid:str,cid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     chk_acc(stid,u,db); st=db.query(Student).filter(Student.id==stid).first()
     if not st: raise HTTPException(404)
-    co=db.query(Course).options(joinedload(Course.sections).joinedload(CourseSection.items)).filter(Course.id==cid).first()
+    co=db.query(Course).options(
+        joinedload(Course.sections).joinedload(CourseSection.items).joinedload(CourseSectionItem.subblocks)
+    ).filter(Course.id==cid).first()
     if not co: raise HTTPException(404)
     if co.access=="private" and co.author_id!=u.id and u.role!="owner": raise HTTPException(403)
     for sec in st.sections: _cln_sec(sec,db)
     db.query(Section).filter(Section.student_id==stid).delete()
     for csec in co.sections:
-        s=Section(student_id=stid,title=csec.title,position=csec.position,idz_enabled=csec.idz_enabled,control_enabled=csec.control_enabled)
+        s=Section(student_id=stid,title=csec.title,position=csec.position,idz_enabled=csec.idz_enabled,control_enabled=csec.control_enabled,idz_text=csec.idz_text)
         db.add(s); db.flush()
-        for ci in csec.items: db.add(Item(section_id=s.id,type=ci.type,position=ci.position,name=ci.name,status="none"))
+        for ci in csec.items:
+            ni=Item(section_id=s.id,type=ci.type,position=ci.position,name=ci.name or "",total=ci.total,text=ci.text,status="none")
+            db.add(ni); db.flush()
+            if ci.type=='media' and ci.file_path:
+                db.add(Attachment(item_id=ni.id,name=ci.name or "file",mime=ci.mime or "application/octet-stream",size=ci.size or 0,file_path=ci.file_path))
+            for sb in ci.subblocks:
+                db.add(ItemSubblock(item_id=ni.id,type=sb.type,content=sb.content,name=sb.name,position=sb.position,file_path=sb.file_path,mime=sb.mime,size=sb.size))
     db.commit(); db.refresh(st); return get_student(stid,u,db)
+
+@app.post("/api/students/{stid}/save-as-course",response_model=CourseOut,status_code=201)
+def save_as_course(stid:str,d:SaveAsCourseRequest,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    chk_acc(stid,u,db)
+    st=db.query(Student).options(
+        joinedload(Student.sections).joinedload(Section.items).joinedload(Item.subblocks)
+    ).filter(Student.id==stid).first()
+    if not st: raise HTTPException(404)
+    if not db.query(Subject).filter(Subject.id==d.subject_id).first(): raise HTTPException(404,"Предмет не найден")
+    if d.replace_id:
+        old=db.query(Course).filter(Course.id==d.replace_id).first()
+        if old and (old.author_id==u.id or u.role=="owner"): db.delete(old); db.flush()
+    c=Course(subject_id=d.subject_id,author_id=u.id,title=d.title,access=d.access)
+    db.add(c); db.flush()
+    for sec in sorted(st.sections,key=lambda s:s.position):
+        csec=CourseSection(course_id=c.id,title=sec.title,position=sec.position,idz_enabled=sec.idz_enabled,control_enabled=sec.control_enabled,idz_text=sec.idz_text)
+        db.add(csec); db.flush()
+        pos=0
+        for item in sorted(sec.items,key=lambda i:i.position):
+            if item.type in ("topic","hw","media","note"):
+                nci=CourseSectionItem(section_id=csec.id,type=item.type,position=pos,name=item.name or "",total=item.total,text=item.text)
+                db.add(nci); db.flush()
+                for sb in item.subblocks:
+                    db.add(CourseItemSubblock(item_id=nci.id,type=sb.type,content=sb.content,name=sb.name,position=sb.position,file_path=sb.file_path,mime=sb.mime,size=sb.size))
+                pos+=1
+    db.commit(); db.refresh(c)
+    return db.query(Course).options(joinedload(Course.sections).joinedload(CourseSection.items)).filter(Course.id==c.id).first()
 
 # ═══ SECTIONS ═══
 @app.post("/api/students/{stid}/sections",response_model=SectionOut,status_code=201)
@@ -269,8 +533,13 @@ def upd_sec(sid:str,d:SectionUpdate,u:User=Depends(get_current_user),db:Session=
     if not sec: raise HTTPException(404)
     ud=d.model_dump(exclude_unset=True)
     if not is_tr(u):
-        if set(ud.keys())-{"is_open"}: raise HTTPException(403)
-    else: chk_acc(sec.student_id,u,db)
+        allowed={"is_open","idz"}
+        if set(ud.keys())-allowed: raise HTTPException(403)
+        if sec.locked and set(ud.keys())-{"is_open"}: raise HTTPException(403,"Раздел заблокирован")
+    else:
+        chk_acc(sec.student_id,u,db)
+    # Auto-lock when control is set to 'passed'
+    if ud.get("control")=="passed": ud["locked"]=True
     for f,v in ud.items(): setattr(sec,f,v)
     db.commit(); db.refresh(sec); return sec
 
@@ -292,12 +561,15 @@ def create_item(sid:str,d:ItemCreate,u:User=Depends(require_tutor_or_owner),db:S
     db.add(it); db.commit(); db.refresh(it); return it
 
 @app.patch("/api/items/{iid}",response_model=ItemOut)
-def upd_item(iid:str,d:ItemUpdate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+def upd_item(iid:str,d:ItemUpdate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     it=db.query(Item).filter(Item.id==iid).first()
     if not it: raise HTTPException(404)
     sec=db.query(Section).filter(Section.id==it.section_id).first()
-    if sec: chk_acc(sec.student_id,u,db)
-    for f,v in d.model_dump(exclude_unset=True).items(): setattr(it,f,v)
+    if sec:
+        chk_acc(sec.student_id,u,db)
+        if sec.locked and not is_tr(u): raise HTTPException(403,"Раздел заблокирован")
+    ud=d.model_dump(exclude_unset=True)
+    for f,v in ud.items(): setattr(it,f,v)
     db.commit(); db.refresh(it); return it
 
 @app.delete("/api/items/{iid}",status_code=204)
@@ -320,10 +592,10 @@ async def upload_att(iid:str,file:UploadFile=File(...),u:User=Depends(require_tu
     it=db.query(Item).filter(Item.id==iid).first()
     if not it: raise HTTPException(404)
     aid=gen_id(); ext=os.path.splitext(file.filename)[1] if file.filename else ""
-    fp=os.path.join(UPLOAD_DIR,f"{aid}{ext}"); content=await file.read()
+    content=await file.read(); fp,dbp=_up(aid,ext)
     if len(content)>50*1024*1024: raise HTTPException(413)
     with open(fp,"wb") as f: f.write(content)
-    att=Attachment(id=aid,item_id=iid,name=file.filename or "file",mime=file.content_type or "application/octet-stream",size=len(content),file_path=fp)
+    att=Attachment(id=aid,item_id=iid,name=file.filename or "file",mime=file.content_type or "application/octet-stream",size=len(content),file_path=dbp)
     db.add(att); db.commit(); db.refresh(att); return att
 
 @app.delete("/api/attachments/{aid}",status_code=204)
@@ -355,6 +627,8 @@ def apply_tpl(stid:str,tkey:str,u:User=Depends(require_tutor_or_owner),db:Sessio
 def _cln_it(it,db):
     for a in it.attachments:
         if a.file_path and os.path.exists(a.file_path): os.remove(a.file_path)
+    for sb in it.subblocks:
+        if sb.file_path and os.path.exists(sb.file_path): os.remove(sb.file_path)
 def _cln_sec(sec,db):
     for it in db.query(Item).filter(Item.section_id==sec.id).all(): _cln_it(it,db)
 def _cln_stu(st,db):
@@ -461,6 +735,58 @@ async def board_ws(ws:WebSocket,stid:str):
     finally:
         brd_conns[stid].discard(ws)
         if not brd_conns[stid]: del brd_conns[stid]
+
+# ═══ MESSAGING ═══
+@app.post("/api/messages",status_code=201)
+def send_message(d:MessageCreate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    if d.to_id==u.id: raise HTTPException(400,"Нельзя писать себе")
+    to=db.query(User).filter(User.id==d.to_id).first()
+    if not to: raise HTTPException(404)
+    if not d.text.strip(): raise HTTPException(400,"Пустое сообщение")
+    msg=Message(from_id=u.id,to_id=d.to_id,text=d.text.strip()[:2000])
+    db.add(msg); db.commit(); db.refresh(msg)
+    return MessageOut(id=msg.id,from_id=msg.from_id,to_id=msg.to_id,text=msg.text,
+        is_read=msg.is_read,created_at=msg.created_at,
+        from_name=u.name,to_name=to.name)
+
+@app.get("/api/messages")
+def list_conversations(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    # Get all messages involving current user
+    msgs=db.query(Message).options(joinedload(Message.from_user),joinedload(Message.to_user))\
+        .filter((Message.from_id==u.id)|(Message.to_id==u.id))\
+        .order_by(Message.created_at.desc()).all()
+    # Group by conversation partner
+    seen={}
+    for m in msgs:
+        partner_id=m.to_id if m.from_id==u.id else m.from_id
+        partner=m.to_user if m.from_id==u.id else m.from_user
+        if partner_id not in seen:
+            unread=0 if m.from_id==u.id else (0 if m.is_read else 1)
+            seen[partner_id]={"partner_id":partner_id,"partner_name":partner.name if partner else partner_id,
+                "last_text":m.text[:80],"last_at":m.created_at.isoformat() if m.created_at else None,
+                "unread":unread}
+        elif not m.is_read and m.to_id==u.id:
+            seen[partner_id]["unread"]+=1
+    return list(seen.values())
+
+@app.get("/api/messages/{uid}")
+def get_thread(uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    msgs=db.query(Message).options(joinedload(Message.from_user),joinedload(Message.to_user))\
+        .filter(((Message.from_id==u.id)&(Message.to_id==uid))|((Message.from_id==uid)&(Message.to_id==u.id)))\
+        .order_by(Message.created_at.asc()).all()
+    # Mark incoming as read
+    for m in msgs:
+        if m.to_id==u.id and not m.is_read: m.is_read=True
+    db.commit()
+    return [MessageOut(id=m.id,from_id=m.from_id,to_id=m.to_id,text=m.text,
+        is_read=m.is_read,created_at=m.created_at.isoformat() if m.created_at else None,
+        from_name=m.from_user.name if m.from_user else "",
+        to_name=m.to_user.name if m.to_user else "") for m in msgs]
+
+@app.get("/api/notifications")
+def get_notifications(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    unread=db.query(Message).filter(Message.to_id==u.id,Message.is_read==False).count()
+    return {"unread":unread}
 
 # ═══ STATIC ═══
 app.mount("/uploads",StaticFiles(directory=UPLOAD_DIR),name="uploads")

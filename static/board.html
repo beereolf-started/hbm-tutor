@@ -1,178 +1,3309 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!DOCTYPE html><html lang="ru">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HBM — Доска</title>
 <style>
+/* ─── Reset ─── */
 *{margin:0;padding:0;box-sizing:border-box}
-body{overflow:hidden;font-family:system-ui,sans-serif}
-.tb{position:fixed;top:0;left:0;right:0;height:44px;display:flex;align-items:center;padding:0 10px;gap:6px;z-index:10;border-bottom:1px solid #555}
-.tb a{color:#60a5fa;text-decoration:none;font-size:.82em}
-.tb .sep{width:1px;height:22px;background:#555}
-.tb button{padding:5px 10px;border:none;border-radius:5px;cursor:pointer;font-size:.8em;font-weight:600;background:#444;color:#eee}
-.tb button:hover{background:#555}
-.tb button.act{background:#3b82f6;color:#fff}
-.cb{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0}
-.cb.act{border-color:#fff}
-input[type=range]{width:70px;accent-color:#3b82f6}
-canvas{position:fixed;top:44px;left:0}
-.st{position:fixed;bottom:6px;right:10px;font-size:.7em;opacity:.5}
-.tip{position:fixed;bottom:6px;left:10px;font-size:.7em;opacity:.4}
-</style></head><body>
-<div class="tb" id="toolbar">
-<a id="backLink" href="/hbm_tutor.html">← Назад</a><div class="sep"></div>
-<button id="bDraw" class="act" onclick="setTool('draw')">✏️ P</button>
-<button id="bErase" onclick="setTool('erase')">🧹 E</button>
-<button id="bMove" onclick="setTool('move')">✋ M</button>
-<div class="sep"></div>
-<div id="colors"></div>
-<div class="sep"></div>
-<span style="color:#aaa;font-size:.78em">Толщина</span>
-<input type="range" id="size" min="1" max="24" value="3">
-<div class="sep"></div>
-<button onclick="doUndo()">↩️</button>
-<button id="btnClear" onclick="doClear()">🗑</button>
-<div class="sep"></div>
-<button id="bTheme" onclick="toggleTheme()">🌙</button>
-<button onclick="resetView()">⊙</button>
+body{overflow:hidden;font-family:system-ui,sans-serif;user-select:none;color:var(--fg);background:var(--bg)}
+
+/* ─── CSS Variables — HBM General Style ─── */
+:root{
+  --bg:#0d1117;--bg-ui:#161b22;--fg:#e6edf3;--fg-dim:#7d8590;
+  --sep:#30363d;--hover:#21262d;--accent:#3fb950;--accent-hi:#2ea043;
+  --accent-bg:rgba(63,185,80,.12);--input:#21262d;--shadow:rgba(0,0,0,.45)}
+body.dark{color-scheme:dark}
+body.light{
+  color-scheme:light;
+  --bg:#f6f8fa;--bg-ui:#ffffff;--fg:#1f2328;--fg-dim:#656d76;
+  --sep:#d0d7de;--hover:#f3f4f6;--accent:#1a7f37;--accent-hi:#116329;
+  --accent-bg:rgba(26,127,55,.1);--input:#ffffff;--shadow:rgba(0,0,0,.12)}
+
+/* ─── Top Bar ─── */
+#topbar{
+  position:fixed;top:0;left:0;right:0;height:52px;z-index:30;
+  background:var(--bg-ui);border-bottom:1px solid var(--sep);
+  display:flex;align-items:center;gap:12px;padding:0 16px 0 68px}
+#topbar .tb-logo{font-weight:700;font-size:1em;color:var(--fg);display:flex;align-items:center;gap:6px}
+#topbar .tb-logo svg{width:20px;height:20px;fill:var(--accent)}
+#boardTitle{flex:1;font-size:.9em;color:var(--fg-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#topbar .tb-r{display:flex;align-items:center;gap:8px}
+#backLink{
+  font-size:.82em;text-decoration:none;color:var(--accent);
+  background:var(--bg-ui);border:1px solid var(--sep);
+  border-radius:8px;padding:6px 12px;white-space:nowrap}
+#backLink:hover{background:var(--hover)}
+
+/* ─── Sidebar ─── */
+#sb{
+  position:fixed;left:0;top:52px;bottom:0;width:56px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  background:var(--bg-ui);border-right:1px solid var(--sep);
+  padding:8px 4px;z-index:20;
+  box-shadow:2px 0 8px var(--shadow)}
+#sb-top,#sb-bot{display:flex;flex-direction:column;gap:4px;align-items:center}
+
+/* Sidebar button */
+.sb{
+  width:44px;height:44px;border:none;border-radius:10px;cursor:pointer;
+  background:transparent;color:var(--fg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.15em;transition:background .15s,color .15s;position:relative}
+.sb:hover{background:var(--hover)}
+.sb.act{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(34,197,94,.35)}
+.sb .bdg{position:absolute;bottom:4px;right:4px;font-size:9px;line-height:1;opacity:.75}
+
+/* Tool-wrap + hover submenu */
+.tw{position:relative}
+.sm{
+  position:absolute;left:52px;top:0;
+  display:none;flex-direction:column;gap:4px;
+  background:var(--bg-ui);border:1px solid var(--sep);
+  border-radius:9px;padding:6px;z-index:30;min-width:52px;
+  box-shadow:0 4px 16px rgba(0,0,0,.35)}
+/* submenu shown/hidden via JS hover (see §19) */
+.ssb{
+  width:42px;height:42px;border:none;border-radius:7px;cursor:pointer;
+  background:transparent;color:var(--fg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1em;transition:background .12s}
+.ssb:hover{background:var(--hover)}
+.ssb.act{background:var(--accent);color:#fff}
+
+/* ─── Settings Panel ─── */
+#sp{
+  position:fixed;left:115px;top:60px;
+  background:var(--bg-ui);border:1px solid var(--sep);
+  border-radius:12px;padding:13px 15px;
+  z-index:25;box-shadow:0 6px 24px var(--shadow);
+  display:none;min-width:220px;max-width:270px}
+#sp.open{display:block}
+#sp h4{font-size:.7em;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--fg-dim);margin-bottom:11px;font-weight:600}
+.sp-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.sp-row label{font-size:.78em;color:var(--fg-dim);white-space:nowrap;min-width:54px}
+.clrs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.cb{
+  width:22px;height:22px;border-radius:50%;
+  border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:transform .1s}
+.cb:hover{transform:scale(1.15)}
+.cb.act{border-color:#fff;outline:2px solid var(--accent);outline-offset:1px}
+input[type=range]{width:110px;accent-color:var(--accent);cursor:pointer}
+input[type=number]{
+  width:64px;padding:4px 8px;border-radius:7px;
+  border:1px solid var(--sep);background:var(--input);
+  color:var(--fg);font-size:.82em;transition:border-color .15s}
+input[type=number]:focus{outline:none;border-color:var(--accent)}
+.tog-row{display:flex;gap:4px}
+.tog{
+  min-width:36px;height:28px;padding:0 8px;
+  border:1px solid var(--sep);border-radius:7px;
+  cursor:pointer;background:transparent;color:var(--fg);
+  font-size:.82em;transition:background .12s,color .12s}
+.tog:hover{background:var(--hover)}
+.tog.act{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ─── HUD (legacy, now hidden) ─── */
+#hud{display:none}
+.hb{
+  width:32px;height:32px;border:1px solid var(--sep);border-radius:7px;
+  background:transparent;color:var(--fg-dim);cursor:pointer;font-size:.88em;
+  display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.hb:hover{background:var(--hover);color:var(--fg)}
+
+/* ─── Canvas ─── */
+canvas{position:fixed;top:52px;left:56px}
+
+/* ─── Inline text editor ─── */
+#ted-wrap{
+  position:fixed;display:none;z-index:40;
+  border:2px dashed var(--accent);border-radius:5px;
+  background:var(--bg-ui);opacity:.96;
+  resize:both;overflow:hidden;min-width:80px;min-height:52px}
+#ted-bar{
+  padding:2px 8px;cursor:move;background:var(--accent);
+  color:#fff;font-size:.7em;user-select:none;
+  border-radius:3px 3px 0 0;display:flex;align-items:center;gap:4px}
+#ted{
+  display:block;width:100%;box-sizing:border-box;
+  border:none;background:transparent;color:var(--fg);
+  font-family:system-ui,sans-serif;resize:none;outline:none;
+  padding:4px 6px;line-height:1.4;white-space:pre-wrap;
+  min-height:28px;overflow-y:auto}
+
+/* ─── Selection properties bar ─── */
+#selBar{
+  position:fixed;top:60px;left:340px;
+  background:var(--bg-ui);border:1px solid var(--sep);
+  border-radius:10px;padding:8px 12px;
+  z-index:25;box-shadow:0 4px 20px rgba(0,0,0,.3);
+  display:none;align-items:center;gap:10px;flex-wrap:wrap;
+  transition:opacity .15s}
+#selBar.open{display:flex}
+#selBar h5{font-size:.72em;opacity:.5;white-space:nowrap}
+
+/* ─── Status / Tip ─── */
+#status{position:fixed;bottom:8px;right:12px;font-size:.7em;opacity:.4;z-index:10}
+#tip{position:fixed;bottom:8px;left:64px;font-size:.7em;opacity:.28;z-index:10;pointer-events:none}
+
+/* ─── Geo Picker ─── */
+#geoPicker{
+  position:fixed;left:60px;
+  background:var(--bg-ui);border:1px solid var(--sep);
+  border-radius:10px;padding:6px;z-index:50;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+  display:none;flex-direction:column;gap:2px;min-width:180px}
+.gp-hdr{font-size:.68em;opacity:.45;text-transform:uppercase;letter-spacing:.07em;padding:2px 6px 4px}
+.gp-item{
+  padding:7px 10px;border-radius:7px;cursor:pointer;
+  font-size:.85em;display:flex;align-items:center;gap:8px;
+  transition:background .1s}
+.gp-item:hover{background:var(--hover)}
+.gp-item.act{background:var(--accent);color:#fff}
+.gp-key{
+  margin-left:auto;opacity:.5;font-size:.75em;
+  background:var(--bg);border:1px solid var(--sep);
+  border-radius:4px;padding:1px 5px}
+.gp-item.act .gp-key{opacity:.7;background:rgba(255,255,255,.15);border-color:transparent}
+
+/* ─── Rich-text overlay ─── */
+.rto{
+  position:fixed;pointer-events:none;overflow:hidden;z-index:5;
+  line-height:1.4;word-wrap:break-word;box-sizing:border-box;padding:4px 6px}
+/* In dark mode, force light text so pasted content (often black) stays readable */
+body.dark  .rto{color:#e6edf3;background:rgba(13,17,23,.78)}
+body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
+.rto *{max-width:100%}
+.rto ul,.rto ol{padding-left:1.4em}
+.rto ul{list-style:disc}
+.rto ol{list-style:decimal}
+.rto p{margin-bottom:.3em}
+.rto h1,.rto h2,.rto h3{font-weight:bold;margin-bottom:.2em}
+
+/* ─── Selection element list ─── */
+.sel-list{
+  width:100%;border-top:1px solid var(--sep);
+  padding-top:6px;margin-top:4px;
+  display:none;flex-direction:column;gap:2px;
+  max-height:180px;overflow-y:auto}
+.sel-list.open{display:flex}
+.sel-item{
+  display:flex;align-items:center;gap:6px;
+  padding:3px 6px;border-radius:5px;font-size:.78em;
+  cursor:default;transition:background .1s}
+.sel-item:hover{background:var(--hover)}
+.sel-item .si-icon{opacity:.6;width:18px;text-align:center;flex-shrink:0}
+.sel-item .si-id{opacity:.38;font-family:monospace;font-size:.9em;flex:1;overflow:hidden}
+.sel-item .si-rm{
+  width:20px;height:20px;border:1px solid var(--sep);
+  border-radius:4px;cursor:pointer;background:transparent;
+  color:var(--fg);font-size:.9em;line-height:1;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center}
+.sel-item .si-rm:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ─── Coordinate system panels ─── */
+#csSetPanel{
+  position:fixed;top:60px;
+  background:var(--bg-ui);border:1px solid var(--sep);
+  border-radius:12px;padding:12px 14px;
+  z-index:24;box-shadow:0 6px 24px var(--shadow);
+  display:none;flex-direction:column;gap:6px;
+  min-width:272px;max-width:320px;
+  max-height:calc(100vh - 80px);overflow-y:auto}
+#csSetPanel.open{display:flex}
+#csGraphPanel{display:none!important}           /* merged into csSetPanel */
+.cs-hdr{
+  font-size:.68em;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent);font-weight:700;margin-bottom:1px}
+.cs-axis-block{
+  background:var(--accent-bg);border-radius:8px;
+  padding:7px 10px;display:flex;flex-direction:column;gap:5px}
+.cs-row{display:flex;align-items:center;gap:7px;font-size:.82em}
+.cs-row label{color:var(--fg-dim);min-width:50px;font-size:.92em;white-space:nowrap}
+.cs-row input[type=number]{width:54px}
+.cs-row .cs-unit{font-size:.75em;color:var(--fg-dim)}
+.cs-sep{height:1px;background:var(--sep);margin:3px 0}
+.csg-item{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 6px;border-radius:7px;font-size:.79em;
+  background:var(--accent-bg)}
+.csg-item .csg-dot{
+  width:13px;height:13px;border-radius:50%;flex-shrink:0;cursor:pointer;
+  border:2px solid transparent;transition:transform .1s;position:relative}
+.csg-item .csg-dot:hover{transform:scale(1.2)}
+.csg-item .csg-eq{
+  flex:1;font-family:monospace;font-size:.9em;
+  cursor:pointer;color:var(--fg);overflow:hidden;white-space:nowrap}
+.csg-item .csg-rm{
+  width:18px;height:18px;border:1px solid var(--sep);
+  border-radius:4px;cursor:pointer;background:transparent;
+  color:var(--fg);font-size:.85em;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.csg-item .csg-rm:hover{background:#ef4444;color:#fff;border-color:#ef4444}
+.csg-ctrl{display:flex;gap:3px;padding:1px 6px 3px 28px;flex-wrap:wrap;align-items:center}
+.csg-sty{
+  height:21px;padding:0 6px;border:1px solid var(--sep);border-radius:5px;
+  cursor:pointer;background:transparent;color:var(--fg-dim);
+  font-size:.71em;transition:background .1s,color .1s,border-color .1s;white-space:nowrap}
+.csg-sty:hover,.csg-sty.act{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+.csg-sty.cp{margin-left:4px;color:var(--fg-dim)}
+.csg-sty.cp:hover{background:var(--hover);color:var(--fg);border-color:var(--sep)}
+.csg-add{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:2px}
+.csg-add input[type=text]{
+  flex:1;min-width:90px;padding:4px 8px;border-radius:6px;
+  border:1px solid var(--sep);background:var(--input);
+  color:var(--fg);font-size:.8em;font-family:monospace;
+  transition:border-color .15s}
+.csg-add input[type=text]:focus{outline:none;border-color:var(--accent)}
+.cs-btn{
+  padding:3px 9px;border:1px solid var(--accent);border-radius:6px;
+  cursor:pointer;background:transparent;color:var(--accent);
+  font-size:.8em;white-space:nowrap;transition:background .12s}
+.cs-btn:hover{background:var(--accent);color:#fff}
+.cs-btn.active{background:var(--accent);color:#fff}
+</style>
+
+</head>
+<body class="dark">
+
+<!-- ─── Top Bar ─── -->
+<div id="topbar">
+  <div class="tb-logo">
+    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+    </svg>
+    HBM
+  </div>
+  <div id="boardTitle">Доска</div>
+  <div class="tb-r">
+    <button class="hb" title="Отменить Ctrl+Z" onclick="doUndo()">↩</button>
+    <button class="hb" id="btnClear" title="Очистить доску" onclick="doClear()">🗑</button>
+    <button class="hb" id="bTheme" title="Тема" onclick="toggleTheme()">🌙</button>
+    <button class="hb" title="Сбросить вид" onclick="resetView()">⊙</button>
+    <a id="backLink" href="/hbm_tutor.html">← Назад</a>
+  </div>
 </div>
+
+<!-- ─── Sidebar ─── -->
+<div id="sb">
+  <div id="sb-top">
+
+    <!-- Select -->
+    <button class="sb act" id="btnSel" title="Выделение (V)" onclick="setTool('select')">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M4 2L4 16.5L7.8 12.5L10.4 18.5L12.1 17.7L9.5 11.8L14.5 11.8Z"/>
+      </svg>
+    </button>
+
+    <!-- Draw group -->
+    <div class="tw">
+      <button class="sb" id="btnDraw" title="Рисование (P)" onclick="activateDrawGroup()">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17L6.5 13.5L15 5L17 3C18 2 19 3 18 4L16 6L7.5 14.5Z"/>
+          <path d="M3 17L6.5 13.5"/>
+        </svg>
+        <span class="bdg" id="drawBdg">✏</span>
+      </button>
+      <div class="sm" id="smDraw">
+        <button class="ssb" id="sPen"   title="Перо (P)"   onclick="setTool('pen')">🖊️</button>
+        <button class="ssb" id="sErase" title="Ластик (E)" onclick="setTool('erase')">🧹</button>
+      </div>
+    </div>
+
+    <!-- Geometry group -->
+    <div class="tw">
+      <button class="sb" id="btnGeo" title="Геометрия (G)" onclick="activateGeoGroup()">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+          <rect x="2" y="10" width="8" height="7" rx="1"/>
+          <ellipse cx="15" cy="6" rx="3.5" ry="3.5"/>
+          <line x1="10" y1="3" x2="18" y2="11"/>
+        </svg>
+        <span class="bdg" id="geoBdg">—</span>
+      </button>
+      <div class="sm" id="smGeo">
+        <button class="ssb" id="sLine"    title="Линия"           onclick="setTool('geo_line')">╱</button>
+        <button class="ssb" id="sRect"    title="Прямоугольник"   onclick="setTool('geo_rect')">▭</button>
+        <button class="ssb" id="sEllipse" title="Эллипс"          onclick="setTool('geo_ellipse')">⬭</button>
+      </div>
+    </div>
+
+    <!-- Text -->
+    <button class="sb" id="btnText" title="Текст (T)" onclick="setTool('text')"
+            style="font-weight:700;font-size:1.2em;letter-spacing:-.02em">T</button>
+
+    <!-- Media -->
+    <button class="sb" id="btnMedia" title="Вставить изображение (I)" onclick="openMediaPicker()"
+            style="font-size:1.2em">🖼️</button>
+
+  </div>
+  <div id="sb-bot"></div>
+</div>
+
+<!-- ─── Settings Panel ─── -->
+<div id="sp"></div>
+
+<!-- ─── Selection Bar ─── -->
+<div id="selBar"></div>
+
+<!-- ─── CS Settings Panel ─── -->
+<div id="csSetPanel"></div>
+
+<!-- ─── CS Graph Panel ─── -->
+<div id="csGraphPanel"></div>
+
+<!-- ─── Geo Picker ─── -->
+<div id="geoPicker">
+  <div class="gp-hdr">Примитив</div>
+  <div class="gp-item" data-idx="0">╱ Линия <span class="gp-key">L</span></div>
+  <div class="gp-item" data-idx="1">▭ Прямоугольник <span class="gp-key">R</span></div>
+  <div class="gp-item" data-idx="2">⬭ Эллипс / круг <span class="gp-key">C</span></div>
+</div>
+
+<!-- ─── Inline text editor ─── -->
+<div id="ted-wrap">
+  <div id="ted-bar">↔ Текст</div>
+  <textarea id="ted" rows="1" spellcheck="false"></textarea>
+</div>
+
+<!-- ─── Media file input ─── -->
+<input type="file" id="mediaInput" accept="image/*" style="display:none">
+
+<!-- ─── Canvas ─── -->
 <canvas id="c"></canvas>
-<div class="st" id="status">Подключение...</div>
-<div class="tip">Колесо=зум · Space/СКМ+тащить=навигация · Ctrl+Z=отмена</div>
+<div id="status">Подключение...</div>
+<div id="tip">ПКМ/Space=навигация · Колесо=зум · Del=удалить · Ctrl+Z=отмена · Ctrl+C/X/V=копировать · Shift+перо=прямая · G=геометрия · I=картинка · R+←→=поворот · ESC=сброс</div>
+
 <script src="/api.js"></script>
 <script>
-const Q=new URLSearchParams(location.search),SID=Q.get('id');
-if(!SID){location.href='/hbm_tutor.html';throw''}
-const R=role();
-document.getElementById('backLink').href=R==='student'?'/student_lk.html':R==='parent'?'/parent_lk.html':'/student.html?id='+SID;
-if(R==='student'||R==='parent')document.getElementById('btnClear').style.display='none';
+// ══════════════════════════════════════════════════════════
+// §0  BOOTSTRAP
+// ══════════════════════════════════════════════════════════
+const Q = new URLSearchParams(location.search), SID = Q.get('id');
+if (!SID) { location.href = '/hbm_tutor.html'; throw ''; }
+const ROLE = role();
+document.getElementById('backLink').href =
+  ROLE === 'student' ? '/student_lk.html' :
+  ROLE === 'parent'  ? '/parent_lk.html'  : '/student.html?id=' + SID;
+if (ROLE === 'student' || ROLE === 'parent')
+  document.getElementById('btnClear').style.display = 'none';
 
-let dark=localStorage.getItem('board_theme')!=='light';
-function applyTheme(){
-    document.body.style.background=dark?'#1a1a2e':'#fff';
-    const tb=document.getElementById('toolbar');tb.style.background=dark?'#16213e':'#e8e8e8';tb.style.color=dark?'#eee':'#222';
-    document.getElementById('bTheme').textContent=dark?'🌙':'☀️';redraw()}
-function toggleTheme(){dark=!dark;localStorage.setItem('board_theme',dark?'dark':'light');applyTheme()}
+// Load student name for topbar
+(async function(){
+  try{
+    const tok=localStorage.getItem('token');
+    if(!tok) return;
+    const r=await fetch('/api/students/'+SID,{headers:{Authorization:'Bearer '+tok}});
+    if(r.ok){const s=await r.json();document.getElementById('boardTitle').textContent=s.name+' — Доска';}
+  }catch(e){}
+})();
 
-const COLORS=['#e2e8f0','#222222','#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#ec4899'];
-const colEl=document.getElementById('colors');
-let penColor=COLORS[0];
-COLORS.forEach(c=>{const b=document.createElement('div');b.className='cb'+(c===penColor?' act':'');
-    b.style.background=c;b.onclick=()=>{document.querySelectorAll('.cb').forEach(x=>x.classList.remove('act'));b.classList.add('act');penColor=c};colEl.appendChild(b)});
+// ══════════════════════════════════════════════════════════
+// §1  THEME
+// ══════════════════════════════════════════════════════════
+let dark = localStorage.getItem('board_theme') !== 'light';
 
-const cv=document.getElementById('c'),ctx=cv.getContext('2d');
-let W,H;
-function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight-44;redraw()}
-window.addEventListener('resize',resize);resize();
+function applyTheme() {
+  document.body.className = dark ? 'dark' : 'light';
+  document.getElementById('bTheme').textContent = dark ? '🌙' : '☀️';
+  redraw();
+}
+function toggleTheme() {
+  dark = !dark;
+  localStorage.setItem('board_theme', dark ? 'dark' : 'light');
+  applyTheme();
+}
 
-let vx=0,vy=0,vz=1;
-function tw(sx,sy){return{x:(sx-vx)/vz,y:(sy-vy)/vz}}
-function ts(wx,wy){return{x:wx*vz+vx,y:wy*vz+vy}}
+// ══════════════════════════════════════════════════════════
+// §2  CANVAS
+// ══════════════════════════════════════════════════════════
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H;
 
-let tool='draw',myId=null,drawing=false,panning=false,panSt=null,cur=null,all=[];
-function ps(){return+document.getElementById('size').value}
-function gid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36)}
+function resize() {
+  W = cv.width  = window.innerWidth  - 56;
+  H = cv.height = window.innerHeight - 52;
+  redraw();
+}
+window.addEventListener('resize', resize);
 
-function setTool(t){tool=t;
-    document.getElementById('bDraw').classList.toggle('act',t==='draw');
-    document.getElementById('bErase').classList.toggle('act',t==='erase');
-    document.getElementById('bMove').classList.toggle('act',t==='move');
-    cv.style.cursor=t==='draw'?'crosshair':t==='erase'?'cell':'grab'}
+// ══════════════════════════════════════════════════════════
+// §3  VIEW TRANSFORM
+// ══════════════════════════════════════════════════════════
+let vx = 0, vy = 0, vz = 1;
+const tw = (sx, sy) => ({ x: (sx - vx) / vz, y: (sy - vy) / vz });
+const ts = (wx, wy) => ({ x: wx * vz + vx,   y: wy * vz + vy   });
+function resetView() { vx = 0; vy = 0; vz = 1; redraw(); }
 
-function drawGrid(){
-    const gs=40*vz;if(gs<6)return;
-    ctx.save();ctx.strokeStyle=dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.07)';ctx.lineWidth=1;
-    const ox=vx%gs,oy=vy%gs;
-    for(let x=ox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
-    for(let y=oy;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
-    ctx.restore()}
+// ══════════════════════════════════════════════════════════
+// §4  CONSTANTS
+// ══════════════════════════════════════════════════════════
+const COLORS_DARK  = ['#e2f5e8','#ffffff','#22c55e','#ef4444','#06b6d4','#f59e0b','#a855f7','#ec4899'];
+const COLORS_LIGHT = ['#0d2418','#ffffff','#22c55e','#ef4444','#06b6d4','#f59e0b','#a855f7','#ec4899'];
+const COLORS = COLORS_DARK; // updated on theme change via getColors()
+function getColors() { return dark ? COLORS_DARK : COLORS_LIGHT; }
 
-function drawS(s){
-    if(!s.pts||s.pts.length<2)return;
-    ctx.save();ctx.strokeStyle=s.color||'#e2e8f0';ctx.lineWidth=(s.size||3)*vz;
-    ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
-    const p0=ts(s.pts[0].x,s.pts[0].y);ctx.moveTo(p0.x,p0.y);
-    for(let i=1;i<s.pts.length;i++){const p=ts(s.pts[i].x,s.pts[i].y);ctx.lineTo(p.x,p.y)}
-    ctx.stroke();ctx.restore()}
+/* Image rendering cache */
+const imgCache    = new Map(); // id → {img:HTMLImageElement, loaded:bool}
+const imgSrcStore = new Map(); // id → base64 src (kept separately to save undo-stack memory)
+/* Rich-text DOM overlays */
+const rtoMap = new Map(); // id → div
 
-function redraw(){
-    ctx.clearRect(0,0,W,H);ctx.fillStyle=dark?'#1a1a2e':'#fff';ctx.fillRect(0,0,W,H);
-    drawGrid();all.forEach(drawS);if(cur)drawS(cur)}
+// ══════════════════════════════════════════════════════════
+// §5  TOOL STATE
+// ══════════════════════════════════════════════════════════
+let tool = 'select';
 
-function resetView(){vx=0;vy=0;vz=1;redraw()}
+/* Undo stack (client-side) */
+const undoStack = [];
+const MAX_UNDO  = 50;
 
-// WS
-const proto=location.protocol==='https:'?'wss:':'ws:',tok=localStorage.getItem('token');
-let ws=null,rc=0;
-function connect(){
-    ws=new WebSocket(`${proto}//${location.host}/ws/board/${SID}?token=${tok}`);
-    ws.onopen=()=>{document.getElementById('status').textContent='✓';rc=0;ws.send(JSON.stringify({type:'load'}))};
-    ws.onclose=()=>{document.getElementById('status').textContent='⚠';setTimeout(()=>{rc++;if(rc<30)connect()},1000*Math.min(rc+1,5))};
-    ws.onerror=()=>ws.close();
-    ws.onmessage=e=>{const m=JSON.parse(e.data);
-        if(m.type==='hello')myId=m.user_id;
-        else if(m.type==='strokes'){all=m.data||[];redraw()}
-        else if(m.type==='stroke'){all.push(m.data);drawS(m.data)}
-        else if(m.type==='clear'){all=[];redraw()}
-        else if(m.type==='erase_stroke'){all=all.filter(s=>s.id!==m.id);redraw()}}}
+/* Hover highlight (from element list) */
+let hoverHighlightId = null;
+/* Whether sel-list is expanded */
+let selListOpen = false;
+/* Track active CS pair for panel persistence (bug #5) */
+let csPanelLaId = null, csPanelLbId = null;
+
+// Pen / Erase settings
+let penColor = COLORS[0], penSize = 3;
+
+// Geometry settings
+let geoColor = COLORS[2], geoSize = 2, geoDash = false, geoArrow = 'none'; // arrow: 'none'|'end'|'start'|'both'
+
+// Text settings
+let textColor = COLORS[0], textFontSize = 18;
+let textBold = false, textItalic = false, textUnderline = false;
+let textBoxW = 240;
+
+// Clipboard
+let clipboard = [];
+
+// Geo picker
+const GEO_TOOLS  = ['geo_line', 'geo_rect', 'geo_ellipse'];
+let geoPickIdx   = 0;   // 0=line 1=rect 2=ellipse
+let geoPicking   = false;
+
+// ══════════════════════════════════════════════════════════
+// §6  ELEMENT STORE
+// ══════════════════════════════════════════════════════════
+let all = [], myId = null;
+let cur = null;   // element currently being drawn/placed
+let cursorPos = null; // screen coords for pen/erase cursor ring
+
+function gid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+
+// ══════════════════════════════════════════════════════════
+// §7  SELECTION STATE
+// ══════════════════════════════════════════════════════════
+let selected  = new Set();   // selected element ids
+let selBox    = null;        // rubber-band {x1,y1,x2,y2} in canvas (screen) coords
+let dragging  = false;       // are we moving selected elements?
+let dragOrigin = null;       // world coords at drag start
+let dragSnap   = null;       // snapshot of positions at drag start
+let resizing  = false;       // are we resizing a selected element?
+let resizeHandle = null;     // handle name: tl/t/tr/r/br/b/bl/l
+let resizeEl  = null;        // element being resized
+let resizeSnap = null;       // snapshot of element state at resize start
+let dragMoved   = false;     // true if drag actually moved something
+let rotateMoved = false;     // true if rotation actually changed
+let lineLockedHandles = new Set(); // 'p1'|'pm'|'p2' locked on current line
+let sbSnapHA = 'p1', sbSnapHB = 'p1', sbRotCenter = 'p1'; // 2-line UI state
+let sbLineOrder = 0; // 0: lineEls[0]=anchor(Л1), 1: lineEls[1]=anchor(Л1)
+let rotating  = false;       // are we rotating a selected element?
+let rotateEl  = null;        // element being rotated
+let rotateCenter = null;     // screen-coord center at rotation start
+let rotateStartAngle = 0;    // angle offset at rotation start
+let rKeyDown  = false;       // R key held for rotation hotkeys
+
+function clearSel() { selected.clear(); selBox = null; lineLockedHandles.clear(); sbSnapHA='p1'; sbSnapHB='p1'; sbRotCenter='p1'; sbLineOrder=0; hoverHighlightId=null; selListOpen=false; updateSelBar(); redraw(); }
+
+/* Save element positions before a drag */
+function snapPositions() {
+  dragSnap = {};
+  for (const id of selected) {
+    const el = all.find(e => e.id === id); if (!el) continue;
+    if      (el.type === 'stroke')   dragSnap[id] = el.pts.map(p => ({ ...p }));
+    else if (el.type === 'shape')   dragSnap[id] = { x1:el.x1, y1:el.y1, x2:el.x2, y2:el.y2 };
+    else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') dragSnap[id] = { x:el.x, y:el.y };
+  }
+}
+
+/* Apply world-space delta to selected elements in real time */
+function applyDrag(dwx, dwy) {
+  dragMoved = true;
+  for (const id of selected) {
+    const el = all.find(e => e.id === id); if (!el || !dragSnap[id]) continue;
+    if      (el.type === 'stroke')   el.pts = dragSnap[id].map(p => ({ x: p.x + dwx, y: p.y + dwy }));
+    else if (el.type === 'shape')   { el.x1 = dragSnap[id].x1+dwx; el.y1 = dragSnap[id].y1+dwy; el.x2 = dragSnap[id].x2+dwx; el.y2 = dragSnap[id].y2+dwy; }
+    else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') { el.x = dragSnap[id].x+dwx; el.y = dragSnap[id].y+dwy; }
+  }
+}
+
+/* Commit moved elements: erase old + re-add at new position */
+function commitDrag() {
+  for (const id of selected) {
+    const el = all.find(e => e.id === id); if (!el) continue;
+    wsSend({ type: 'erase_stroke', id: el.id });
+    wsSend({ type: 'stroke', data: el });
+  }
+}
+
+/* True if world point (wx,wy) falls inside the padded selection highlight of any selected element.
+   Accounts for element rotation so the full visual bounding box is usable as drag handle. */
+function isInSelBox(wx, wy) {
+  for (const id of selected) {
+    const el = all.find(e => e.id === id); if (!el) continue;
+    const bb = elemBBox(el); if (!bb) continue;
+    const lp = localPoint(wx, wy, el);
+    const pad = 8 / vz;
+    if (lp.x >= bb.x - pad && lp.y >= bb.y - pad &&
+        lp.x <= bb.x + bb.w + pad && lp.y <= bb.y + bb.h + pad) return true;
+  }
+  return false;
+}
+
+// ══════════════════════════════════════════════════════════
+// §8  TOOL SWITCHING
+// ══════════════════════════════════════════════════════════
+function setTool(t) {
+  commitTextEdit();
+  if (t !== 'select') { selected.clear(); selBox = null; }
+  tool = t;
+
+  /* Sidebar button states */
+  document.querySelectorAll('.sb').forEach(b => b.classList.remove('act'));
+  const mainMap = { select:'btnSel', pen:'btnDraw', erase:'btnDraw',
+                    geo_line:'btnGeo', geo_rect:'btnGeo', geo_ellipse:'btnGeo', text:'btnText' };
+  document.getElementById(mainMap[t])?.classList.add('act');
+
+  /* Sub-tool button states */
+  document.querySelectorAll('.ssb').forEach(b => b.classList.remove('act'));
+  const subMap = { pen:'sPen', erase:'sErase', geo_line:'sLine', geo_rect:'sRect', geo_ellipse:'sEllipse' };
+  if (subMap[t]) document.getElementById(subMap[t])?.classList.add('act');
+
+  /* Badges */
+  const drawBadges = { pen:'✏', erase:'🧹' };
+  if (drawBadges[t]) document.getElementById('drawBdg').textContent = drawBadges[t];
+  const geoBadges  = { geo_line:'—', geo_rect:'▭', geo_ellipse:'⬭' };
+  if (geoBadges[t])  document.getElementById('geoBdg').textContent  = geoBadges[t];
+
+  /* Cursor */
+  const cursors = { select:'default', pen:'none', erase:'none',
+                    geo_line:'crosshair', geo_rect:'crosshair', geo_ellipse:'crosshair', text:'text' };
+  cv.style.cursor = cursors[t] || 'default';
+
+  /* Panels */
+  if (t === 'select') { closeSP(); updateSelBar(); }
+  else                { renderSP(); document.getElementById('selBar').classList.remove('open'); }
+
+  redraw();
+}
+
+function activateDrawGroup() { setTool(tool === 'pen' || tool === 'erase' ? tool : 'pen'); }
+function activateGeoGroup()  { setTool(tool.startsWith('geo_') ? tool : 'geo_line'); }
+function closeSP()           { document.getElementById('sp').classList.remove('open'); }
+
+/* ── Geo Picker ── */
+function showGeoPicker() {
+  geoPicking = true;
+  const btn = document.getElementById('btnGeo');
+  const r   = btn.getBoundingClientRect();
+  const pk  = document.getElementById('geoPicker');
+  // Pre-select current geo tool if any
+  const ci = GEO_TOOLS.indexOf(tool);
+  if (ci >= 0) geoPickIdx = ci;
+  pk.style.top     = Math.max(8, r.top - 4) + 'px';
+  pk.style.display = 'flex';
+  updateGeoPickerHighlight();
+}
+function hideGeoPicker() {
+  geoPicking = false;
+  document.getElementById('geoPicker').style.display = 'none';
+}
+function updateGeoPickerHighlight() {
+  document.querySelectorAll('.gp-item').forEach((el, i) => el.classList.toggle('act', i === geoPickIdx));
+}
+/* Click on geo picker item */
+document.querySelectorAll('.gp-item').forEach(el => {
+  el.addEventListener('mousedown', ev => {
+    ev.stopPropagation();
+    geoPickIdx = +el.dataset.idx;
+    setTool(GEO_TOOLS[geoPickIdx]);
+    hideGeoPicker();
+  });
+});
+/* Close picker when clicking outside */
+document.addEventListener('mousedown', e => {
+  if (geoPicking && !document.getElementById('geoPicker').contains(e.target)) hideGeoPicker();
+}, true);
+
+// ══════════════════════════════════════════════════════════
+// §8c  CLIPBOARD  (copy / cut / paste)
+// ══════════════════════════════════════════════════════════
+
+/* Deep-clone element with fresh id, optionally shifted by (dx,dy) in world space */
+function cloneEl(el, dx = 0, dy = 0) {
+  const c = JSON.parse(JSON.stringify(el));
+  c.id = gid();
+  if (c.type === 'stroke')  c.pts = c.pts.map(p => p.x == null ? { x: null, y: null } : { x: p.x+dx, y: p.y+dy });
+  else if (c.type === 'shape') { c.x1+=dx; c.y1+=dy; c.x2+=dx; c.y2+=dy; }
+  else if (c.type === 'text' || c.type === 'image' || c.type === 'richtext') { c.x+=dx; c.y+=dy; }
+  return c;
+}
+
+function doCopy() {
+  if (!selected.size) return;
+  clipboard = [...selected].map(id => {
+    const el = all.find(e => e.id === id);
+    return el ? JSON.parse(JSON.stringify(el)) : null;
+  }).filter(Boolean);
+}
+
+function doCut() {
+  if (!selected.size) return;
+  addToUndo();
+  doCopy();
+  for (const id of selected) { all = all.filter(e => e.id !== id); wsSend({ type: 'erase_stroke', id }); }
+  clearSel(); redraw();
+}
+
+function doPaste() {
+  if (!clipboard.length) return;
+  addToUndo();
+  const off = 20 / vz;   // 20 screen px → world units
+  selected.clear();
+  const newEls = clipboard.map(el => cloneEl(el, off, off));
+  newEls.forEach(el => { all.push(el); wsSend({ type: 'stroke', data: el }); selected.add(el.id); });
+  /* Shift clipboard origin for next paste so repeated Ctrl+V stacks neatly */
+  clipboard = clipboard.map(el => cloneEl(el, off, off));
+  redraw(); updateSelBar();
+}
+
+// ══════════════════════════════════════════════════════════
+// §8d  LOCAL UNDO STACK
+// ══════════════════════════════════════════════════════════
+
+/* Save snapshot of all[] before a mutating operation.
+   Image srcs are large (base64) — stored separately in imgSrcStore to avoid
+   bloating the undo stack with megabytes per level. */
+function addToUndo() {
+  if (undoStack.length >= MAX_UNDO) undoStack.shift();
+  undoStack.push(all.map(el => {
+    const copy = JSON.parse(JSON.stringify(el));
+    if (el.type === 'image' && el.src) {
+      imgSrcStore.set(el.id, el.src); // persist src separately
+      copy.src = null;                // omit from snapshot
+    }
+    return copy;
+  }));
+}
+
+function doUndo() {
+  if (!undoStack.length) return;
+  const prev = undoStack.pop();
+  /* Restore image srcs from store */
+  for (const el of prev) {
+    if (el.type === 'image' && !el.src) {
+      const src = imgSrcStore.get(el.id);
+      if (src) el.src = src;
+    }
+  }
+  const prevIds = new Set(prev.map(e => e.id));
+  const curIds  = new Set(all.map(e => e.id));
+  /* Elements removed in this action → re-add */
+  for (const el of prev) {
+    if (!curIds.has(el.id)) wsSend({ type: 'stroke', data: el });
+  }
+  /* Elements added in this action → erase */
+  for (const el of all) {
+    if (!prevIds.has(el.id)) wsSend({ type: 'erase_stroke', id: el.id });
+  }
+  /* Elements that changed → update */
+  for (const el of prev) {
+    if (curIds.has(el.id)) {
+      const cur = all.find(e => e.id === el.id);
+      const prevJ = JSON.stringify(el), curJ = cur ? JSON.stringify(cur) : '';
+      if (prevJ !== curJ) {
+        wsSend({ type: 'erase_stroke', id: el.id });
+        setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
+      }
+    }
+  }
+  all = prev;
+  clearSel();
+  redraw();
+}
+
+// ══════════════════════════════════════════════════════════
+// §9  SETTINGS PANEL
+// ══════════════════════════════════════════════════════════
+
+/* Build a row of color swatches + custom RGB picker */
+function mkColorRow(current, onChange) {
+  const d = document.createElement('div'); d.className = 'clrs';
+  getColors().forEach(c => {
+    const b = document.createElement('div');
+    b.className = 'cb' + (c === current ? ' act' : '');
+    b.style.background = c; b.title = c;
+    b.onclick = () => {
+      d.querySelectorAll('.cb, label.cb').forEach(x => x.classList.remove('act'));
+      b.classList.add('act'); onChange(c);
+    };
+    d.appendChild(b);
+  });
+  /* Custom color picker — rainbow swatch opens native color picker */
+  const lbl = document.createElement('label');
+  const isCustom = !getColors().includes(current);
+  lbl.className = 'cb' + (isCustom ? ' act' : '');
+  lbl.title = 'Свой цвет (RGB)';
+  lbl.style.cssText = `background:${isCustom ? current : 'conic-gradient(hsl(0,100%,55%),hsl(60,100%,55%),hsl(120,100%,45%),hsl(180,100%,45%),hsl(240,100%,60%),hsl(300,100%,55%),hsl(360,100%,55%))'};cursor:pointer;overflow:visible;position:relative`;
+  const inp = document.createElement('input');
+  inp.type = 'color'; inp.value = isCustom ? current : '#ff0000';
+  inp.style.cssText = 'position:absolute;width:0;height:0;opacity:0;left:0;top:0;';
+  inp.oninput = () => {
+    d.querySelectorAll('.cb, label.cb').forEach(x => x.classList.remove('act'));
+    lbl.classList.add('act');
+    lbl.style.background = inp.value;
+    onChange(inp.value);
+  };
+  lbl.appendChild(inp);
+  d.appendChild(lbl);
+  return d;
+}
+
+function renderSP() {
+  const sp = document.getElementById('sp');
+  sp.innerHTML = '';
+
+  if (tool === 'select') { closeSP(); return; }
+
+  const $ = html => sp.insertAdjacentHTML('beforeend', html);
+
+  /* ── Pen ── */
+  if (tool === 'pen') {
+    $('<h4>Перо</h4><div class="sp-row"><label>Цвет</label></div>');
+    sp.appendChild(mkColorRow(penColor, c => { penColor = c; }));
+    $(`<div class="sp-row"><label>Толщина</label>
+        <input type="range" id="spSz" min="1" max="40" value="${penSize}">
+        <span id="spSzV" style="font-size:.8em;opacity:.65;min-width:18px">${penSize}</span></div>`);
+    sp.querySelector('#spSz').oninput = e => {
+      penSize = +e.target.value;
+      document.getElementById('spSzV').textContent = penSize;
+    };
+  }
+
+  /* ── Eraser ── */
+  else if (tool === 'erase') {
+    $(`<h4>Ластик</h4>
+       <div class="sp-row"><label>Размер</label>
+        <input type="range" id="spSz" min="4" max="60" value="${penSize}">
+        <span id="spSzV" style="font-size:.8em;opacity:.65;min-width:18px">${penSize}</span></div>`);
+    sp.querySelector('#spSz').oninput = e => {
+      penSize = +e.target.value;
+      document.getElementById('spSzV').textContent = penSize;
+    };
+  }
+
+  /* ── Geometry ── */
+  else if (tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') {
+    const names = { geo_line:'Линия', geo_rect:'Прямоугольник', geo_ellipse:'Эллипс' };
+    $(`<h4>${names[tool]}</h4><div class="sp-row"><label>Цвет</label></div>`);
+    sp.appendChild(mkColorRow(geoColor, c => { geoColor = c; }));
+    $(`<div class="sp-row"><label>Толщина</label>
+        <input type="range" id="spSz" min="1" max="20" value="${geoSize}">
+        <span id="spSzV" style="font-size:.8em;opacity:.65;min-width:18px">${geoSize}</span></div>
+       <div class="sp-row"><label>Линия</label>
+        <div class="tog-row">
+          <button class="tog${!geoDash?' act':''}" id="tSol">—</button>
+          <button class="tog${geoDash?' act':''}"  id="tDsh">- -</button>
+        </div></div>`);
+    sp.querySelector('#spSz').oninput = e => {
+      geoSize = +e.target.value;
+      document.getElementById('spSzV').textContent = geoSize;
+    };
+    sp.querySelector('#tSol').onclick = () => { geoDash = false; renderSP(); };
+    sp.querySelector('#tDsh').onclick = () => { geoDash = true;  renderSP(); };
+    /* Arrow selector — only for lines */
+    if (tool === 'geo_line') {
+      $(`<div class="sp-row"><label>Стрелки</label>
+          <div class="tog-row">
+            <button class="tog${geoArrow==='none' ?' act':''}" id="tArN">—</button>
+            <button class="tog${geoArrow==='end'  ?' act':''}" id="tArE">→</button>
+            <button class="tog${geoArrow==='start'?' act':''}" id="tArS">←</button>
+            <button class="tog${geoArrow==='both' ?' act':''}" id="tArB">↔</button>
+          </div></div>`);
+      sp.querySelector('#tArN').onclick = () => { geoArrow='none';  renderSP(); };
+      sp.querySelector('#tArE').onclick = () => { geoArrow='end';   renderSP(); };
+      sp.querySelector('#tArS').onclick = () => { geoArrow='start'; renderSP(); };
+      sp.querySelector('#tArB').onclick = () => { geoArrow='both';  renderSP(); };
+    }
+  }
+
+  /* ── Text ── */
+  else if (tool === 'text') {
+    $('<h4>Текст</h4><div class="sp-row"><label>Цвет</label></div>');
+    sp.appendChild(mkColorRow(textColor, c => { textColor = c; updateTedStyle(); }));
+    $(`<div class="sp-row"><label>Размер</label>
+        <input type="number" id="spFS" min="8" max="120" value="${textFontSize}"></div>
+       <div class="sp-row"><label>Стиль</label>
+        <div class="tog-row">
+          <button class="tog${textBold?      ' act':''}" id="tB"><b>B</b></button>
+          <button class="tog${textItalic?    ' act':''}" id="tI"><i>I</i></button>
+          <button class="tog${textUnderline?' act':''}" id="tU"><u>U</u></button>
+        </div></div>
+       <div class="sp-row"><label>Ширина</label>
+        <input type="number" id="spTW" min="50" max="2000" value="${textBoxW}"></div>`);
+    sp.querySelector('#spFS').oninput = e => { textFontSize = +e.target.value || 18; updateTedStyle(); };
+    sp.querySelector('#spTW').oninput = e => { textBoxW = +e.target.value || 240; };
+    sp.querySelector('#tB').onclick = () => { textBold      = !textBold;      renderSP(); updateTedStyle(); };
+    sp.querySelector('#tI').onclick = () => { textItalic    = !textItalic;    renderSP(); updateTedStyle(); };
+    sp.querySelector('#tU').onclick = () => { textUnderline = !textUnderline; renderSP(); updateTedStyle(); };
+  }
+
+  sp.classList.add('open');
+}
+
+// ══════════════════════════════════════════════════════════
+// §9b  LINE GEOMETRY HELPERS
+// ══════════════════════════════════════════════════════════
+
+/* Visual (world) positions of p1/pm/p2, accounting for el.rotation */
+function getVisualPts(el) {
+  const rot = el.rotation || 0;
+  const cos = Math.cos(rot), sin = Math.sin(rot);
+  const mlx = (el.x1+el.x2)/2, mly = (el.y1+el.y2)/2;
+  const hx = (el.x2-el.x1)/2, hy = (el.y2-el.y1)/2;
+  const rhx = hx*cos - hy*sin, rhy = hx*sin + hy*cos;
+  return { p1:{x:mlx-rhx,y:mly-rhy}, pm:{x:mlx,y:mly}, p2:{x:mlx+rhx,y:mly+rhy} };
+}
+
+/* Store new visual endpoints back into local coords (inverse of getVisualPts) */
+function setVisualLine(el, W1x, W1y, W2x, W2y) {
+  const rot = el.rotation || 0;
+  const ic = Math.cos(-rot), is = Math.sin(-rot);
+  const mlx=(W1x+W2x)/2, mly=(W1y+W2y)/2;
+  const hx=(W2x-W1x)/2, hy=(W2y-W1y)/2;
+  const lhx=hx*ic-hy*is, lhy=hx*is+hy*ic;
+  el.x1=mlx-lhx; el.y1=mly-lhy; el.x2=mlx+lhx; el.y2=mly+lhy;
+}
+
+/* Translate el so that its handle lands at (tx,ty) */
+function moveLineTo(el, handle, tx, ty) {
+  const vp = getVisualPts(el);
+  const dx = tx - vp[handle].x, dy = ty - vp[handle].y;
+  setVisualLine(el, vp.p1.x+dx, vp.p1.y+dy, vp.p2.x+dx, vp.p2.y+dy);
+}
+
+/* Rotate el's visual endpoints around world point (cx,cy) by delta angle da */
+function rotateLineAround(el, cx, cy, da) {
+  const vp = getVisualPts(el);
+  const cos = Math.cos(da), sin = Math.sin(da);
+  const r2 = (px,py) => { const dx=px-cx,dy=py-cy; return {x:cx+dx*cos-dy*sin,y:cy+dx*sin+dy*cos}; };
+  const nw1 = r2(vp.p1.x,vp.p1.y), nw2 = r2(vp.p2.x,vp.p2.y);
+  setVisualLine(el, nw1.x,nw1.y, nw2.x,nw2.y);
+}
+
+/* Signed visual angle of line in radians (direction from p1→p2) */
+function lineVisAngle(el) {
+  const vp = getVisualPts(el);
+  return Math.atan2(vp.p2.y - vp.p1.y, vp.p2.x - vp.p1.x);
+}
+
+/* Angle between two lines in degrees [0, 180] */
+function angleBetwLines(a, b) {
+  let da = lineVisAngle(b) - lineVisAngle(a);
+  da = ((da % Math.PI) + Math.PI) % Math.PI;
+  return da * 180 / Math.PI;
+}
+
+/* Rotate any element around world point (cx,cy) by angle da (radians).
+   Used for group rotation with R+arrow keys. */
+function rotateElementAround(el, cx, cy, da) {
+  const cos = Math.cos(da), sin = Math.sin(da);
+  const rot2 = (px, py) => ({
+    x: cx + (px-cx)*cos - (py-cy)*sin,
+    y: cy + (px-cx)*sin + (py-cy)*cos
+  });
+  if (el.type === 'shape' && el.shape === 'line') {
+    rotateLineAround(el, cx, cy, da);                  // uses existing helper
+  } else if (el.type === 'shape') {
+    const bb = elemBBox(el);
+    const nc = rot2(bb.x + bb.w/2, bb.y + bb.h/2);
+    const hw = bb.w/2, hh = bb.h/2;
+    el.x1 = nc.x-hw; el.y1 = nc.y-hh; el.x2 = nc.x+hw; el.y2 = nc.y+hh;
+    el.rotation = (el.rotation || 0) + da;
+  } else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') {
+    const bb = elemBBox(el);
+    const nc = rot2(bb.x + bb.w/2, bb.y + bb.h/2);
+    el.x = nc.x - bb.w/2; el.y = nc.y - bb.h/2;
+    el.rotation = (el.rotation || 0) + da;
+  } else if (el.type === 'stroke') {
+    el.pts = el.pts.map(p => rot2(p.x, p.y));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// §9c  COORDINATE SYSTEM HELPERS
+// ══════════════════════════════════════════════════════════
+
+/* Canonical key for a CS pair (order-independent) */
+function csKey(id1, id2) { return [id1, id2].sort().join('|'); }
+
+/* Intersection of two infinite lines defined by their visual endpoints.
+   Returns null if lines are parallel (|det| < ε). */
+function lineIntersection(la, lb) {
+  const a = getVisualPts(la), b = getVisualPts(lb);
+  const ax = a.p1.x, ay = a.p1.y, bx = a.p2.x, by = a.p2.y;
+  const cx = b.p1.x, cy = b.p1.y, dx = b.p2.x, dy = b.p2.y;
+  const dabx = bx-ax, daby = by-ay;
+  const dcdx = dx-cx, dcdy = dy-cy;
+  const det = dabx*dcdy - daby*dcdx;
+  if (Math.abs(det) < 1e-9) return null;
+  const t = ((cx-ax)*dcdy - (cy-ay)*dcdx) / det;
+  return { x: ax + t*dabx, y: ay + t*daby };
+}
+
+/* True if two lines can form a CS (angle between them ≥ MIN_CS_ANGLE degrees) */
+const MIN_CS_ANGLE = 10;
+function linesCanFormCS(la, lb) {
+  const ang = angleBetwLines(la, lb);          // 0..180
+  const norm = Math.min(ang, 180 - ang);       // 0..90
+  return norm >= MIN_CS_ANGLE;
+}
+
+/* True if intersection is "close enough" to be useful for graphing.
+   We check that the intersection lies within MAX_CS_DIST world units
+   from the viewport centre — roughly 10× the visible half-diagonal. */
+function csIntersectionInView(pt) {
+  if (!pt) return false;
+  const cx = (tw(0,0).x + tw(W,H).x)/2, cy = (tw(0,0).y + tw(W,H).y)/2;
+  const diagHalf = Math.hypot(W,H) / vz / 2;
+  return Math.hypot(pt.x-cx, pt.y-cy) < diagHalf * 10;
+}
+
+/* Positive unit vector of a line (toward the "positive" end = arrow end).
+   Falls back to p1→p2 when no arrow. */
+function csPositiveDir(el) {
+  const vp = getVisualPts(el);
+  // positive = arrow target; if 'start' the positive end is p1, else p2
+  const pos = (el.arrow === 'start') ? vp.p1 : vp.p2;
+  const neg = (el.arrow === 'start') ? vp.p2 : vp.p1;
+  const len = Math.hypot(pos.x-neg.x, pos.y-neg.y) || 1;
+  return { x:(pos.x-neg.x)/len, y:(pos.y-neg.y)/len, posEnd:pos, negEnd:neg };
+}
+
+/* Create CS link between two lines.  Stores csPartner / csScale on both.
+   Centers both lines at their intersection (midpoints → O). */
+function makeCS(la, lb) {
+  addToUndo();
+  la.csPartner = lb.id;
+  lb.csPartner = la.id;
+  /* Center both lines at intersection so midpoints always equal O */
+  const O = lineIntersection(la, lb);
+  if (O) {
+    [la, lb].forEach(el => {
+      const vp = getVisualPts(el);
+      const dx = vp.p2.x - vp.p1.x, dy = vp.p2.y - vp.p1.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.001) return;
+      const hl = len / 2;                          // half-length
+      const nx = dx / len, ny = dy / len;           // unit vector p1→p2
+      setVisualLine(el, O.x - nx*hl, O.y - ny*hl, O.x + nx*hl, O.y + ny*hl);
+      el.csScale = Math.max(1, hl / 10);           // default: range of 10 units
+    });
+  }
+  /* Sync */
+  [la, lb].forEach(el => {
+    wsSend({ type:'erase_stroke', id:el.id });
+    setTimeout(() => wsSend({ type:'stroke', data:el }), 40);
+  });
+}
+
+/* Dissolve CS link between two lines */
+function dissolveCS(la, lb) {
+  addToUndo();
+  delete la.csPartner; delete la.csScale; delete la.csTickStep; delete la.csGraphs;
+  delete lb.csPartner; delete lb.csScale; delete lb.csTickStep;
+  [la, lb].forEach(el => {
+    wsSend({ type:'erase_stroke', id:el.id });
+    setTimeout(() => wsSend({ type:'stroke', data:el }), 40);
+  });
+}
+
+/* Safe math expression evaluator: supports x,y, ^, sqrt, sin, cos, tan, abs, exp, ln, log, pi, e */
+function mathEval(expr, xVal, yVal) {
+  try {
+    const code = expr
+      .replace(/\^/g, '**')
+      .replace(/\bsqrt\b/g, 'Math.sqrt')
+      .replace(/\bcbrt\b/g, 'Math.cbrt')
+      .replace(/\bsin\b/g,  'Math.sin')
+      .replace(/\bcos\b/g,  'Math.cos')
+      .replace(/\btan\b/g,  'Math.tan')
+      .replace(/\basin\b/g, 'Math.asin')
+      .replace(/\bacos\b/g, 'Math.acos')
+      .replace(/\batan\b/g, 'Math.atan')
+      .replace(/\babs\b/g,  'Math.abs')
+      .replace(/\bexp\b/g,  'Math.exp')
+      .replace(/\bln\b/g,   'Math.log')
+      .replace(/\blog\b/g,  'Math.log10')
+      .replace(/\bsign\b/g, 'Math.sign')
+      .replace(/\bfloor\b/g,'Math.floor')
+      .replace(/\bceil\b/g, 'Math.ceil')
+      .replace(/\bround\b/g,'Math.round')
+      .replace(/\bpi\b/gi,  'Math.PI')   // case-insensitive pi/Pi/PI, applied once
+      .replace(/(?<![A-Za-z_])e(?![A-Za-z_0-9])/g, 'Math.E'); // standalone 'e' (not Math.E, exp…)
+    // eslint-disable-next-line no-new-func
+    return new Function('x','y', '"use strict";return (' + code + ');')(xVal, yVal);
+  } catch { return NaN; }
+}
+
+/* Parse equation string like "y=x^2", "x^3=sqrt(y)", "x^2+y^2=25" (implicit).
+   Returns { mode:'yfx'|'xfy'|'implicit', rhs/lhs } or null on failure. */
+function parseEqn(raw) {
+  const parts = raw.split('=');
+  if (parts.length !== 2) return null;
+  const [lhs, rhs] = parts.map(s => s.trim());
+  if (lhs === 'y') return { mode:'yfx', rhs };
+  if (lhs === 'x') return { mode:'xfy', rhs };
+  if (rhs === 'y') return { mode:'xfy', rhs: lhs };
+  if (rhs === 'x') return { mode:'yfx', rhs: lhs };
+  const hXL=/\bx\b/.test(lhs), hYL=/\by\b/.test(lhs);
+  const hXR=/\bx\b/.test(rhs), hYR=/\by\b/.test(rhs);
+  // Implicit: y appears on BOTH sides, or lhs mixes x and y
+  if ((hYL && hXL) || (hYR && hXR) || (hYL && hYR)) {
+    return { mode:'implicit', lhs, rhs };
+  }
+  // Explicit fallback
+  if (hYL && !hXL) return { mode:'xfy', rhs: lhs };
+  if (hXL && !hYL) return { mode:'yfx', rhs: lhs };
+  return { mode:'yfx', rhs }; // default
+}
+
+/* Returns {la, lb} if world point (wx,wy) is inside any CS parallelogram, else null.
+   Uses the parallelogram spanned by the full extent of both CS axes (all 4 quadrants). */
+function csParallelogramAt(wx, wy) {
+  const seen = new Set();
+  for (const el of all) {
+    if (!el.csPartner) continue;
+    const partner = all.find(e => e.id === el.csPartner);
+    if (!partner) continue;
+    const key = csKey(el.id, partner.id);
+    if (seen.has(key)) continue; seen.add(key);
+    const la = el, lb = partner;
+    const O = lineIntersection(la, lb);
+    if (!O) continue;
+    const vA = getVisualPts(la), vB = getVisualPts(lb);
+    /* Use the half-vectors (both directions) from O */
+    const uA = { x: vA.p2.x - vA.p1.x, y: vA.p2.y - vA.p1.y }; // full vector p1→p2
+    const uB = { x: vB.p2.x - vB.p1.x, y: vB.p2.y - vB.p1.y };
+    /* Solve (wx-O.x, wy-O.y) = a*uA + b*uB  →  check |a|<=0.5, |b|<=0.5 (half-extent) */
+    const det = uA.x * uB.y - uA.y * uB.x;
+    if (Math.abs(det) < 1e-9) continue;
+    const dx = wx - O.x, dy = wy - O.y;
+    const a = (dx * uB.y - dy * uB.x) / det;
+    const b = (uA.x * dy - uA.y * dx) / det;
+    if (Math.abs(a) <= 0.5 && Math.abs(b) <= 0.5) return { la, lb };
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════
+// §10  SELECTION BAR  (shown when elements are selected)
+// ══════════════════════════════════════════════════════════
+
+/* ── CS unified panel ──
+   Call with (la, lb) to show/update, or (null, null) to hide. */
+function updateCSPanels(la, lb) {
+  const panel = document.getElementById('csSetPanel');
+
+  if (!la || !lb) { panel.classList.remove('open'); csPanelLaId = null; csPanelLbId = null; return; }
+
+  /* Store IDs for persistence so panel can be restored after WS round-trips */
+  csPanelLaId = la.id; csPanelLbId = lb.id;
+  /* Helper: always look up the LIVE element from all[] to avoid stale references */
+  const getLa = () => all.find(e => e.id === csPanelLaId) || la;
+  const getLb = () => all.find(e => e.id === csPanelLbId) || lb;
+
+  const O = lineIntersection(la, lb);
+  const hasDir = la.arrow && la.arrow !== 'none' &&
+                 lb.arrow && lb.arrow !== 'none';
+  const inView = O && csIntersectionInView(O);
+  const GRAPH_COLORS = ['#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#22c55e'];
+
+  /* ── Position below selBar ── */
+  const positionPanel = () => {
+    const sbr = document.getElementById('selBar').getBoundingClientRect();
+    panel.style.top  = (sbr.bottom + 6) + 'px';
+    panel.style.left = Math.max(340, sbr.left) + 'px';
+  };
+  requestAnimationFrame(positionPanel);
+
+  /* ─── Build content ─── */
+  panel.innerHTML = '';
+  panel.classList.add('open');
+
+  const colorA = la.color || '#22c55e', colorB = lb.color || '#10b981';
+
+  /* Header */
+  const hdr = document.createElement('div'); hdr.className = 'cs-hdr';
+  hdr.textContent = '⊕ Система координат'; panel.appendChild(hdr);
+
+  /* Helper: half-length of axis line (rotation-invariant) */
+  const halfLen = el => Math.hypot((el.x2-el.x1)/2, (el.y2-el.y1)/2);
+
+  /* Axis blocks (A and B) */
+  ['A','B'].forEach((letter, idx) => {
+    const axEl = idx === 0 ? la : lb;
+    const clr  = idx === 0 ? colorA : colorB;
+
+    const block = document.createElement('div'); block.className = 'cs-axis-block';
+    block.style.borderLeft = `3px solid ${clr}`;
+
+    /* Title row */
+    const title = document.createElement('div');
+    title.style.cssText = `font-size:.78em;font-weight:600;color:var(--fg);margin-bottom:1px`;
+    title.textContent = `Ось ${letter}`;
+    block.appendChild(title);
+
+    const mkInp = () => {
+      const i = document.createElement('input');
+      i.type='number'; i.min='0.001'; i.step='any';
+      i.style.cssText='width:60px;padding:3px 6px;border-radius:6px;border:1px solid var(--sep);background:var(--input);color:var(--fg);font-size:.82em;transition:border-color .15s';
+      i.onfocus = () => i.style.borderColor='var(--accent)';
+      i.onblur  = () => i.style.borderColor='var(--sep)';
+      return i;
+    };
+
+    /* ── Range row (диапазон: единицы от центра до конца) ── */
+    const rangeRow = document.createElement('div'); rangeRow.className = 'cs-row';
+    const rangeInp = mkInp();
+    const hl0 = halfLen(axEl);
+    rangeInp.value = parseFloat((hl0 / (axEl.csScale || 50)).toPrecision(4));
+    rangeInp.title = 'Количество единиц от центра до конца оси';
+    rangeInp.oninput = () => {
+      const r = parseFloat(rangeInp.value);
+      if (r > 0) {
+        const liveEl = all.find(e => e.id === axEl.id) || axEl;
+        const hl = halfLen(liveEl);
+        liveEl.csScale = axEl.csScale = hl / r;
+        redraw();
+      }
+    };
+    rangeInp.onchange = () => {
+      const liveEl = all.find(e => e.id === axEl.id) || axEl;
+      wsSend({type:'erase_stroke',id:liveEl.id});
+      setTimeout(()=>wsSend({type:'stroke',data:liveEl}),40);
+    };
+    const rangeLabel = document.createElement('label'); rangeLabel.textContent='Диапазон';
+    const rangeUnit  = document.createElement('span');  rangeUnit.className='cs-unit'; rangeUnit.textContent='ед';
+    rangeRow.append(rangeLabel, rangeInp, rangeUnit);
+    block.appendChild(rangeRow);
+
+    /* ── Size row (физическая длина полуоси) ── */
+    const sizeRow = document.createElement('div'); sizeRow.className = 'cs-row';
+    const sizeInp = mkInp();
+    sizeInp.value = Math.round(hl0);
+    sizeInp.title = 'Физический размер полуоси (мировые пикселы)';
+    sizeInp.oninput = () => {
+      const newHl = parseFloat(sizeInp.value);
+      if (newHl > 0) {
+        const _la2 = getLa(), _lb2 = getLb();
+        const Oi = lineIntersection(_la2, _lb2);
+        if (!Oi) return;
+        const liveEl = all.find(e => e.id === axEl.id) || axEl;
+        const vp = getVisualPts(liveEl);
+        const dx = vp.p2.x - vp.p1.x, dy = vp.p2.y - vp.p1.y;
+        const len = Math.hypot(dx, dy); if (len < 0.001) return;
+        const nx = dx/len, ny = dy/len;
+        setVisualLine(liveEl, Oi.x - nx*newHl, Oi.y - ny*newHl, Oi.x + nx*newHl, Oi.y + ny*newHl);
+        redraw();
+      }
+    };
+    sizeInp.onchange = () => {
+      const liveEl = all.find(e => e.id === axEl.id) || axEl;
+      wsSend({type:'erase_stroke',id:liveEl.id});
+      setTimeout(()=>wsSend({type:'stroke',data:liveEl}),40);
+    };
+    const sizeLabel = document.createElement('label'); sizeLabel.textContent='Размер';
+    const sizeUnit  = document.createElement('span');  sizeUnit.className='cs-unit'; sizeUnit.textContent='px';
+    sizeRow.append(sizeLabel, sizeInp, sizeUnit);
+    block.appendChild(sizeRow);
+
+    /* ── Tick step row ── */
+    const tickRow = document.createElement('div'); tickRow.className = 'cs-row';
+    const tickInp = mkInp();
+    tickInp.value = axEl.csTickStep != null ? axEl.csTickStep : 1;
+    tickInp.oninput = () => {
+      const v = parseFloat(tickInp.value);
+      if (v>0) { const liveEl = all.find(e => e.id === axEl.id) || axEl;
+        liveEl.csTickStep = axEl.csTickStep = v; redraw(); }
+    };
+    tickInp.onchange = () => {
+      const liveEl = all.find(e => e.id === axEl.id) || axEl;
+      wsSend({type:'erase_stroke',id:liveEl.id});
+      setTimeout(()=>wsSend({type:'stroke',data:liveEl}),40); };
+    const tickLabel = document.createElement('label'); tickLabel.textContent='Шаг';
+    const tickUnit  = document.createElement('span');  tickUnit.className='cs-unit'; tickUnit.textContent='ед';
+    tickRow.append(tickLabel, tickInp, tickUnit);
+    block.appendChild(tickRow);
+
+    panel.appendChild(block);
+  });
+
+  /* Intersection info */
+  const sep1 = document.createElement('div'); sep1.className='cs-sep'; panel.appendChild(sep1);
+  if (O) {
+    const info = document.createElement('div'); info.className='cs-row'; info.style.fontSize='.78em';
+    const lbl=document.createElement('label'); lbl.textContent='Пересечение';
+    const val=document.createElement('span');
+    val.style.cssText='font-family:monospace;color:var(--fg-dim)';
+    val.textContent=`(${O.x.toFixed(0)}, ${O.y.toFixed(0)})`;
+    info.append(lbl,val); panel.appendChild(info);
+    if (!inView) {
+      const w=document.createElement('div');
+      w.style.cssText='font-size:.73em;color:#f59e0b';
+      w.textContent='⚠ Пересечение вне экрана — график недоступен';
+      panel.appendChild(w);
+    }
+  } else {
+    const w=document.createElement('div');
+    w.style.cssText='font-size:.73em;color:#ef4444';
+    w.textContent='⚠ Прямые параллельны'; panel.appendChild(w);
+  }
+
+  /* Graphs section — only if arrows set AND intersection visible */
+  if (!hasDir || !inView) return;
+
+  const sep2 = document.createElement('div'); sep2.className='cs-sep'; panel.appendChild(sep2);
+  const ghdr = document.createElement('div'); ghdr.className='cs-hdr';
+  ghdr.textContent='∫ Графики'; panel.appendChild(ghdr);
+
+  const graphs = la.csGraphs || [];
+
+  /* Existing graph items */
+  graphs.forEach((g, i) => {
+    /* ── Main row ── */
+    const item = document.createElement('div'); item.className='csg-item';
+
+    const dot = document.createElement('div'); dot.className='csg-dot';
+    dot.style.background = g.color||'#ef4444'; dot.title='Сменить цвет';
+    const cpk = document.createElement('input'); cpk.type='color'; cpk.value=g.color||'#ef4444';
+    cpk.style.cssText='position:absolute;width:0;height:0;opacity:0';
+    dot.appendChild(cpk);
+    dot.onclick=()=>cpk.click();
+    const gIdx = i; // capture index for live-lookup
+    const liveG = () => { const _la=getLa(); return (_la.csGraphs && _la.csGraphs[gIdx]) || g; };
+    cpk.oninput=()=>{ const lg=liveG(); lg.color=g.color=cpk.value; dot.style.background=lg.color; redraw(); };
+    cpk.onchange=()=>{ const _la=getLa(); wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40); };
+
+    const eq=document.createElement('span'); eq.className='csg-eq';
+    eq.textContent=g.eq; eq.title='Нажмите для редактирования';
+    eq.onclick=()=>{
+      const curEq = liveG().eq || g.eq;
+      const nw=prompt('Уравнение:',curEq);
+      if (nw!==null && nw.trim()) {
+        const lg=liveG(); const p=parseEqn(nw.trim());
+        lg.eq=g.eq=nw.trim(); if(p){ lg.mode=g.mode=p.mode; }
+        const _la=getLa(),_lb=getLb();
+        redraw(); wsSend({type:'erase_stroke',id:_la.id});
+        setTimeout(()=>wsSend({type:'stroke',data:_la}),40); updateCSPanels(_la,_lb); }
+    };
+
+    const rm=document.createElement('button'); rm.className='csg-rm'; rm.textContent='×'; rm.title='Удалить';
+    rm.onclick=()=>{
+      const _la=getLa(),_lb=getLb();
+      if (_la.csGraphs) _la.csGraphs.splice(gIdx,1); redraw();
+      wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+      updateCSPanels(_la,_lb); };
+
+    item.append(dot,cpk,eq,rm); panel.appendChild(item);
+
+    /* ── Style controls row ── */
+    const ctrl = document.createElement('div'); ctrl.className='csg-ctrl';
+
+    /* Dash style buttons */
+    const DASHES=[['─── solid','solid'],['– – dashed','dashed'],['··· dotted','dotted']];
+    DASHES.forEach(([label,val])=>{
+      const btn=document.createElement('button'); btn.className='csg-sty';
+      btn.textContent=label; btn.title=`Стиль: ${val}`;
+      if ((g.dash||'solid')===val) btn.classList.add('act');
+      btn.onclick=()=>{
+        g.dash=val; redraw();
+        const _la=getLa(),_lb=getLb();
+        wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+        updateCSPanels(_la,_lb); };
+      ctrl.appendChild(btn);
+    });
+
+    /* Width buttons */
+    const WIDTHS=[[1,'1px'],[2,'2px'],[3,'3px']];
+    WIDTHS.forEach(([val,label])=>{
+      const btn=document.createElement('button'); btn.className='csg-sty';
+      btn.textContent=label;
+      if ((g.width||2)===val) btn.classList.add('act');
+      btn.onclick=()=>{
+        g.width=val; redraw();
+        const _la=getLa(),_lb=getLb();
+        wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+        updateCSPanels(_la,_lb); };
+      ctrl.appendChild(btn);
+    });
+
+    /* Copy-to-board button */
+    const cpBtn=document.createElement('button'); cpBtn.className='csg-sty cp';
+    cpBtn.textContent='📋 на доску'; cpBtn.title='Скопировать линию графика на доску';
+    cpBtn.onclick=()=>graphToStroke(getLa(),getLb(),g);
+    ctrl.appendChild(cpBtn);
+
+    panel.appendChild(ctrl);
+  });
+
+  /* Add graph row */
+  const sep3=document.createElement('div'); sep3.className='cs-sep'; panel.appendChild(sep3);
+  const addRow=document.createElement('div'); addRow.className='csg-add';
+
+  let nextColor=GRAPH_COLORS[graphs.length%GRAPH_COLORS.length];
+  const colorDot=document.createElement('div'); colorDot.className='csg-dot'; colorDot.style.cssText=`background:${nextColor};position:relative`;
+  const colorPick=document.createElement('input'); colorPick.type='color'; colorPick.value=nextColor;
+  colorPick.style.cssText='position:absolute;width:0;height:0;opacity:0';
+  colorDot.appendChild(colorPick); colorDot.onclick=()=>colorPick.click();
+  colorPick.oninput=()=>{ nextColor=colorPick.value; colorDot.style.background=nextColor; };
+
+  const eqInp=document.createElement('input'); eqInp.type='text';
+  eqInp.placeholder='y=x^2  ·  x^2+y^2=r^2';
+  eqInp.title='y=f(x) | x=f(y) | F(x,y)=G(x,y)';
+
+  const addBtn=document.createElement('button'); addBtn.className='cs-btn'; addBtn.textContent='+';
+  addBtn.onclick=()=>{
+    const raw=eqInp.value.trim(); if(!raw) return;
+    const parsed=parseEqn(raw);
+    if(!parsed){ eqInp.style.outline='2px solid #ef4444'; return; }
+    eqInp.style.outline='';
+    const _la=getLa(), _lb=getLb();
+    if(!_la.csGraphs) _la.csGraphs=[];
+    _la.csGraphs.push({eq:raw,mode:parsed.mode,color:nextColor,dash:'solid',width:2});
+    redraw(); wsSend({type:'erase_stroke',id:_la.id});
+    setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+    eqInp.value=''; updateCSPanels(_la,_lb); };
+  eqInp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addBtn.click();}});
+
+  addRow.append(colorDot,colorPick,eqInp,addBtn); panel.appendChild(addRow);
+
+  const hint=document.createElement('div');
+  hint.style.cssText='font-size:.69em;color:var(--fg-dim);padding-top:1px';
+  hint.textContent='y=f(x) · x=f(y) · F(x,y)=G(x,y) · sin cos sqrt ln ^ pi';
+  panel.appendChild(hint);
+}
+
+function updateSelBar() {
+  const bar = document.getElementById('selBar');
+  bar.innerHTML = '';
+  updateCSPanels(null, null);   // reset CS panels; will re-open below if 2 CS lines selected
+  if (!selected.size || tool !== 'select') { bar.classList.remove('open'); return; }
+
+  const selEls  = all.filter(e => selected.has(e.id));
+  const editable = selEls.filter(e => e.type === 'stroke' || e.type === 'shape');
+  if (!selEls.length) { bar.classList.remove('open'); return; }
+
+  bar.classList.add('open');
+
+  /* ── Header: count + list toggle ── */
+  const hRow = document.createElement('div');
+  hRow.style.cssText = 'display:flex;align-items:center;gap:6px';
+  const h5 = document.createElement('h5');
+  h5.textContent = `Выделено: ${selEls.length}`;
+  hRow.appendChild(h5);
+  /* List toggle */
+  const listToggle = document.createElement('button');
+  listToggle.className = 'tog' + (selListOpen ? ' act' : '');
+  listToggle.title = 'Список элементов';
+  listToggle.textContent = '↳';
+  listToggle.style.cssText = 'min-width:26px;height:22px;padding:0;font-size:.85em';
+  listToggle.onclick = () => { selListOpen = !selListOpen; updateSelBar(); };
+  hRow.appendChild(listToggle);
+  bar.appendChild(hRow);
+
+  if (editable.length) {
+    /* Color row */
+    const firstColor = editable[0].color || getColors()[0];
+    let colorUndoAdded = false;
+    bar.appendChild(mkColorRow(firstColor, c => {
+      if (!colorUndoAdded) { addToUndo(); colorUndoAdded = true; }
+      editable.forEach(el => el.color = c);
+      redraw();
+      editable.forEach(el => {
+        wsSend({ type: 'erase_stroke', id: el.id });
+        setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
+      });
+    }));
+
+    /* Thickness slider */
+    const firstSize = editable[0].size || 3;
+    const rRow = document.createElement('div'); rRow.className = 'sp-row';
+    rRow.innerHTML = `<label style="min-width:0">Толщина <span id="sbSzV" style="font-size:.8em;opacity:.65">${firstSize}</span></label>
+      <input type="range" id="sbSz" min="1" max="40" value="${firstSize}" style="width:90px">`;
+    rRow.querySelector('#sbSz').addEventListener('mousedown', () => addToUndo());
+    rRow.querySelector('#sbSz').oninput = e => {
+      const v = +e.target.value;
+      document.getElementById('sbSzV').textContent = v;
+      editable.forEach(el => el.size = v);
+      redraw();
+    };
+    rRow.querySelector('#sbSz').onchange = () => {
+      editable.forEach(el => {
+        wsSend({ type: 'erase_stroke', id: el.id });
+        setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
+      });
+    };
+    bar.appendChild(rRow);
+
+    /* Arrow selector — only when selected lines are present */
+    const lineEls = selEls.filter(e => e.type === 'shape' && e.shape === 'line');
+    if (lineEls.length) {
+      const firstArrow = lineEls[0].arrow || 'none';
+      const arRow = document.createElement('div'); arRow.className = 'sp-row';
+      arRow.innerHTML = `<label style="min-width:0">Стрелки</label>
+        <div class="tog-row">
+          <button class="tog${firstArrow==='none' ?' act':''}" id="sbArN">—</button>
+          <button class="tog${firstArrow==='end'  ?' act':''}" id="sbArE">→</button>
+          <button class="tog${firstArrow==='start'?' act':''}" id="sbArS">←</button>
+          <button class="tog${firstArrow==='both' ?' act':''}" id="sbArB">↔</button>
+        </div>`;
+      const setArrow = v => {
+        addToUndo();
+        lineEls.forEach(el => { el.arrow = v; });
+        redraw();
+        lineEls.forEach(el => {
+          wsSend({ type: 'erase_stroke', id: el.id });
+          setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
+        });
+        updateSelBar();
+      };
+      arRow.querySelector('#sbArN').onclick = () => setArrow('none');
+      arRow.querySelector('#sbArE').onclick = () => setArrow('end');
+      arRow.querySelector('#sbArS').onclick = () => setArrow('start');
+      arRow.querySelector('#sbArB').onclick = () => setArrow('both');
+      bar.appendChild(arRow);
+    }
+
+    /* Two-line positioning — shows when exactly 2 lines are selected */
+    const lineElsSel = selEls.filter(e => e.type === 'shape' && e.shape === 'line');
+    if (lineElsSel.length === 2) {
+      const la = sbLineOrder === 0 ? lineElsSel[0] : lineElsSel[1];
+      const lb = sbLineOrder === 0 ? lineElsSel[1] : lineElsSel[0];
+
+      const mkHBtns = (sel, id) =>
+        `<div class="tog-row" id="${id}">${['p1','pm','p2'].map(h =>
+          `<button class="tog${h===sel?' act':''}" data-h="${h}">${h}</button>`).join('')}</div>`;
+
+      const posDiv = document.createElement('div');
+      posDiv.style.cssText = 'display:flex;flex-direction:column;gap:6px;border-left:1px solid var(--sep);padding-left:10px;';
+
+      const laClr = la.color || COLORS[2], lbClr = lb.color || COLORS[2];
+      const orderRow = document.createElement('div'); orderRow.className = 'sp-row'; orderRow.style.gap = '4px';
+      orderRow.innerHTML = `
+        <button class="tog act" style="border-left:3px solid ${laClr};padding:0 6px" title="Прямая 1 — якорь">Л1</button>
+        <button class="tog" id="spSwap" title="Поменять местами Л1 и Л2">⇄</button>
+        <button class="tog" style="border-left:3px solid ${lbClr};padding:0 6px" title="Прямая 2 — двигается">Л2</button>
+        <span style="font-size:.72em;opacity:.45;margin-left:4px">∠&nbsp;${angleBetwLines(la,lb).toFixed(1)}°</span>`;
+      orderRow.querySelector('#spSwap').onclick = () => { sbLineOrder = 1 - sbLineOrder; updateSelBar(); };
+      posDiv.appendChild(orderRow);
+
+      const snapRow = document.createElement('div'); snapRow.className = 'sp-row'; snapRow.style.gap = '4px';
+      snapRow.innerHTML = `<label style="min-width:0">Совм.</label>
+        <span style="font-size:.7em;opacity:.55">Л1</span>${mkHBtns(sbSnapHA,'spHA')}
+        <span style="opacity:.4">≡</span>
+        <span style="font-size:.7em;opacity:.55">Л2</span>${mkHBtns(sbSnapHB,'spHB')}
+        <button class="tog" id="spSnap" title="Переместить Л2">✓</button>`;
+      snapRow.querySelectorAll('#spHA .tog').forEach(b => b.onclick = () => {
+        sbSnapHA = b.dataset.h; snapRow.querySelectorAll('#spHA .tog').forEach(x => x.classList.toggle('act', x===b));
+      });
+      snapRow.querySelectorAll('#spHB .tog').forEach(b => b.onclick = () => {
+        sbSnapHB = b.dataset.h; snapRow.querySelectorAll('#spHB .tog').forEach(x => x.classList.toggle('act', x===b));
+      });
+      snapRow.querySelector('#spSnap').onclick = () => {
+        addToUndo();
+        const anchor = getVisualPts(la)[sbSnapHA];
+        moveLineTo(lb, sbSnapHB, anchor.x, anchor.y);
+        redraw();
+        wsSend({ type:'erase_stroke', id:lb.id });
+        setTimeout(() => wsSend({ type:'stroke', data:lb }), 40);
+        updateSelBar();
+      };
+      posDiv.appendChild(snapRow);
+
+      const curAng = angleBetwLines(la, lb);
+      const angRow = document.createElement('div'); angRow.className = 'sp-row'; angRow.style.gap = '4px';
+      angRow.innerHTML = `<label style="min-width:0">∠Л2</label>
+        <input type="number" id="spAngV" min="-360" max="360" value="${curAng.toFixed(1)}" style="width:56px">
+        <span style="opacity:.35">°</span>
+        <span style="opacity:.5;font-size:.78em">вкруг&nbsp;Л2</span>
+        ${mkHBtns(sbRotCenter,'spRC')}
+        <button class="tog" id="spAngOk">Ок</button>`;
+      angRow.querySelectorAll('#spRC .tog').forEach(b => b.onclick = () => {
+        sbRotCenter = b.dataset.h; angRow.querySelectorAll('#spRC .tog').forEach(x => x.classList.toggle('act', x===b));
+      });
+      angRow.querySelector('#spAngOk').onclick = () => {
+        const tgt = parseFloat(angRow.querySelector('#spAngV').value);
+        if (isNaN(tgt)) return;
+        addToUndo();
+        const tgtRad = tgt * Math.PI / 180;
+        const curRad = ((lineVisAngle(lb) - lineVisAngle(la)) % Math.PI + Math.PI) % Math.PI;
+        const da = tgtRad - curRad;
+        const center = getVisualPts(lb)[sbRotCenter];
+        rotateLineAround(lb, center.x, center.y, da);
+        redraw();
+        wsSend({ type:'erase_stroke', id:lb.id });
+        setTimeout(() => wsSend({ type:'stroke', data:lb }), 40);
+        updateSelBar();
+      };
+      posDiv.appendChild(angRow);
+
+      /* ── Coordinate System button ── */
+      const csRow = document.createElement('div'); csRow.className = 'sp-row'; csRow.style.gap='5px';
+      const alreadyCS = la.csPartner === lb.id || lb.csPartner === la.id;
+      const canCS = linesCanFormCS(la, lb);
+      const O_cs = lineIntersection(la, lb);
+      if (alreadyCS) {
+        const btnDissolve = document.createElement('button');
+        btnDissolve.className = 'cs-btn active'; btnDissolve.textContent = '⊕ СК ✓';
+        btnDissolve.title = 'Система координат активна. Нажмите, чтобы отключить';
+        btnDissolve.onclick = () => { dissolveCS(la, lb); updateSelBar(); updateCSPanels(null,null); redraw(); };
+        csRow.appendChild(btnDissolve);
+        const btnSettings = document.createElement('button');
+        btnSettings.className = 'cs-btn'; btnSettings.textContent = '⚙';
+        btnSettings.title = 'Настройки СК';
+        btnSettings.onclick = () => updateCSPanels(la, lb);
+        csRow.appendChild(btnSettings);
+      } else if (canCS && O_cs) {
+        const btnMake = document.createElement('button');
+        btnMake.className = 'cs-btn'; btnMake.textContent = '⊕ Создать СК';
+        btnMake.title = 'Сделать эти прямые системой координат';
+        btnMake.onclick = () => { makeCS(la, lb); updateSelBar(); updateCSPanels(la, lb); redraw(); };
+        csRow.appendChild(btnMake);
+      } else if (!canCS) {
+        const note = document.createElement('span');
+        note.style.cssText = 'font-size:.72em;opacity:.42';
+        const ang = angleBetwLines(la, lb), norm = Math.min(ang, 180-ang);
+        note.textContent = `∠${norm.toFixed(0)}° — слишком мал для СК`;
+        csRow.appendChild(note);
+      }
+      posDiv.appendChild(csRow);
+      bar.appendChild(posDiv);
+
+      /* Refresh CS panels whenever 2 lines are shown in selBar */
+      if (alreadyCS) updateCSPanels(la, lb); else updateCSPanels(null, null);
+    } else {
+      /* Not exactly 2 lines selected — hide CS panels */
+      updateCSPanels(null, null);
+    }
+  }
+
+  /* Delete button */
+  const del = document.createElement('button');
+  del.className = 'tog'; del.textContent = '🗑 Удалить';
+  del.onclick = () => {
+    addToUndo();
+    for (const id of selected) { all = all.filter(el => el.id !== id); wsSend({ type: 'erase_stroke', id }); }
+    clearSel(); redraw();
+  };
+  bar.appendChild(del);
+
+  /* ── Element list (expandable) ── */
+  const listDiv = document.createElement('div');
+  listDiv.className = 'sel-list' + (selListOpen ? ' open' : '');
+  const typeIcon = el => {
+    if (el.type === 'stroke')   return '🖊';
+    if (el.type === 'image')    return '🖼';
+    if (el.type === 'richtext') return '📄';
+    if (el.type === 'text')     return 'T';
+    if (el.type === 'shape')    return el.shape === 'line' ? '╱' : el.shape === 'rect' ? '▭' : '⬭';
+    return '?';
+  };
+  selEls.forEach(el => {
+    const row    = document.createElement('div'); row.className = 'sel-item';
+    const icon   = document.createElement('span'); icon.className = 'si-icon'; icon.textContent = typeIcon(el);
+    const idSpan = document.createElement('span'); idSpan.className = 'si-id';
+    idSpan.textContent = el.type + ' ' + el.id.slice(0, 5) + '…';
+    const rmBtn  = document.createElement('button'); rmBtn.className = 'si-rm'; rmBtn.textContent = '×';
+    rmBtn.title = 'Убрать из выделения';
+    rmBtn.onclick = ev => {
+      ev.stopPropagation();
+      selected.delete(el.id);
+      if (hoverHighlightId === el.id) hoverHighlightId = null;
+      updateSelBar(); redraw();
+    };
+    row.appendChild(icon); row.appendChild(idSpan); row.appendChild(rmBtn);
+    row.addEventListener('mouseenter', () => { hoverHighlightId = el.id; redraw(); });
+    row.addEventListener('mouseleave', () => { hoverHighlightId = null; redraw(); });
+    listDiv.appendChild(row);
+  });
+  bar.appendChild(listDiv);
+}
+
+// ══════════════════════════════════════════════════════════
+// §11  DRAWING
+// ══════════════════════════════════════════════════════════
+function drawGrid() {
+  const gs = 40 * vz; if (gs < 6) return;
+  ctx.save();
+  ctx.strokeStyle = dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)'; ctx.lineWidth = 1;
+  const ox = vx % gs, oy = vy % gs;
+  for (let x = ox; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = oy; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.restore();
+}
+
+function drawStroke(s) {
+  if (!s.pts || s.pts.length < 2) return;
+  ctx.save();
+  if (s.rotation) {
+    const bb = elemBBox(s);
+    if (bb) { const c=ts(bb.x+bb.w/2,bb.y+bb.h/2); ctx.translate(c.x,c.y); ctx.rotate(s.rotation); ctx.translate(-c.x,-c.y); }
+  }
+  ctx.strokeStyle = s.color || '#e2e8f0'; ctx.lineWidth = (s.size || 3) * vz;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  let penDown = false;
+  for (let i = 0; i < s.pts.length; i++) {
+    const pt = s.pts[i];
+    /* null/NaN point = pen-up separator (used for monolithic graph copies) */
+    if (pt.x == null || !isFinite(pt.x) || !isFinite(pt.y)) { penDown = false; continue; }
+    const p = ts(pt.x, pt.y);
+    if (!penDown) { ctx.moveTo(p.x, p.y); penDown = true; }
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke(); ctx.restore();
+}
+
+function drawShape(s) {
+  const s1 = ts(s.x1, s.y1), s2 = ts(s.x2, s.y2);
+  ctx.save();
+  if (s.rotation) {
+    const bb = elemBBox(s);
+    if (bb) { const c=ts(bb.x+bb.w/2,bb.y+bb.h/2); ctx.translate(c.x,c.y); ctx.rotate(s.rotation); ctx.translate(-c.x,-c.y); }
+  }
+  ctx.strokeStyle = s.color || '#22c55e'; ctx.lineWidth = (s.size || 2) * vz; ctx.lineCap = 'round';
+  if (s.dash) ctx.setLineDash([(s.size||2) * 5 * vz, (s.size||2) * 3 * vz]);
+  ctx.beginPath();
+  if (s.shape === 'line') {
+    ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.stroke();
+    /* Arrowheads */
+    if (s.arrow && s.arrow !== 'none') {
+      ctx.setLineDash([]);
+      ctx.fillStyle = s.color || '#22c55e';
+      const lw = (s.size || 2) * vz;
+      const hl = Math.max(14, lw * 4), sp = 0.42; // half-angle ~24°
+      const ah = (ax, ay, bx, by) => {
+        const a = Math.atan2(ay - by, ax - bx);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - hl * Math.cos(a - sp), ay - hl * Math.sin(a - sp));
+        ctx.lineTo(ax - hl * Math.cos(a + sp), ay - hl * Math.sin(a + sp));
+        ctx.closePath(); ctx.fill();
+      };
+      if (s.arrow === 'end'   || s.arrow === 'both') ah(s2.x, s2.y, s1.x, s1.y);
+      if (s.arrow === 'start' || s.arrow === 'both') ah(s1.x, s1.y, s2.x, s2.y);
+    }
+  }
+  else if (s.shape === 'rect')    { ctx.strokeRect(s1.x, s1.y, s2.x - s1.x, s2.y - s1.y); }
+  else if (s.shape === 'ellipse') {
+    const cx = (s1.x+s2.x)/2, cy = (s1.y+s2.y)/2;
+    const rx = Math.abs(s2.x-s1.x)/2, ry = Math.abs(s2.y-s1.y)/2;
+    ctx.ellipse(cx, cy, Math.max(rx,1), Math.max(ry,1), 0, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* Word-wrap helper */
+function wrapText(txt, maxW) {
+  const out = [];
+  for (const raw of txt.split('\n')) {
+    const words = raw.split(' '); let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) { out.push(line); line = w; }
+      else line = test;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+function drawText(t) {
+  const sp = ts(t.x, t.y);
+  const sw = (t.w || 240) * vz, sh = (t.h || 60) * vz;
+  if (t._drag) {
+    ctx.save();
+    ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+    ctx.fillStyle = 'rgba(34,197,94,.06)'; ctx.fillRect(sp.x, sp.y, sw, sh);
+    ctx.strokeRect(sp.x, sp.y, sw, sh);
+    ctx.font = `${12*vz}px system-ui,sans-serif`; ctx.fillStyle = 'rgba(34,197,94,.5)';
+    ctx.fillText('Текст', sp.x+6, sp.y+16*vz);
+    ctx.restore(); return;
+  }
+  if (!t.text) return;
+  const fs = (t.fontSize || 18) * vz;
+  ctx.save();
+  if (t.rotation) { const cx=sp.x+sw/2,cy=sp.y+sh/2; ctx.translate(cx,cy); ctx.rotate(t.rotation); ctx.translate(-cx,-cy); }
+  ctx.font = `${t.italic?'italic ':''}${t.bold?'bold ':''}${fs}px system-ui,sans-serif`;
+  ctx.fillStyle = t.color || '#e2e8f0';
+  /* Clip to text box */
+  ctx.beginPath(); ctx.rect(sp.x, sp.y, sw, sh); ctx.clip();
+  const lines = wrapText(t.text, sw - 10);
+  let ly = sp.y + fs;
+  for (const line of lines) {
+    if (ly - fs > sp.y + sh) break;
+    ctx.fillText(line, sp.x + 5, ly);
+    if (t.underline) {
+      const mw = ctx.measureText(line).width;
+      ctx.save(); ctx.strokeStyle = t.color||'#e2e8f0'; ctx.lineWidth = Math.max(1, vz);
+      ctx.beginPath(); ctx.moveTo(sp.x+5, ly+2); ctx.lineTo(sp.x+5+mw, ly+2); ctx.stroke(); ctx.restore();
+    }
+    ly += fs * 1.35;
+  }
+  ctx.restore();
+}
+
+function drawSelHighlight(el) {
+  const bb = elemBBox(el); if (!bb) return;
+  const sp = ts(bb.x, bb.y);
+  /* Screen-space centre of the element's bounding box */
+  const cx_s = sp.x + bb.w * vz / 2;
+  const cy_s = sp.y + bb.h * vz / 2;
+  const rot = el.rotation || 0;
+  ctx.save();
+  /* Rotate the entire selection decoration around the element's screen centre */
+  if (rot) { ctx.translate(cx_s, cy_s); ctx.rotate(rot); ctx.translate(-cx_s, -cy_s); }
+  ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+  ctx.strokeRect(sp.x - 5, sp.y - 5, bb.w * vz + 10, bb.h * vz + 10);
+  /* resize + rotation handles (single selection, or CS pair with 2 selected) */
+  const csPairSel = selected.size === 2 && el.type === 'shape' && el.shape === 'line' &&
+                    el.csPartner && selected.has(el.csPartner);
+  if (selected.size === 1 || csPairSel) {
+    ctx.setLineDash([]);
+    if (el.type === 'shape' && el.shape === 'line') {
+      /* Show p1/p2 endpoint handles for all lines (including CS axes) */
+      for (const [pt, hname] of [[[el.x1,el.y1],'p1'],[[el.x2,el.y2],'p2']]) {
+        const hsp = ts(pt[0], pt[1]);
+        const lk = lineLockedHandles.has(hname);
+        ctx.fillStyle = lk ? '#22c55e' : '#fff';
+        ctx.strokeStyle = lk ? '#fff' : '#22c55e'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(hsp.x, hsp.y, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      }
+      /* Midpoint diamond — filled blue when locked; for CS shows origin */
+      const msp = ts((el.x1+el.x2)/2, (el.y1+el.y2)/2);
+      const lkPm = lineLockedHandles.has('pm');
+      ctx.save(); ctx.translate(msp.x, msp.y); ctx.rotate(Math.PI/4);
+      ctx.fillStyle = lkPm ? '#22c55e' : '#fff';
+      ctx.strokeStyle = lkPm ? '#fff' : '#22c55e'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.rect(-5,-5,10,10); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    } else {
+      for (const pos of Object.values(getHandles(bb))) {
+        const hsp = ts(pos.x, pos.y);
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.rect(hsp.x-5, hsp.y-5, 10, 10); ctx.fill(); ctx.stroke();
+      }
+    }
+    /* rotation handle — only for single selection */
+    if (!csPairSel) {
+      const rhx = sp.x - 5 + (bb.w * vz + 10) / 2;
+      const rhy = sp.y - 5 - 26;
+      ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1; ctx.setLineDash([3,2]);
+      ctx.beginPath(); ctx.moveTo(rhx, sp.y - 5); ctx.lineTo(rhx, rhy + 7); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(rhx, rhy, 7, 0, Math.PI*2);
+      ctx.fillStyle = '#22c55e'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 9px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('↻', rhx, rhy);
+    }
+  }
+  ctx.restore();
+}
+
+function drawSelBox() {
+  if (!selBox) return;
+  const x = Math.min(selBox.x1, selBox.x2), y = Math.min(selBox.y1, selBox.y2);
+  const w = Math.abs(selBox.x2 - selBox.x1), h = Math.abs(selBox.y2 - selBox.y1);
+  ctx.save();
+  ctx.fillStyle = 'rgba(34,197,94,.07)'; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+// §11b  COORDINATE SYSTEM RENDERING
+// ══════════════════════════════════════════════════════════
+
+/* Draw a text label on canvas, always readable (not affected by transform) */
+function drawCSLabel(txt, wx, wy, color) {
+  const sp = ts(wx, wy);
+  ctx.save();
+  ctx.font = `${Math.max(9, 11*vz)}px system-ui,sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, sp.x, sp.y);
+  ctx.restore();
+}
+
+/* Return a color that is readable on the current canvas background.
+   In dark mode, very dark colors (luminance < 60) are replaced with the accent. */
+function readableColor(c) {
+  if (!dark) return c;
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c);
+  if (!m) return c;
+  const lum = 0.299*parseInt(m[1],16) + 0.587*parseInt(m[2],16) + 0.114*parseInt(m[3],16);
+  return lum < 60 ? '#22c55e' : c;
+}
+
+/* Draw tick marks and numeric labels on one CS axis line.
+   csTickStep: CS units per tick (default 1); csScale: world px per CS unit. */
+function drawCSTicks(el, origin, color) {
+  const scale  = el.csScale    || 50;  // world px per CS unit
+  const tStep  = el.csTickStep != null ? el.csTickStep : 1;  // CS units per tick
+  const tickPx = scale * tStep;        // world px per tick
+  if (tickPx <= 0) return;
+
+  const dir    = csPositiveDir(el);
+  const tickLen = 7 / vz;             // perp tick length in world units
+  const px = -dir.y, py = dir.x;     // perpendicular
+
+  const toPosEnd = { x: dir.posEnd.x - origin.x, y: dir.posEnd.y - origin.y };
+  const toNegEnd = { x: dir.negEnd.x - origin.x, y: dir.negEnd.y - origin.y };
+  const posLen = Math.max(0, toPosEnd.x * dir.x + toPosEnd.y * dir.y);
+  const negLen = Math.max(0, -(toNegEnd.x * dir.x + toNegEnd.y * dir.y));
+
+  const nPos = Math.min(200, Math.floor(posLen / tickPx));
+  const nNeg = Math.min(200, Math.floor(negLen / tickPx));
+
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 1 * vz;
+  ctx.fillStyle   = color;
+
+  for (let k = -nNeg; k <= nPos; k++) {
+    if (k === 0) continue;
+    const csVal = k * tStep;                          // actual CS value at this tick
+    const wx = origin.x + csVal * scale * dir.x;
+    const wy = origin.y + csVal * scale * dir.y;
+    const sp  = ts(wx, wy);
+    const tp1 = ts(wx + px*tickLen, wy + py*tickLen);
+    const tp2 = ts(wx - px*tickLen, wy - py*tickLen);
+    ctx.beginPath(); ctx.moveTo(tp1.x, tp1.y); ctx.lineTo(tp2.x, tp2.y); ctx.stroke();
+    // label offset perpendicular
+    const lsp = ts(wx + px*tickLen*2.5, wy + py*tickLen*2.5);
+    ctx.save();
+    ctx.font = `${Math.max(7, Math.round(10*vz))}px system-ui`;
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lbl = Number.isInteger(csVal) ? String(csVal) : parseFloat(csVal.toPrecision(6)).toString();
+    ctx.fillText(lbl, lsp.x, lsp.y);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/* Clip path = parallelogram defined by two vectors from origin */
+function csParallelogramPath(O, ua, ub) {
+  // ua = positive end - O  for line A
+  // ub = positive end - O  for line B
+  const A = ts(O.x + ua.x, O.y + ua.y);
+  const B = ts(O.x + ub.x, O.y + ub.y);
+  const AB = ts(O.x + ua.x + ub.x, O.y + ua.y + ub.y);
+  const Os = ts(O.x, O.y);
+  ctx.beginPath();
+  ctx.moveTo(Os.x, Os.y);
+  ctx.lineTo(A.x,  A.y);
+  ctx.lineTo(AB.x, AB.y);
+  ctx.lineTo(B.x,  B.y);
+  ctx.closePath();
+}
+
+/* ─── Marching squares: draw contour of f(a,b)=0 in CS space ─── */
+function marchingSquares(fn, ra, rb, toWorld, GRID) {
+  const da = 2*ra/GRID, db = 2*rb/GRID;
+  // pre-compute grid values
+  const V = [];
+  for (let j = 0; j <= GRID; j++) {
+    V[j] = [];
+    for (let i = 0; i <= GRID; i++) {
+      const v = fn(-ra + i*da, -rb + j*db);
+      V[j][i] = isFinite(v) ? v : NaN;
+    }
+  }
+  const cross = (va, vb) => (va < 0) !== (vb < 0);
+  const lerp  = (va, vb, v0, v1) => {
+    const t = Math.abs(vb-va) < 1e-12 ? 0.5 : -va/(vb-va);
+    return v0 + t*(v1-v0);
+  };
+  ctx.beginPath();
+  for (let j = 0; j < GRID; j++) {
+    for (let i = 0; i < GRID; i++) {
+      const a0=-ra+i*da, b0=-rb+j*db, a1=a0+da, b1=b0+db;
+      const vBL=V[j][i], vBR=V[j][i+1], vTR=V[j+1][i+1], vTL=V[j+1][i];
+      if (!isFinite(vBL)||!isFinite(vBR)||!isFinite(vTR)||!isFinite(vTL)) continue;
+      const pts = [];
+      if (cross(vBL,vBR)) pts.push({a:lerp(vBL,vBR,a0,a1), b:b0});
+      if (cross(vBR,vTR)) pts.push({a:a1,                   b:lerp(vBR,vTR,b0,b1)});
+      if (cross(vTR,vTL)) pts.push({a:lerp(vTR,vTL,a1,a0), b:b1});
+      if (cross(vTL,vBL)) pts.push({a:a0,                   b:lerp(vTL,vBL,b1,b0)});
+      const seg = (p0, p1) => {
+        const w0=toWorld(p0.a,p0.b), s0=ts(w0.x,w0.y);
+        const w1=toWorld(p1.a,p1.b), s1=ts(w1.x,w1.y);
+        ctx.moveTo(s0.x,s0.y); ctx.lineTo(s1.x,s1.y);
+      };
+      if (pts.length===2) seg(pts[0],pts[1]);
+      else if (pts.length===4) { seg(pts[0],pts[1]); seg(pts[2],pts[3]); }
+    }
+  }
+  ctx.stroke();
+}
+
+/* Plot one graph equation in CS space, clipped to the parallelogram */
+function drawCSGraph(O, uA, uB, scaleA, scaleB, graph) {
+  const parsed = parseEqn(graph.eq);
+  if (!parsed) return;
+  const color = graph.color || '#ef4444';
+  const lw    = Math.max(1, (graph.width||2) * vz);
+  const dash  = graph.dash||'solid';
+
+  const lenA = Math.hypot(uA.x, uA.y);
+  const lenB = Math.hypot(uB.x, uB.y);
+  const rangeA = lenA / scaleA;
+  const rangeB = lenB / scaleB;
+  const nA = { x:uA.x/lenA, y:uA.y/lenA };
+  const nB = { x:uB.x/lenB, y:uB.y/lenB };
+  const toWorld = (a, b) => ({
+    x: O.x + a*scaleA*nA.x + b*scaleB*nB.x,
+    y: O.y + a*scaleA*nA.y + b*scaleB*nB.y
+  });
+
+  /* clip region: full 4-quadrant parallelogram */
+  ctx.save();
+  const negA={x:-uA.x,y:-uA.y}, negB={x:-uB.x,y:-uB.y};
+  const c1=ts(O.x+uA.x+uB.x,  O.y+uA.y+uB.y);
+  const c2=ts(O.x+negA.x+uB.x,O.y+negA.y+uB.y);
+  const c3=ts(O.x+negA.x+negB.x,O.y+negA.y+negB.y);
+  const c4=ts(O.x+uA.x+negB.x,O.y+uA.y+negB.y);
+  ctx.beginPath();
+  ctx.moveTo(c1.x,c1.y); ctx.lineTo(c2.x,c2.y);
+  ctx.lineTo(c3.x,c3.y); ctx.lineTo(c4.x,c4.y);
+  ctx.closePath(); ctx.clip();
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = lw;
+  ctx.lineJoin    = 'round'; ctx.lineCap = 'round';
+  /* apply dash style */
+  if (dash==='dashed')      ctx.setLineDash([8*vz, 6*vz]);
+  else if (dash==='dotted') ctx.setLineDash([2*vz, 5*vz]);
+  else                      ctx.setLineDash([]);
+
+  const { mode } = parsed;
+
+  if (mode==='implicit') {
+    /* ── marching squares for F(x,y)=G(x,y) ── */
+    const fn = (a, b) => mathEval(parsed.lhs, a, b) - mathEval(parsed.rhs, a, b);
+    const GRID = Math.min(120, Math.max(60, Math.round(Math.max(rangeA,rangeB)*4)));
+    marchingSquares(fn, rangeA, rangeB, toWorld, GRID);
+  } else {
+    /* ── parametric plot for y=f(x) or x=f(y) ── */
+    const STEPS = 600;
+    const independent = (mode==='yfx') ? rangeA : rangeB;
+    const step = 2*independent/STEPS;
+    let penDown = false;
+    ctx.beginPath();
+    for (let i = 0; i <= STEPS; i++) {
+      const v = -independent + i*step;
+      let a, b;
+      if (mode==='yfx') { a=v; b=mathEval(parsed.rhs,a,0); }
+      else               { b=v; a=mathEval(parsed.rhs,0,b); }
+      if (!isFinite(a)||!isFinite(b)||Math.abs(b)>rangeB*50||Math.abs(a)>rangeA*50) {
+        penDown=false; continue;
+      }
+      const _w=toWorld(a,b); const sp=ts(_w.x,_w.y);
+      if (!penDown) { ctx.moveTo(sp.x,sp.y); penDown=true; }
+      else ctx.lineTo(sp.x,sp.y);
+    }
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/* Draw all active CS overlays (called from redraw) */
+function drawAllCS() {
+  const seen = new Set();
+  for (const el of all) {
+    if (!el.csPartner) continue;
+    const partner = all.find(e => e.id === el.csPartner);
+    if (!partner) continue;
+    const key = csKey(el.id, partner.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const la = el, lb = partner;
+    const O = lineIntersection(la, lb);
+    if (!O) continue;
+
+    const colorA = readableColor(la.color || '#22c55e');
+    const colorB = readableColor(lb.color || '#10b981');
+    const scaleA = la.csScale || 50;
+    const scaleB = lb.csScale || 50;
+
+    const dirA = csPositiveDir(la), dirB = csPositiveDir(lb);
+
+    // segment vectors from O toward each endpoint of each line
+    const uApos = { x: dirA.posEnd.x - O.x, y: dirA.posEnd.y - O.y };
+    const uBpos = { x: dirB.posEnd.x - O.x, y: dirB.posEnd.y - O.y };
+    const uAneg = { x: dirA.negEnd.x - O.x, y: dirA.negEnd.y - O.y };
+    const uBneg = { x: dirB.negEnd.x - O.x, y: dirB.negEnd.y - O.y };
+
+    /* ── Parallelogram highlight ── */
+    ctx.save();
+    // The parallelogram bounded by the four segment ends
+    const c1 = ts(O.x + uApos.x + uBpos.x, O.y + uApos.y + uBpos.y);
+    const c2 = ts(O.x + uAneg.x + uBpos.x, O.y + uAneg.y + uBpos.y);
+    const c3 = ts(O.x + uAneg.x + uBneg.x, O.y + uAneg.y + uBneg.y);
+    const c4 = ts(O.x + uApos.x + uBneg.x, O.y + uApos.y + uBneg.y);
+    ctx.beginPath();
+    ctx.moveTo(c1.x,c1.y); ctx.lineTo(c2.x,c2.y);
+    ctx.lineTo(c3.x,c3.y); ctx.lineTo(c4.x,c4.y);
+    ctx.closePath();
+    ctx.fillStyle = dark ? 'rgba(34,197,94,0.04)' : 'rgba(34,197,94,0.06)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(34,197,94,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    /* ── Origin dot ── */
+    const Os = ts(O.x, O.y);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(Os.x, Os.y, Math.max(3, 4*vz), 0, Math.PI*2);
+    ctx.fillStyle = '#22c55e'; ctx.fill();
+    ctx.strokeStyle = dark?'#060e07':'#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+
+    /* ── Tick marks ── */
+    drawCSTicks(la, O, colorA);
+    drawCSTicks(lb, O, colorB);
+
+    /* ── Endpoint drag handles (small diamonds, always shown when not selected) ── */
+    const _csPairSel = selected.size === 2 && selected.has(la.id) && selected.has(lb.id);
+    if (!_csPairSel) {
+      const endpts = [
+        { pt: dirA.posEnd, col: colorA }, { pt: dirA.negEnd, col: colorA },
+        { pt: dirB.posEnd, col: colorB }, { pt: dirB.negEnd, col: colorB }
+      ];
+      ctx.save();
+      for (const { pt, col } of endpts) {
+        const sp = ts(pt.x, pt.y);
+        ctx.save();
+        ctx.translate(sp.x, sp.y); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = col + '88';   // semi-transparent fill
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.rect(-5, -5, 10, 10); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    /* ── Graphs ── */
+    const hasDirection = la.arrow && la.arrow !== 'none' &&
+                         lb.arrow && lb.arrow !== 'none';
+    if (hasDirection && csIntersectionInView(O) && la.csGraphs) {
+      for (const graph of la.csGraphs) {
+        drawCSGraph(O, uApos, uBpos, scaleA, scaleB, graph);
+      }
+    }
+  }
+}
+
+/* ── Copy graph curve onto board as a stroke element ── */
+function graphToStroke(la, lb, graph) {
+  const O = lineIntersection(la, lb);
+  if (!O) return;
+  const dirA  = csPositiveDir(la), dirB = csPositiveDir(lb);
+  const uApos = { x: dirA.posEnd.x-O.x, y: dirA.posEnd.y-O.y };
+  const uBpos = { x: dirB.posEnd.x-O.x, y: dirB.posEnd.y-O.y };
+  const scaleA = la.csScale||50, scaleB = lb.csScale||50;
+  const lenA   = Math.hypot(uApos.x,uApos.y), lenB = Math.hypot(uBpos.x,uBpos.y);
+  const nA={x:uApos.x/lenA,y:uApos.y/lenA}, nB={x:uBpos.x/lenB,y:uBpos.y/lenB};
+  const toWorld = (a,b)=>({
+    x: O.x + a*scaleA*nA.x + b*scaleB*nB.x,
+    y: O.y + a*scaleA*nA.y + b*scaleB*nB.y
+  });
+  const rangeA = lenA/scaleA, rangeB = lenB/scaleB;
+  const parsed = parseEqn(graph.eq);
+  if (!parsed) return;
+  const segments = [];
+  if (parsed.mode==='yfx'||parsed.mode==='xfy') {
+    const STEPS=400;
+    const independent = parsed.mode==='yfx'?rangeA:rangeB;
+    const step = 2*independent/STEPS;
+    let seg=[];
+    for (let i=0;i<=STEPS;i++) {
+      const v=-independent+i*step; let a,b;
+      if (parsed.mode==='yfx'){a=v;b=mathEval(parsed.rhs,a,0);}
+      else{b=v;a=mathEval(parsed.rhs,0,b);}
+      if(!isFinite(a)||!isFinite(b)||Math.abs(b)>rangeB*50||Math.abs(a)>rangeA*50){
+        if(seg.length>1) segments.push(seg); seg=[]; continue;
+      }
+      seg.push(toWorld(a,b));
+    }
+    if(seg.length>1) segments.push(seg);
+  } else if (parsed.mode==='implicit') {
+    /* Use marching squares to trace the implicit curve F(a,b)=G(a,b) → F-G=0 */
+    const fn = (a,b) => mathEval(parsed.lhs,a,b) - mathEval(parsed.rhs,a,b);
+    const GRID = Math.min(100, Math.max(50, Math.round(Math.max(rangeA,rangeB)*3)));
+    const da = 2*rangeA/GRID, db = 2*rangeB/GRID;
+    const V = [];
+    for (let j=0;j<=GRID;j++) { V[j]=[]; for (let i=0;i<=GRID;i++) { const v=fn(-rangeA+i*da,-rangeB+j*db); V[j][i]=isFinite(v)?v:NaN; } }
+    const cross=(va,vb)=>(va<0)!==(vb<0);
+    const lerp=(va,vb,v0,v1)=>{ const t=Math.abs(vb-va)<1e-12?0.5:-va/(vb-va); return v0+t*(v1-v0); };
+    for (let j=0;j<GRID;j++) {
+      for (let i=0;i<GRID;i++) {
+        const a0=-rangeA+i*da, b0=-rangeB+j*db, a1=a0+da, b1=b0+db;
+        const vBL=V[j][i],vBR=V[j][i+1],vTR=V[j+1][i+1],vTL=V[j+1][i];
+        if(!isFinite(vBL)||!isFinite(vBR)||!isFinite(vTR)||!isFinite(vTL)) continue;
+        const pts=[];
+        if(cross(vBL,vBR)) pts.push({a:lerp(vBL,vBR,a0,a1),b:b0});
+        if(cross(vBR,vTR)) pts.push({a:a1,b:lerp(vBR,vTR,b0,b1)});
+        if(cross(vTR,vTL)) pts.push({a:lerp(vTR,vTL,a1,a0),b:b1});
+        if(cross(vTL,vBL)) pts.push({a:a0,b:lerp(vTL,vBL,b1,b0)});
+        if(pts.length===2) segments.push([toWorld(pts[0].a,pts[0].b),toWorld(pts[1].a,pts[1].b)]);
+        else if(pts.length===4) {
+          segments.push([toWorld(pts[0].a,pts[0].b),toWorld(pts[1].a,pts[1].b)]);
+          segments.push([toWorld(pts[2].a,pts[2].b),toWorld(pts[3].a,pts[3].b)]);
+        }
+      }
+    }
+  }
+  if (!segments.length) return;
+  addToUndo();
+  /* Build ONE monolithic stroke with null separators between segments */
+  const pts = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (i > 0) pts.push({ x: null, y: null }); // pen-up sentinel
+    for (const p of segments[i]) pts.push(p);
+  }
+  const el = { type:'stroke', id:gid(), pts, color:graph.color||'#ef4444', size:graph.width||2 };
+  all.push(el); wsSend({ type:'stroke', data:el });
+  redraw();
+}
+
+/* ── Image ── */
+function drawImage(el) {
+  let entry = imgCache.get(el.id);
+  if (!entry) {
+    entry = { img: new Image(), loaded: false };
+    entry.img.onload = () => { entry.loaded = true; redraw(); };
+    entry.img.src = el.src || '';
+    imgCache.set(el.id, entry);
+  }
+  if (!entry.loaded) {
+    /* Draw placeholder */
+    const sp = ts(el.x, el.y);
+    const sw = (el.w || 200) * vz, sh = (el.h || 150) * vz;
+    ctx.save();
+    ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.strokeRect(sp.x, sp.y, sw, sh);
+    ctx.fillStyle = 'rgba(34,197,94,.06)'; ctx.fillRect(sp.x, sp.y, sw, sh);
+    ctx.setLineDash([]); ctx.fillStyle = 'rgba(34,197,94,.4)';
+    ctx.font = `${Math.min(14*vz, 22)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🖼️', sp.x + sw/2, sp.y + sh/2);
+    ctx.restore(); return;
+  }
+  const sp = ts(el.x, el.y);
+  const sw = (el.w || 200) * vz, sh = (el.h || 150) * vz;
+  ctx.save();
+  if (el.rotation) {
+    const cx = sp.x + sw/2, cy = sp.y + sh/2;
+    ctx.translate(cx, cy); ctx.rotate(el.rotation); ctx.translate(-cx, -cy);
+  }
+  ctx.drawImage(entry.img, sp.x, sp.y, sw, sh);
+  ctx.restore();
+}
+
+/* ── Rich-text DOM overlays (kept in sync with view transform) ── */
+function updateRichtextOverlays() {
+  /* Remove overlays for deleted elements */
+  for (const [id, div] of rtoMap) {
+    if (!all.find(e => e.id === id)) { div.remove(); rtoMap.delete(id); }
+  }
+  /* Add/update overlays for richtext elements */
+  for (const el of all) {
+    if (el.type !== 'richtext') continue;
+    let div = rtoMap.get(el.id);
+    if (!div) {
+      div = document.createElement('div'); div.className = 'rto';
+      document.body.appendChild(div);
+      rtoMap.set(el.id, div);
+    }
+    const sp = ts(el.x, el.y);
+    div.style.left   = (sp.x + 56) + 'px';  // +56px = sidebar
+    div.style.top    = sp.y + 'px';
+    div.style.width  = (el.w || 300) * vz + 'px';
+    div.style.height = (el.h || 150) * vz + 'px';
+    div.style.fontSize = Math.max(8, Math.round(vz * 14)) + 'px';
+    div.style.transform = el.rotation ? `rotate(${el.rotation}rad)` : '';
+    div.style.outline  = selected.has(el.id) ? '2px dashed #22c55e' : 'none';
+    if (div._html !== el.html) { div.innerHTML = el.html || ''; div._html = el.html; }
+  }
+}
+
+function drawElem(el) {
+  if (!el) return;
+  if      (el.type === 'stroke')   drawStroke(el);
+  else if (el.type === 'shape')    drawShape(el);
+  else if (el.type === 'text')     drawText(el);
+  else if (el.type === 'image')    drawImage(el);
+  /* richtext is rendered via DOM overlays in updateRichtextOverlays() */
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = dark ? '#060e07' : '#f8fdf9'; ctx.fillRect(0, 0, W, H);
+  drawGrid();
+  all.forEach(drawElem);
+  if (cur) drawElem(cur);
+  /* CS overlays: tick marks, parallelogram, graphs — drawn after elements, before highlights */
+  drawAllCS();
+  /* Hover highlight from element list */
+  if (hoverHighlightId && selected.has(hoverHighlightId)) {
+    const hel = all.find(e => e.id === hoverHighlightId);
+    if (hel) {
+      const bb = elemBBox(hel);
+      if (bb) {
+        const shp = ts(bb.x, bb.y);
+        ctx.save();
+        ctx.fillStyle = 'rgba(34,197,94,.2)';
+        ctx.fillRect(shp.x - 6, shp.y - 6, bb.w * vz + 12, bb.h * vz + 12);
+        ctx.restore();
+      }
+    }
+  }
+  for (const id of selected) { const el = all.find(e => e.id === id); if (el) drawSelHighlight(el); }
+  drawSelBox();
+  /* Sync rich-text DOM overlays with current view */
+  updateRichtextOverlays();
+  /* Bug #5: Auto-restore CS panel if it closed unexpectedly (e.g. after WS round-trip) */
+  const _csPanel = document.getElementById('csSetPanel');
+  if (!_csPanel.classList.contains('open') && csPanelLaId && csPanelLbId && tool === 'select') {
+    const _cla = all.find(e => e.id === csPanelLaId);
+    const _clb = all.find(e => e.id === csPanelLbId);
+    if (_cla && _clb && selected.has(_cla.id) && selected.has(_clb.id)) {
+      updateCSPanels(_cla, _clb);
+    }
+  }
+  /* ── pen / eraser cursor ring ── */
+  if (cursorPos && (tool === 'pen' || tool === 'erase')) {
+    const r = tool === 'pen'
+      ? Math.max(penSize * vz / 2, 2)
+      : Math.max(penSize + 6, 4);
+    ctx.save();
+    ctx.strokeStyle = tool === 'erase'
+      ? 'rgba(255,80,80,0.85)'
+      : dark ? 'rgba(255,255,255,0.75)' : 'rgba(0,30,10,0.55)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(cursorPos.x, cursorPos.y, r, 0, Math.PI * 2); ctx.stroke();
+    if (tool === 'erase') {
+      ctx.beginPath();
+      ctx.moveTo(cursorPos.x-4,cursorPos.y-4); ctx.lineTo(cursorPos.x+4,cursorPos.y+4);
+      ctx.moveTo(cursorPos.x+4,cursorPos.y-4); ctx.lineTo(cursorPos.x-4,cursorPos.y+4);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// §12  HIT TESTING
+// ══════════════════════════════════════════════════════════
+
+/* Bounding box in world coords */
+function elemBBox(el) {
+  if (el.type === 'stroke') {
+    if (!el.pts?.length) return null;
+    let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+    for (const p of el.pts) {
+      if (p.x == null || !isFinite(p.x) || !isFinite(p.y)) continue;
+      x0=Math.min(x0,p.x); y0=Math.min(y0,p.y); x1=Math.max(x1,p.x); y1=Math.max(y1,p.y);
+    }
+    if (!isFinite(x0)) return null;
+    const r = (el.size||3)/2;
+    return { x:x0-r, y:y0-r, w:x1-x0+r*2, h:y1-y0+r*2 };
+  }
+  if (el.type === 'shape') {
+    const x=Math.min(el.x1,el.x2), y=Math.min(el.y1,el.y2);
+    return { x, y, w:Math.abs(el.x2-el.x1), h:Math.abs(el.y2-el.y1) };
+  }
+  if (el.type === 'text')     return { x:el.x, y:el.y, w:el.w||240, h:el.h||60 };
+  if (el.type === 'image')    return { x:el.x, y:el.y, w:el.w||200, h:el.h||150 };
+  if (el.type === 'richtext') return { x:el.x, y:el.y, w:el.w||300, h:el.h||150 };
+  return null;
+}
+
+/* ── Resize handles ── */
+function getHandles(bb) {
+  const {x,y,w,h} = bb;
+  return { tl:{x,y}, t:{x:x+w/2,y}, tr:{x:x+w,y},
+           r:{x:x+w,y:y+h/2}, br:{x:x+w,y:y+h},
+           b:{x:x+w/2,y:y+h}, bl:{x,y:y+h}, l:{x,y:y+h/2} };
+}
+
+/* Transform a world-space point into the element's local (un-rotated) coordinate space.
+   All handle/hit tests should use this to correctly handle rotated elements. */
+function localPoint(wx, wy, el) {
+  const rot = el.rotation || 0;
+  if (!rot) return { x: wx, y: wy };
+  const bb = elemBBox(el); if (!bb) return { x: wx, y: wy };
+  const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+  const dx = wx - cx, dy = wy - cy;
+  const cos = Math.cos(-rot), sin = Math.sin(-rot);
+  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+}
+
+function getResizeHandle(wx, wy) {
+  const thr = 9/vz;
+  /* Special case: both CS partner lines selected → allow endpoint handles on each axis */
+  if (selected.size === 2) {
+    const selArr = [...selected].map(id => all.find(e => e.id === id)).filter(Boolean);
+    if (selArr.length === 2 &&
+        selArr[0].type === 'shape' && selArr[0].shape === 'line' &&
+        selArr[0].csPartner === selArr[1].id) {
+      for (const el of selArr) {
+        const lp = localPoint(wx, wy, el);
+        if (Math.hypot(lp.x - el.x1, lp.y - el.y1) < thr) return { el, handle: 'p1' };
+        if (Math.hypot(lp.x - el.x2, lp.y - el.y2) < thr) return { el, handle: 'p2' };
+      }
+    }
+    return null;
+  }
+  /* Direct grab: CS axis endpoints accessible without prior selection */
+  if (selected.size === 0) {
+    for (const el of all) {
+      if (el.type !== 'shape' || el.shape !== 'line' || !el.csPartner) continue;
+      if (!all.find(e => e.id === el.csPartner)) continue;
+      const lp = localPoint(wx, wy, el);
+      if (Math.hypot(lp.x - el.x1, lp.y - el.y1) < thr) return { el, handle: 'p1', autoSelect: true };
+      if (Math.hypot(lp.x - el.x2, lp.y - el.y2) < thr) return { el, handle: 'p2', autoSelect: true };
+    }
+  }
+  if (selected.size !== 1) return null;
+  const id = [...selected][0];
+  const el = all.find(e => e.id === id); if (!el) return null;
+  const lp = localPoint(wx, wy, el);
+  /* Lines use actual endpoint + midpoint handles */
+  if (el.type === 'shape' && el.shape === 'line') {
+    if (Math.hypot(lp.x - el.x1, lp.y - el.y1) < thr) return { el, handle: 'p1' };
+    if (Math.hypot(lp.x - el.x2, lp.y - el.y2) < thr) return { el, handle: 'p2' };
+    const mx = (el.x1+el.x2)/2, my = (el.y1+el.y2)/2;
+    if (Math.hypot(lp.x - mx, lp.y - my) < thr) return { el, handle: 'pm' };
+    return null;
+  }
+  const bb = elemBBox(el); if (!bb) return null;
+  for (const [name, pos] of Object.entries(getHandles(bb)))
+    if (Math.hypot(lp.x - pos.x, lp.y - pos.y) < thr) return { el, handle: name };
+  return null;
+}
+
+function getRotateHandle(wx, wy) {
+  if (selected.size !== 1) return null;
+  const id = [...selected][0];
+  const el = all.find(e => e.id === id); if (!el) return null;
+  const bb = elemBBox(el); if (!bb) return null;
+  const sp = ts(bb.x, bb.y);
+  const cx_s = sp.x + bb.w * vz / 2;
+  const cy_s = sp.y + bb.h * vz / 2;
+  /* Rotation handle is 26px above top-center of bbox in screen space, then rotated */
+  const dy_unrec = sp.y - 5 - 26 - cy_s;
+  const rot = el.rotation || 0;
+  const rhxS = cx_s - dy_unrec * Math.sin(rot);
+  const rhyS = cy_s + dy_unrec * Math.cos(rot);
+  const rhW = tw(rhxS, rhyS);
+  if (Math.hypot(wx - rhW.x, wy - rhW.y) < 10/vz) return el;
+  return null;
+}
+
+/* Convert visual (world) endpoint positions → local element coordinates.
+   Visual midpoint = local midpoint always; local halfvec = InvRotate(visual halfvec, rot). */
+function applyResizeLine(wx, wy) {
+  const el = resizeEl, s = resizeSnap, h = resizeHandle;
+  const rot = el.rotation || 0;
+  /* CS axes: midpoint (= intersection O) must stay fixed while moving p1/p2 */
+  const lk = el.csPartner ? new Set([...lineLockedHandles, 'pm']) : lineLockedHandles;
+  const ic = Math.cos(-rot), is = Math.sin(-rot);
+  /* lhvec = InvRotate(world halfvec): lhx=hx*ic-hy*is, lhy=hx*is+hy*ic
+     local p1 = midpoint - lhvec,  local p2 = midpoint + lhvec */
+  function setVisual(W1x, W1y, W2x, W2y) {
+    const mlx=(W1x+W2x)/2, mly=(W1y+W2y)/2;
+    const hx=(W2x-W1x)/2, hy=(W2y-W1y)/2;
+    const lhx=hx*ic-hy*is, lhy=hx*is+hy*ic;
+    el.x1=mlx-lhx; el.y1=mly-lhy; el.x2=mlx+lhx; el.y2=mly+lhy;
+  }
+  if (h === 'pm') {
+    if (lk.has('pm')) return;
+    const dx=wx-s.wm.x, dy=wy-s.wm.y;
+    setVisual(s.w1.x+dx,s.w1.y+dy, s.w2.x+dx,s.w2.y+dy);
+  } else if (h === 'p1') {
+    if (lk.has('p1')) return;
+    if (lk.has('p2') && lk.has('pm')) {
+      const dx=s.w1.x-s.w2.x, dy=s.w1.y-s.w2.y, len=Math.hypot(dx,dy);
+      if (len<0.001) return;
+      const t=((wx-s.w2.x)*dx+(wy-s.w2.y)*dy)/(len*len);
+      setVisual(s.w2.x+dx*t,s.w2.y+dy*t, s.w2.x,s.w2.y);
+    } else if (lk.has('pm')) {
+      setVisual(wx,wy, 2*s.wm.x-wx,2*s.wm.y-wy);
+    } else {
+      setVisual(wx,wy, s.w2.x,s.w2.y);
+    }
+  } else if (h === 'p2') {
+    if (lk.has('p2')) return;
+    if (lk.has('p1') && lk.has('pm')) {
+      const dx=s.w2.x-s.w1.x, dy=s.w2.y-s.w1.y, len=Math.hypot(dx,dy);
+      if (len<0.001) return;
+      const t=((wx-s.w1.x)*dx+(wy-s.w1.y)*dy)/(len*len);
+      setVisual(s.w1.x,s.w1.y, s.w1.x+dx*t,s.w1.y+dy*t);
+    } else if (lk.has('pm')) {
+      setVisual(2*s.wm.x-wx,2*s.wm.y-wy, wx,wy);
+    } else {
+      setVisual(s.w1.x,s.w1.y, wx,wy);
+    }
+  }
+}
+
+function applyResize(wx, wy) {
+  const el = resizeEl, s = resizeSnap, h = resizeHandle;
+  if (el.type === 'shape') {
+    if (el.shape !== 'line') { /* lines handled by applyResizeLine */
+      let {x1,y1,x2,y2} = s;
+      if (h.includes('l')) x1 = Math.min(wx, s.x2 - 2);
+      if (h.includes('r')) x2 = Math.max(wx, s.x1 + 2);
+      if (h.includes('t')) y1 = Math.min(wy, s.y2 - 2);
+      if (h.includes('b')) y2 = Math.max(wy, s.y1 + 2);
+      el.x1=x1; el.y1=y1; el.x2=x2; el.y2=y2;
+    }
+  } else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') {
+    let {x, y, w, h: ht} = s;
+    if (h.includes('r')) w = Math.max(20, wx - x);
+    if (h.includes('b')) ht = Math.max(20, wy - y);
+    if (h.includes('l')) { w = Math.max(20, s.x + s.w - wx); x = s.x + s.w - w; }
+    if (h.includes('t')) { ht = Math.max(20, s.y + s.h - wy); y = s.y + s.h - ht; }
+    el.x=x; el.y=y; el.w=w; el.h=ht;
+  } else if (el.type === 'stroke') {
+    const bb = {x:s.x, y:s.y, w:s.w, h:s.h};
+    let nx=bb.x, ny=bb.y, nw=bb.w, nh=bb.h;
+    if (h.includes('l')) { nx=wx; nw=Math.max(2, bb.x+bb.w-wx); }
+    if (h.includes('r')) nw = Math.max(2, wx - bb.x);
+    if (h.includes('t')) { ny=wy; nh=Math.max(2, bb.y+bb.h-wy); }
+    if (h.includes('b')) nh = Math.max(2, wy - bb.y);
+    el.pts = s.pts.map(p => {
+      if (p.x == null || !isFinite(p.x)) return { x: null, y: null };
+      return {
+        x: bb.w>0 ? nx + (p.x - bb.x) * nw / bb.w : nx,
+        y: bb.h>0 ? ny + (p.y - bb.y) * nh / bb.h : ny
+      };
+    });
+  }
+}
+
+function hitTest(el, wx, wy) {
+  const r = Math.max(6, 8) / vz;
+  /* Un-rotate the test point into the element's local space */
+  const lp = localPoint(wx, wy, el);
+  const lx = lp.x, ly = lp.y;
+  if (el.type === 'stroke') {
+    if (!el.pts) return false;
+    return el.pts.some(p => p.x != null && isFinite(p.x) && Math.hypot(p.x - lx, p.y - ly) < r + (el.size||3)/2);
+  }
+  if (el.type === 'shape') {
+    if (el.shape === 'line') {
+      const dx=el.x2-el.x1, dy=el.y2-el.y1, len=Math.hypot(dx,dy);
+      if (len === 0) return false;
+      const t = Math.max(0, Math.min(1, ((lx-el.x1)*dx + (ly-el.y1)*dy) / (len*len)));
+      return Math.hypot(lx-el.x1-t*dx, ly-el.y1-t*dy) < r + (el.size||2);
+    }
+    const bb = elemBBox(el);
+    return bb && lx >= bb.x && ly >= bb.y && lx <= bb.x+bb.w && ly <= bb.y+bb.h;
+  }
+  if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') {
+    const bb = elemBBox(el);
+    return bb && lx >= bb.x && ly >= bb.y && lx <= bb.x+bb.w && ly <= bb.y+bb.h;
+  }
+  return false;
+}
+
+function getElemAt(wx, wy) {
+  for (let i = all.length - 1; i >= 0; i--) if (hitTest(all[i], wx, wy)) return all[i];
+  return null;
+}
+
+/* Elements fully inside a rubber-band rectangle (screen coords) */
+function elemsInRect(sx1, sy1, sx2, sy2) {
+  const x0=Math.min(sx1,sx2), y0=Math.min(sy1,sy2);
+  const x1=Math.max(sx1,sx2), y1=Math.max(sy1,sy2);
+  return all.filter(el => {
+    const bb = elemBBox(el); if (!bb) return false;
+    const sp = ts(bb.x, bb.y);
+    return sp.x >= x0 && sp.y >= y0 && sp.x + bb.w*vz <= x1 && sp.y + bb.h*vz <= y1;
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// §13  TEXT EDITOR
+// ══════════════════════════════════════════════════════════
+const ted = document.getElementById('ted');
+let tedEl  = null;   // text element being edited
+let tedNew = false;  // true if element is brand-new (not yet in backend)
+
+function updateTedStyle() {
+  if (!tedEl) return;
+  ted.style.fontSize      = (tedEl.fontSize || textFontSize) * vz + 'px';
+  ted.style.fontWeight    = (tedEl.bold      || textBold)      ? 'bold'      : 'normal';
+  ted.style.fontStyle     = (tedEl.italic    || textItalic)    ? 'italic'    : 'normal';
+  ted.style.textDecoration= (tedEl.underline || textUnderline) ? 'underline' : 'none';
+  ted.style.color         = tedEl.color || textColor;
+}
+
+function openTextEditor(el, isNew) {
+  tedEl = el; tedNew = isNew;
+  const sp = ts(el.x, el.y);
+  const wrap = document.getElementById('ted-wrap');
+  wrap.style.left   = (sp.x + 56) + 'px';   /* 56px = sidebar width */
+  wrap.style.top    = sp.y + 'px';
+  wrap.style.width  = (el.w || textBoxW) * vz + 'px';
+  wrap.style.height = 'auto';
+  updateTedStyle();
+  ted.value = el.text || '';
+  ted.style.height = 'auto';
+  ted.style.height = ted.scrollHeight + 'px';
+  wrap.style.display = 'block';
+  requestAnimationFrame(() => ted.focus());
+}
+
+function commitTextEdit() {
+  if (!tedEl) return;
+  document.getElementById('ted-wrap').style.display = 'none';
+  const text = ted.value.trim();
+  const _tedEl = tedEl, _tedNew = tedNew;
+  tedEl = null; tedNew = false;
+  if (!text) {
+    all = all.filter(e => e !== _tedEl);
+    if (!_tedNew) wsSend({ type: 'erase_stroke', id: _tedEl.id });
+  } else {
+    _tedEl.text = text;
+    _tedEl.h = Math.ceil(ted.scrollHeight / vz) + 10;
+    if (_tedNew) {
+      wsSend({ type: 'stroke', data: _tedEl });
+    } else {
+      wsSend({ type: 'erase_stroke', id: _tedEl.id });
+      setTimeout(() => wsSend({ type: 'stroke', data: _tedEl }), 40);
+    }
+  }
+  redraw();
+}
+
+ted.addEventListener('blur', () => setTimeout(commitTextEdit, 120));
+ted.addEventListener('keydown', e => {
+  if (e.key === 'Escape')                   { e.preventDefault(); ted.blur(); }
+  if (e.key === 'Enter' && e.ctrlKey)       { e.preventDefault(); ted.blur(); }
+  e.stopPropagation();
+});
+ted.addEventListener('input', () => { ted.style.height = 'auto'; ted.style.height = ted.scrollHeight + 'px'; });
+
+// ══════════════════════════════════════════════════════════
+// §14  POINTER HELPERS
+// ══════════════════════════════════════════════════════════
+function gp(e) {
+  const r = cv.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX - r.left, y: t.clientY - r.top };
+}
+
+// ══════════════════════════════════════════════════════════
+// §15  MOUSE / TOUCH EVENTS
+// ══════════════════════════════════════════════════════════
+let drawing = false, panning = false, panSt = null, spDown = false;
+
+function onDown(e) {
+  commitTextEdit();
+
+  /* RMB / Space / Middle → pan */
+  if (e.button === 2 || e.button === 1 || (e.button === 0 && spDown)) {
+    panning = true; panSt = gp(e); cv.style.cursor = 'grabbing'; e.preventDefault(); return;
+  }
+  if (e.button !== 0) return;
+  e.preventDefault();
+
+  const p = gp(e), w = tw(p.x, p.y);
+
+  /* ── Select ── */
+  if (tool === 'select') {
+    /* check rotation handle first */
+    const rot = getRotateHandle(w.x, w.y);
+    if (rot) {
+      addToUndo();
+      rotating = true; rotateEl = rot;
+      const bb = elemBBox(rot);
+      const c = ts(bb.x + bb.w/2, bb.y + bb.h/2);
+      rotateCenter = c;
+      rotateStartAngle = Math.atan2(p.y - c.y, p.x - c.x) - (rot.rotation || 0);
+      rotateMoved = false;
+      cv.style.cursor = 'grab'; return;
+    }
+    /* check resize handles */
+    const rh = getResizeHandle(w.x, w.y);
+    if (rh) {
+      /* Direct CS endpoint grab: auto-select both axes first */
+      if (rh.autoSelect) {
+        selected.clear(); lineLockedHandles.clear(); sbLineOrder = 0;
+        selected.add(rh.el.id);
+        const _csP = all.find(e => e.id === rh.el.csPartner);
+        if (_csP) selected.add(_csP.id);
+        updateSelBar(); redraw();
+      }
+      addToUndo();
+      resizing = true; resizeHandle = rh.handle; resizeEl = rh.el;
+      const el = rh.el;
+      /* Normalize rect/ellipse coords (x1≤x2, y1≤y2) to fix backward-drawn shapes */
+      if (el.type === 'shape' && el.shape !== 'line') {
+        const nx1=Math.min(el.x1,el.x2), ny1=Math.min(el.y1,el.y2);
+        const nx2=Math.max(el.x1,el.x2), ny2=Math.max(el.y1,el.y2);
+        el.x1=nx1; el.y1=ny1; el.x2=nx2; el.y2=ny2;
+      }
+      const bb = elemBBox(el);
+      if (el.type === 'shape' && el.shape === 'line') {
+        /* Store visual (world) positions so constraint logic works after rotation */
+        const rot=el.rotation||0, cos=Math.cos(rot), sin=Math.sin(rot);
+        const mlx=(el.x1+el.x2)/2, mly=(el.y1+el.y2)/2;
+        const hx=(el.x2-el.x1)/2, hy=(el.y2-el.y1)/2;
+        const rhx=hx*cos-hy*sin, rhy=hx*sin+hy*cos;
+        resizeSnap = { x1:el.x1,y1:el.y1,x2:el.x2,y2:el.y2,
+          wm:{x:mlx,y:mly}, w1:{x:mlx-rhx,y:mly-rhy}, w2:{x:mlx+rhx,y:mly+rhy} };
+      } else {
+        resizeSnap = el.type === 'stroke'
+          ? { ...bb, pts: el.pts.map(p=>({...p})) }
+          : el.type === 'shape' ? { x1:el.x1, y1:el.y1, x2:el.x2, y2:el.y2 }
+          : { x:el.x, y:el.y, w:el.w, h:el.h };
+      }
+      return;
+    }
+    const el = getElemAt(w.x, w.y);
+    if (el) {
+      if (!e.shiftKey && !selected.has(el.id)) { selected.clear(); lineLockedHandles.clear(); sbLineOrder=0; }
+      selected.add(el.id);
+      /* CS unified: clicking one axis auto-selects its partner */
+      if (el.csPartner) { const _csP=all.find(e=>e.id===el.csPartner); if(_csP) selected.add(_csP.id); }
+      addToUndo();
+      dragging = true; dragOrigin = { x: w.x, y: w.y }; dragMoved = false; snapPositions();
+      cv.style.cursor = 'move';
+    } else if (selected.size > 0 && !e.shiftKey && isInSelBox(w.x, w.y)) {
+      /* Click anywhere inside the selection highlight area starts a drag */
+      addToUndo();
+      dragging = true; dragOrigin = { x: w.x, y: w.y }; dragMoved = false; snapPositions();
+      cv.style.cursor = 'move';
+    } else {
+      if (!e.shiftKey) { selected.clear(); lineLockedHandles.clear(); sbLineOrder=0; }
+      selBox = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+    }
+    updateSelBar(); redraw(); return;
+  }
+
+  /* ── Eraser ── */
+  if (tool === 'erase') { addToUndo(); drawing = true; eraseAt(p.x, p.y); return; }
+
+  /* ── Pen ── */
+  if (tool === 'pen') {
+    addToUndo();
+    drawing = true;
+    cur = { id: gid(), type: 'stroke', user_id: myId, color: penColor, size: penSize, pts: [w] };
+    return;
+  }
+
+  /* ── Geometry ── */
+  if (tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') {
+    addToUndo();
+    drawing = true;
+    cur = { id: gid(), type: 'shape', user_id: myId,
+            shape: tool.replace('geo_',''), color: geoColor, size: geoSize, dash: geoDash,
+            arrow: tool === 'geo_line' ? geoArrow : undefined,
+            x1: w.x, y1: w.y, x2: w.x, y2: w.y };
+    return;
+  }
+
+  /* ── Text ── */
+  if (tool === 'text') {
+    const existing = getElemAt(w.x, w.y);
+    if (existing && existing.type === 'text') { openTextEditor(existing, false); return; }
+    /* drag-to-define: start a temporary outline box */
+    drawing = true;
+    cur = { id: gid(), type: 'text', user_id: myId,
+            x: w.x, y: w.y, w: 10, h: 10, text: '',
+            color: textColor, fontSize: textFontSize,
+            bold: textBold, italic: textItalic, underline: textUnderline,
+            _drag: true };
+  }
+}
+
+function onMove(e) {
+  e.preventDefault();
+  /* If mouse button was released outside canvas, clean up stale drag/rotate/pan state */
+  if (!(e.buttons & 1) && (dragging || rotating || resizing)) {
+    if (dragging)  { dragging  = false; dragOrigin  = null; if (dragMoved)   commitDrag();   dragMoved   = false; }
+    if (rotating)  { rotating  = false; rotateCenter= null; rotateMoved = false; rotateEl = null; }
+    if (resizing)  { resizing  = false; resizeEl = null; resizeHandle = null; resizeSnap = null; }
+    cv.style.cursor = 'default'; redraw(); return;
+  }
+  if (!(e.buttons & 2) && panning) { panning = false; panSt = null; cv.style.cursor = 'default'; }
+  const p = gp(e), w = tw(p.x, p.y);
+  if (tool === 'pen' || tool === 'erase') { cursorPos = p; if (!drawing && !panning) { redraw(); return; } }
+
+  if (panning && panSt) { vx += p.x - panSt.x; vy += p.y - panSt.y; panSt = p; redraw(); return; }
+
+  if (tool === 'select') {
+    if (rotating && rotateEl && rotateCenter) {
+      const angle = Math.atan2(p.y - rotateCenter.y, p.x - rotateCenter.x);
+      rotateEl.rotation = angle - rotateStartAngle;
+      rotateMoved = true;
+      cv.style.cursor = 'grabbing'; redraw(); return;
+    }
+    if (resizing) {
+      if (resizeEl.type==='shape' && resizeEl.shape==='line') { applyResizeLine(w.x,w.y); }
+      else { const lp=localPoint(w.x,w.y,resizeEl); applyResize(lp.x,lp.y); }
+      redraw(); return;
+    }
+    if (dragging && dragOrigin) { applyDrag(w.x - dragOrigin.x, w.y - dragOrigin.y); redraw(); return; }
+    if (selBox) { selBox.x2 = p.x; selBox.y2 = p.y; redraw(); return; }
+    /* update cursor for handle hover */
+    const rh = getResizeHandle(w.x, w.y);
+    if (rh) {
+      const RC = {tl:'nwse-resize',t:'ns-resize',tr:'nesw-resize',r:'ew-resize',
+                  br:'nwse-resize',b:'ns-resize',bl:'nesw-resize',l:'ew-resize',
+                  p1:'crosshair',p2:'crosshair',pm:'move'};
+      const isLkd = rh.el.type==='shape' && rh.el.shape==='line' && lineLockedHandles.has(rh.handle);
+      cv.style.cursor = isLkd ? 'pointer' : (RC[rh.handle] || 'default');
+    } else {
+      const hovEl = getElemAt(w.x, w.y);
+      cv.style.cursor = (hovEl || (selected.size > 0 && isInSelBox(w.x, w.y))) ? 'move' : 'default';
+    }
+    updateCSHoverAxis(w.x, w.y);
+    return;
+  }
+
+  /* track which CS axis mouse is near (for scroll-on-tick) */
+  updateCSHoverAxis(w.x, w.y);
+
+  if (!drawing) return;
+  if (tool === 'erase') { eraseAt(p.x, p.y); redraw(); return; }
+  if (tool === 'text' && cur?._drag) {
+    cur.w = Math.max(30, w.x - cur.x); cur.h = Math.max(20, w.y - cur.y); redraw(); return;
+  }
+  if (tool === 'pen' && cur) {
+    if (e.shiftKey) {
+      cur.pts = [cur.pts[0], w]; // Shift: прямая линия — только начало + текущая точка
+    } else {
+      cur.pts.push(w);
+    }
+    redraw(); return;
+  }
+  if ((tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') && cur) {
+    cur.x2 = w.x; cur.y2 = w.y;
+    /* Shift = constrain proportions */
+    if (e.shiftKey) {
+      const dx = cur.x2 - cur.x1, dy = cur.y2 - cur.y1;
+      const sz = Math.max(Math.abs(dx), Math.abs(dy));
+      cur.x2 = cur.x1 + Math.sign(dx) * sz;
+      cur.y2 = cur.y1 + Math.sign(dy) * sz;
+    }
+    redraw();
+  }
+}
+
+function onUp(e) {
+  if (panning) {
+    panning = false; panSt = null;
+    cv.style.cursor = tool === 'select' ? 'default' : 'crosshair'; return;
+  }
+
+  if (tool === 'select') {
+    if (rotating) {
+      rotating = false;
+      if (rotateEl && rotateMoved) {
+        const _rotEl = rotateEl;
+        wsSend({ type: 'erase_stroke', id: _rotEl.id });
+        setTimeout(() => wsSend({ type: 'stroke', data: _rotEl }), 40);
+      } else {
+        undoStack.pop(); // no actual rotation — discard snapshot
+      }
+      rotateEl = null; rotateCenter = null;
+      cv.style.cursor = 'default'; redraw(); return;
+    }
+    if (resizing) {
+      resizing = false;
+      const _resEl = resizeEl, _s = resizeSnap, _h = resizeHandle;
+      /* Line: check if element actually changed (click = toggle lock, drag = commit) */
+      const unchanged = _resEl.type === 'shape'
+        ? (_resEl.x1 === _s.x1 && _resEl.y1 === _s.y1 && _resEl.x2 === _s.x2 && _resEl.y2 === _s.y2)
+        : false;
+      if (_resEl.type === 'shape' && _resEl.shape === 'line' && unchanged) {
+        undoStack.pop(); // click = toggle lock, not a real resize
+        lineLockedHandles.has(_h) ? lineLockedHandles.delete(_h) : lineLockedHandles.add(_h);
+      } else {
+        wsSend({ type: 'erase_stroke', id: _resEl.id });
+        setTimeout(() => wsSend({ type: 'stroke', data: _resEl }), 40);
+        /* Refresh CS panel if a CS axis endpoint was dragged */
+        if (_resEl.csPartner) {
+          const _csPartner = all.find(e => e.id === _resEl.csPartner);
+          if (_csPartner) setTimeout(() => updateCSPanels(_resEl, _csPartner), 60);
+        }
+      }
+      resizeEl = null; resizeHandle = null; resizeSnap = null;
+      cv.style.cursor = 'default'; redraw(); return;
+    }
+    if (dragging) {
+      dragging = false; dragOrigin = null;
+      if (dragMoved) commitDrag();
+      else undoStack.pop(); // no movement — discard snapshot
+      cv.style.cursor = 'default';
+    }
+    if (selBox) {
+      const found = elemsInRect(selBox.x1, selBox.y1, selBox.x2, selBox.y2);
+      if (!e?.shiftKey) selected.clear();
+      found.forEach(el => selected.add(el.id));
+      /* CS unified: rubber-band selection also adds CS partners */
+      found.forEach(el => { if (el.csPartner) { const p=all.find(e=>e.id===el.csPartner); if(p) selected.add(p.id); } });
+      selBox = null; updateSelBar();
+    }
+    redraw(); return;
+  }
+
+  if (!drawing) return; drawing = false;
+
+  /* ── Text drag finalize ── */
+  if (tool === 'text' && cur?._drag) {
+    addToUndo(); // snapshot before adding text element
+    delete cur._drag;
+    if (cur.w < 40) cur.w = textBoxW;
+    if (cur.h < 30) cur.h = 60;
+    all.push(cur);
+    openTextEditor(cur, true);
+    cur = null; return;
+  }
+
+  if (tool === 'pen' && cur && cur.pts.length >= 2) {
+    all.push(cur); wsSend({ type: 'stroke', data: cur });
+  }
+  if ((tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') && cur) {
+    if (Math.abs(cur.x2 - cur.x1) > 1 || Math.abs(cur.y2 - cur.y1) > 1) {
+      all.push(cur); wsSend({ type: 'stroke', data: cur });
+    }
+  }
+  cur = null; redraw();
+}
+
+function eraseAt(sx, sy) {
+  const w = tw(sx, sy);
+  const r = (penSize + 6) / vz;
+  for (let i = all.length - 1; i >= 0; i--) {
+    const el = all[i];
+    const hit = hitTest(el, w.x, w.y) ||
+                (el.type === 'stroke' && el.pts?.some(p => Math.hypot(p.x-w.x, p.y-w.y) < r));
+    if (hit) { wsSend({ type: 'erase_stroke', id: el.id }); all.splice(i, 1); return; }
+  }
+}
+
+cv.addEventListener('mousedown',  onDown);
+cv.addEventListener('mousemove',  onMove);
+cv.addEventListener('mouseup',    onUp);
+cv.addEventListener('mouseleave', e => { cursorPos = null; redraw(); });
+/* Catch mouse-up outside canvas so dragging/panning state doesn't go stale */
+document.addEventListener('mouseup', e => {
+  if (dragging || panning || resizing || rotating) onUp(e);
+});
+cv.addEventListener('contextmenu', e => e.preventDefault());
+/* Double-click: select CS parallelogram, or open text editor */
+cv.addEventListener('dblclick', e => {
+  if (tool !== 'select') return;
+  const p = gp(e), w = tw(p.x, p.y);
+  /* Check CS parallelogram hit first — select both CS axes */
+  const csPair = csParallelogramAt(w.x, w.y);
+  if (csPair) {
+    e.preventDefault();
+    selected.clear(); lineLockedHandles.clear(); sbLineOrder = 0;
+    selected.add(csPair.la.id); selected.add(csPair.lb.id);
+    updateSelBar(); redraw(); return;
+  }
+  const el = getElemAt(w.x, w.y);
+  if (el && el.type === 'text') { e.preventDefault(); addToUndo(); openTextEditor(el, false); }
+});
+
+/* Touch */
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 1) onDown({ button:0, ...e, touches: e.touches });
+  else { panning = true; panSt = gp(e); }
+}, { passive: false });
+cv.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, { passive: false });
+cv.addEventListener('touchend',   e => { e.preventDefault(); onUp(e);   });
+
+/* ─── CS axis near-mouse detection (for scroll-on-tick) ─── */
+let csHoverAxis = null;  // {el} of CS axis closest to mouse, or null
+function updateCSHoverAxis(wx, wy) {
+  const DIST_THRESH = 18 / vz;  // world units
+  let best = null, bestD = DIST_THRESH;
+  const seen = new Set();
+  for (const el of all) {
+    if (!el.csPartner) continue;
+    const key = el.id < el.csPartner ? el.id+':'+el.csPartner : el.csPartner+':'+el.id;
+    if (seen.has(key)) continue; seen.add(key);
+    // project mouse onto this line segment
+    const vp = getVisualPts(el);
+    const dx=vp.p2.x-vp.p1.x, dy=vp.p2.y-vp.p1.y;
+    const len2=dx*dx+dy*dy; if(len2<1e-9) continue;
+    const t=Math.max(0,Math.min(1,((wx-vp.p1.x)*dx+(wy-vp.p1.y)*dy)/len2));
+    const px=vp.p1.x+t*dx-wx, py=vp.p1.y+t*dy-wy;
+    const d=Math.hypot(px,py);
+    if(d<bestD){ bestD=d; best=el; }
+    // also check partner
+    const partner=all.find(e=>e.id===el.csPartner); if(!partner) continue;
+    const vp2=getVisualPts(partner);
+    const dx2=vp2.p2.x-vp2.p1.x, dy2=vp2.p2.y-vp2.p1.y;
+    const len22=dx2*dx2+dy2*dy2; if(len22<1e-9) continue;
+    const t2=Math.max(0,Math.min(1,((wx-vp2.p1.x)*dx2+(wy-vp2.p1.y)*dy2)/len22));
+    const px2=vp2.p1.x+t2*dx2-wx, py2=vp2.p1.y+t2*dy2-wy;
+    const d2=Math.hypot(px2,py2);
+    if(d2<bestD){ bestD=d2; best=partner; }
+  }
+  csHoverAxis=best;
+}
+
+/* Snap tick step to a nice value: 0.1,0.2,0.5,1,2,5,10,20,50… */
+function snapTickStep(v, up) {
+  const NICE=[0.1,0.2,0.25,0.5,1,2,5,10,20,50,100];
+  if (up) {
+    for(const n of NICE) if(n>v+1e-9) return n;
+    return v*2;
+  } else {
+    for(let i=NICE.length-1;i>=0;i--) if(NICE[i]<v-1e-9) return NICE[i];
+    return Math.max(0.01, v/2);
+  }
+}
+
+/* Snap CS range to a nice value: 0.5,1,2,5,10,20,50,100,200,500,1000…
+   up=true → more units visible (zoom out), up=false → fewer (zoom in) */
+function snapRange(v, up) {
+  const NICE=[0.5,1,2,5,10,20,50,100,200,500,1000,2000,5000];
+  if (up) {
+    for(const n of NICE) if(n>v+1e-9) return n;
+    return v*2;
+  } else {
+    for(let i=NICE.length-1;i>=0;i--) if(NICE[i]<v-1e-9) return NICE[i];
+    return Math.max(0.1, v/2);
+  }
+}
+
+/* Wheel = zoom, OR adjust CS range (density) when hovering a CS axis */
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (csHoverAxis) {
+    /* Scroll on CS axis → adjust range (zoom in/out on axis scale)
+       scroll up (deltaY<0) = zoom in = fewer units visible = smaller range
+       scroll down (deltaY>0) = zoom out = more units visible = larger range */
+    const ax = csHoverAxis;
+    const hl = Math.hypot((ax.x2-ax.x1)/2, (ax.y2-ax.y1)/2);
+    const curRange = hl / (ax.csScale || 50);
+    const zoomOut = e.deltaY > 0;  // scroll down = more units visible
+    const newRange = snapRange(curRange, zoomOut);
+    ax.csScale = hl / Math.max(0.001, newRange);
+    /* update panel if visible */
+    const panel = document.getElementById('csSetPanel');
+    if (panel.classList.contains('open')) {
+      const partner = all.find(e=>e.id===ax.csPartner);
+      if (partner) {
+        const la = ax.csPartner === partner.id ? ax : partner;
+        const lb = la===ax ? partner : ax;
+        updateCSPanels(la, lb);
+      }
+    }
+    wsSend({type:'erase_stroke',id:ax.id});
+    setTimeout(()=>wsSend({type:'stroke',data:ax}),40);
+    redraw();
+  } else {
+    /* Normal global zoom */
+    const p=gp(e), d=e.deltaY>0?0.9:1.1;
+    const nz=Math.max(0.05,Math.min(20,vz*d));
+    vx=p.x-(p.x-vx)*nz/vz; vy=p.y-(p.y-vy)*nz/vz; vz=nz; redraw();
+  }
+}, { passive: false });
+
+// ══════════════════════════════════════════════════════════
+// §16  KEYBOARD
+// ══════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target === ted) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  if (e.code === 'Space') { e.preventDefault(); spDown = true; if (!drawing) cv.style.cursor = 'grab'; return; }
+
+  const k = e.key.toLowerCase();
+
+  /* ESC — закрыть пикер / сбросить выделение */
+  if (k === 'escape') {
+    e.preventDefault();
+    if (geoPicking) { hideGeoPicker(); return; }
+    commitTextEdit(); clearSel(); setTool('select'); return;
+  }
+
+  /* ── Навигация в геопикере ── */
+  if (geoPicking) {
+    if (k === 'arrowdown' || k === 'arrowright') { geoPickIdx = (geoPickIdx+1) % 3; updateGeoPickerHighlight(); e.preventDefault(); return; }
+    if (k === 'arrowup'   || k === 'arrowleft')  { geoPickIdx = (geoPickIdx+2) % 3; updateGeoPickerHighlight(); e.preventDefault(); return; }
+    if (k === 'enter') { setTool(GEO_TOOLS[geoPickIdx]); hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 'l' || k === 'д') { geoPickIdx=0; setTool('geo_line');    hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 'r' || k === 'к') { geoPickIdx=1; setTool('geo_rect');    hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 'c' || k === 'с') { geoPickIdx=2; setTool('geo_ellipse'); hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 'g' || k === 'п') { hideGeoPicker(); e.preventDefault(); return; }
+    e.preventDefault(); return; // поглощаем все клавиши пока пикер открыт
+  }
+
+  /* ── R: отслеживать зажатие для горячих клавиш вращения ──
+     Ставим ДО Ctrl-блока чтобы Ctrl+Arrow работало для точного вращения */
+  if (k === 'r' || k === 'к') { rKeyDown = true; e.preventDefault(); return; }
+
+  /* ── R + стрелки/AD → вращение выделения ── */
+  if (rKeyDown && selected.size >= 1) {
+    const isLeft  = k === 'arrowleft'  || k === 'a' || k === 'ф';
+    const isRight = k === 'arrowright' || k === 'd' || k === 'в';
+    if (isLeft || isRight) {
+      e.preventDefault();
+      /* Shift=15°, Ctrl=0.5°, иначе 2° */
+      const step = e.shiftKey ? 15*Math.PI/180 : e.ctrlKey ? 0.5*Math.PI/180 : 2*Math.PI/180;
+      const da   = isLeft ? -step : step;
+      if (selected.size === 1) {
+        /* Одиночное: вращать на месте */
+        const el = all.find(x => x.id === [...selected][0]);
+        if (el) {
+          el.rotation = (el.rotation || 0) + da;
+          wsSend({ type: 'erase_stroke', id: el.id });
+          setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
+          redraw();
+        }
+      } else {
+        /* Группа: вращать всё вокруг общего центра bbox */
+        let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+        for (const id of selected) {
+          const el = all.find(x => x.id === id); if (!el) continue;
+          const bb = elemBBox(el); if (!bb) continue;
+          minX=Math.min(minX,bb.x); minY=Math.min(minY,bb.y);
+          maxX=Math.max(maxX,bb.x+bb.w); maxY=Math.max(maxY,bb.y+bb.h);
+        }
+        const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+        for (const id of selected) {
+          const el = all.find(x => x.id === id); if (!el) continue;
+          rotateElementAround(el, cx, cy, da);
+          wsSend({ type: 'erase_stroke', id: el.id });
+          setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
+        }
+        redraw();
+      }
+      return;
+    }
+  }
+
+  /* ── Ctrl / Meta комбинации — ПОСЛЕ R-блока чтобы Ctrl+Arrow работал ── */
+  if (e.ctrlKey || e.metaKey) {
+    if (e.code === 'KeyZ') { e.preventDefault(); doUndo(); return; }
+    if (e.code === 'KeyC') { e.preventDefault(); doCopy(); return; }
+    if (e.code === 'KeyX') { e.preventDefault(); doCut();  return; }
+    /* Ctrl+V is handled by document 'paste' event listener */
+    return; // остальные Ctrl+key не пробрасываем как инструменты
+  }
+
+  /* ── Инструменты (только без Ctrl/Meta) ── */
+  if (k === 'v' || k === 'м')      { setTool('select');  return; }
+  if (k === 'p' || k === 'з')      { setTool('pen');     return; }
+  if (k === 'e' || k === 'у')      { setTool('erase');   return; }
+  if (k === 'i' || k === 'ш')      { openMediaPicker(); return; }
+  if (k === 'g' || k === 'п')      { showGeoPicker();   return; }
+  if (k === 't' || k === 'е')      { setTool('text');   return; }
+
+  /* ── Удалить выделенное ── */
+  if ((k === 'delete' || k === 'backspace') && selected.size) {
+    addToUndo();
+    for (const id of selected) { all = all.filter(el => el.id !== id); wsSend({ type: 'erase_stroke', id }); }
+    clearSel(); redraw();
+  }
+});
+
+document.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spDown = false;
+    if (!panning) cv.style.cursor = tool === 'select' ? 'default' : 'crosshair';
+  }
+  const k = e.key.toLowerCase();
+  if (k === 'r' || k === 'к') rKeyDown = false;
+});
+
+// ══════════════════════════════════════════════════════════
+// §17  WEBSOCKET
+// ══════════════════════════════════════════════════════════
+const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const tok   = localStorage.getItem('token');
+let ws = null, rc = 0;
+
+function connect() {
+  ws = new WebSocket(`${proto}//${location.host}/ws/board/${SID}?token=${tok}`);
+  ws.onopen  = () => { document.getElementById('status').textContent = '✓'; rc = 0; ws.send(JSON.stringify({ type: 'load' })); };
+  ws.onclose = () => { document.getElementById('status').textContent = '⚠'; setTimeout(() => { rc++; if (rc < 30) connect(); }, 1000 * Math.min(rc+1, 5)); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if      (m.type === 'hello')        myId = m.user_id;
+    else if (m.type === 'strokes')      { all = m.data || []; redraw(); }
+    else if (m.type === 'stroke')       { all.push(m.data); redraw(); }
+    else if (m.type === 'clear')        { all = []; redraw(); }
+    else if (m.type === 'erase_stroke') { all = all.filter(s => s.id !== m.id); redraw(); }
+  };
+}
 connect();
 
-function eraseAt(sx,sy){
-    const w=tw(sx,sy);const r=12/vz;
-    for(let i=all.length-1;i>=0;i--){const s=all[i];
-        if(s.pts&&s.pts.some(p=>Math.hypot(p.x-w.x,p.y-w.y)<r+(s.size||3)/2)){
-            ws.send(JSON.stringify({type:'erase_stroke',id:s.id}));all.splice(i,1);redraw();return}}}
+function wsSend(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
 
-let spDown=false;
-function gp(e){const r=cv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top}}
+// ══════════════════════════════════════════════════════════
+// §18  ACTIONS
+// ══════════════════════════════════════════════════════════
+/* doUndo is defined in §8d above */
+function doClear() {
+  if (confirm('Очистить всю доску?')) {
+    addToUndo();
+    all = []; clearSel(); redraw(); wsSend({ type: 'clear' });
+  }
+}
 
-function onDown(e){
-    if(e.button===1||(e.button===0&&(spDown||tool==='move'))){
-        panning=true;panSt=gp(e);cv.style.cursor='grabbing';e.preventDefault();return}
-    if(e.button!==0)return;e.preventDefault();const p=gp(e);
-    if(tool==='erase'){drawing=true;eraseAt(p.x,p.y);return}
-    if(tool==='draw'){drawing=true;const wp=tw(p.x,p.y);
-        cur={id:gid(),user_id:myId,color:penColor,size:ps(),pts:[wp]}}}
-
-function onMove(e){
-    e.preventDefault();const p=gp(e);
-    if(panning&&panSt){vx+=p.x-panSt.x;vy+=p.y-panSt.y;panSt=p;redraw();return}
-    if(!drawing)return;
-    if(tool==='erase'){eraseAt(p.x,p.y);return}
-    if(tool==='draw'&&cur){cur.pts.push(tw(p.x,p.y));redraw()}}
-
-function onUp(){
-    if(panning){panning=false;panSt=null;cv.style.cursor=tool==='move'?'grab':tool==='draw'?'crosshair':'cell';return}
-    if(!drawing)return;drawing=false;
-    if(tool==='draw'&&cur&&cur.pts.length>=2){all.push(cur);ws.send(JSON.stringify({type:'stroke',data:cur}))}
-    cur=null;redraw()}
-
-cv.addEventListener('mousedown',onDown);cv.addEventListener('mousemove',onMove);
-cv.addEventListener('mouseup',onUp);cv.addEventListener('mouseleave',onUp);
-cv.addEventListener('contextmenu',e=>e.preventDefault());
-
-cv.addEventListener('touchstart',e=>{e.preventDefault();
-    if(e.touches.length===1){const p=gp(e);
-        if(tool==='erase'){drawing=true;eraseAt(p.x,p.y)}
-        else if(tool==='draw'){drawing=true;const wp=tw(p.x,p.y);cur={id:gid(),user_id:myId,color:penColor,size:ps(),pts:[wp]}}
-        else{panning=true;panSt=gp(e)}}},{passive:false});
-cv.addEventListener('touchmove',e=>{e.preventDefault();onMove(e)},{passive:false});
-cv.addEventListener('touchend',e=>{e.preventDefault();onUp()});
-
-cv.addEventListener('wheel',e=>{
-    e.preventDefault();const p=gp(e);
-    const d=e.deltaY>0?0.9:1.1;const nz=Math.max(0.05,Math.min(20,vz*d));
-    vx=p.x-(p.x-vx)*nz/vz;vy=p.y-(p.y-vy)*nz/vz;vz=nz;redraw()},{passive:false});
-
-document.addEventListener('keydown',e=>{
-    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
-    if(e.code==='Space'){e.preventDefault();spDown=true;if(!drawing)cv.style.cursor='grab'}
-    const k=e.key.toLowerCase();
-    if(k==='p'||k==='з')setTool('draw');
-    if(k==='e'||k==='у')setTool('erase');
-    if(k==='m'||k==='ь')setTool('move');
-    if(e.ctrlKey&&(k==='z'||k==='я')){e.preventDefault();doUndo()}});
-document.addEventListener('keyup',e=>{if(e.code==='Space'){spDown=false;cv.style.cursor=tool==='move'?'grab':tool==='draw'?'crosshair':'cell'}});
-
-function doUndo(){ws.send(JSON.stringify({type:'undo'}))}
-function doClear(){if(confirm('Очистить?'))ws.send(JSON.stringify({type:'clear'}))}
-
+// ══════════════════════════════════════════════════════════
+// §19  STARTUP
+// ══════════════════════════════════════════════════════════
 applyTheme();
-</script></body></html>
+resize();
+setTool('select');
+
+/* selBar: auto-hide on mouse leave with 600ms lag */
+(function() {
+  const bar = document.getElementById('selBar');
+  let t;
+  bar.addEventListener('mouseenter', () => clearTimeout(t));
+  bar.addEventListener('mouseleave', () => { t = setTimeout(() => bar.classList.remove('open'), 600); });
+})();
+
+/* ── Media: open file picker ── */
+function openMediaPicker() { document.getElementById('mediaInput').click(); }
+
+/* Process an image File/Blob: read as DataURL, create element on board */
+function processImageFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const src = ev.target.result;
+    const img = new Image();
+    img.onload = () => {
+      addToUndo();
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const maxW = 600, maxH = 500;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+      if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+      const pos = tw(W / 2, H / 2);
+      const el = { type: 'image', id: gid(), x: pos.x - w/2, y: pos.y - h/2, w, h, src };
+      imgSrcStore.set(el.id, src);
+      imgCache.set(el.id, { img, loaded: true });
+      all.push(el);
+      wsSend({ type: 'stroke', data: el });
+      selected.clear(); selected.add(el.id);
+      setTool('select');
+      redraw(); updateSelBar();
+    };
+    img.src = src;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* File input change → process selected image */
+document.getElementById('mediaInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) processImageFile(file);
+  e.target.value = '';
+});
+
+/* ── Paste event: image from clipboard, rich text, or board elements ── */
+document.addEventListener('paste', e => {
+  if (e.target === ted) return;
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+  const items = [...(e.clipboardData?.items || [])];
+
+  /* 1. Image (screenshot, Ctrl+C from image editor) */
+  const imgItem = items.find(i => i.kind === 'file' && i.type.startsWith('image/'));
+  if (imgItem) {
+    e.preventDefault();
+    const file = imgItem.getAsFile();
+    if (file) processImageFile(file);
+    return;
+  }
+
+  /* 2. HTML (formatted text from Word, browser, etc.) */
+  const htmlItem = items.find(i => i.type === 'text/html');
+  if (htmlItem) {
+    e.preventDefault();
+    htmlItem.getAsString(html => {
+      addToUndo();
+      const pos = tw(W / 2, H / 2);
+      const el = { type: 'richtext', id: gid(), x: pos.x - 150, y: pos.y - 60, w: 320, h: 180, html };
+      all.push(el);
+      wsSend({ type: 'stroke', data: el });
+      selected.clear(); selected.add(el.id);
+      redraw(); updateSelBar();
+    });
+    return;
+  }
+
+  /* 3. Board elements from clipboard */
+  if (clipboard.length) { e.preventDefault(); doPaste(); }
+});
+
+/* Draggable text editor */
+(function() {
+  const tedWrap = document.getElementById('ted-wrap');
+  const tedBar  = document.getElementById('ted-bar');
+  let tdrag = false, tdx = 0, tdy = 0, tlx = 0, tly = 0;
+  tedBar.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    tdrag = true;
+    tdx = e.clientX; tdy = e.clientY;
+    tlx = parseInt(tedWrap.style.left) || 0;
+    tly = parseInt(tedWrap.style.top)  || 0;
+  });
+  document.addEventListener('mousemove', e => {
+    if (!tdrag) return;
+    const nx = tlx + e.clientX - tdx, ny = tly + e.clientY - tdy;
+    tedWrap.style.left = nx + 'px'; tedWrap.style.top = ny + 'px';
+    /* sync world position of text element */
+    if (tedEl) { const wc = tw(nx - 56, ny); tedEl.x = wc.x; tedEl.y = wc.y; redraw(); }
+  });
+  document.addEventListener('mouseup', () => { tdrag = false; });
+})();
+
+/* JS-based submenu hover — reliable across gap + overlapping panels */
+document.querySelectorAll('.tw').forEach(tw => {
+  const sm = tw.querySelector('.sm');
+  let hideTimer;
+  const show = () => { clearTimeout(hideTimer); sm.style.display = 'flex'; };
+  const hide = () => { hideTimer = setTimeout(() => { sm.style.display = ''; }, 250); };
+  tw.addEventListener('mouseenter', show);
+  tw.addEventListener('mouseleave', hide);
+  sm.addEventListener('mouseenter', show);
+  sm.addEventListener('mouseleave', hide);
+});
+</script>
+</body>
+</html>

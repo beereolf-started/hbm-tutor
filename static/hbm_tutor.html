@@ -1,186 +1,680 @@
 <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HBM — Панель</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
-.top{background:#1e293b;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
-.top h1{font-size:1.1em}.top-r{display:flex;gap:12px;align-items:center}.top-r span{color:#94a3b8;font-size:.85em}
-.badge{background:#3b82f6;color:#fff;padding:2px 8px;border-radius:4px;font-size:.75em;font-weight:600}
-a,button.link{color:#60a5fa;text-decoration:none;background:none;border:none;cursor:pointer;font-size:.9em}
-a:hover,button.link:hover{text-decoration:underline}
-.wrap{max-width:900px;margin:0 auto;padding:24px}
-.tabs{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
-.tab{padding:8px 16px;border-radius:8px;background:#1e293b;border:1px solid #334155;cursor:pointer;font-size:.9em;color:#94a3b8}
-.tab.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
-.card{background:#1e293b;border-radius:12px;padding:20px;margin-bottom:12px;border:1px solid #334155}
-.card:hover{border-color:#475569}
-.card h3{font-size:1em;margin-bottom:4px}.card .meta{color:#94a3b8;font-size:.8em}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600}
-.btn-p{background:#3b82f6;color:#fff}.btn-p:hover{background:#2563eb}
-.btn-s{background:#334155;color:#e2e8f0}.btn-s:hover{background:#475569}
-.btn-d{background:#ef4444;color:#fff}.btn-d:hover{background:#dc2626}
-.btn-sm{padding:4px 10px;font-size:.8em}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-input,select{padding:8px 12px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;font-size:.9em}
-input:focus,select:focus{border-color:#3b82f6;outline:none}
-.modal-bg{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:100}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950;
+  --red:#b91c1c;--red-h:#c0392b;--blue:#1f6feb;--yellow:#9e6a03;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
+a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
+
+/* TOP BAR */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-logo{font-weight:700;font-size:1.05em;color:var(--text);display:flex;align-items:center;gap:8px}
+.topbar-logo svg{width:22px;height:22px;fill:var(--green-t)}
+.topbar-r{display:flex;align-items:center;gap:12px}
+.role-pill{padding:2px 10px;border-radius:20px;font-size:.75em;font-weight:600;background:#1f3a27;color:var(--green-t);border:1px solid #2d5a38}
+.role-pill.owner{background:#2d1f5e;color:#a78bfa;border-color:#4c3a8a}
+.topbar-name{color:var(--muted);font-size:.9em}
+.link-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.88em;padding:4px 8px;border-radius:6px}
+.link-btn:hover{background:var(--surface-2);color:var(--text)}
+.notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:4px 8px;border-radius:6px;line-height:1}
+.notif-btn:hover{background:var(--surface-2);color:var(--text)}
+.notif-badge{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:.6em;font-weight:700;padding:1px 4px;border-radius:10px;min-width:14px;text-align:center;display:none}
+
+/* WRAP */
+.wrap{max-width:1000px;margin:0 auto;padding:32px 24px}
+
+/* DASHBOARD HOME */
+.dash-header{margin-bottom:32px}
+.dash-header h1{font-size:1.4em;font-weight:600;margin-bottom:4px}
+.dash-header p{color:var(--muted);font-size:.9em}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:32px}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 20px;cursor:pointer;transition:border-color .15s,transform .1s;text-decoration:none;display:block;color:var(--text)}
+.dash-card:hover{border-color:var(--green-t);transform:translateY(-2px);text-decoration:none}
+.dash-card:active{transform:translateY(0)}
+.dc-icon{font-size:2.2em;margin-bottom:12px;line-height:1}
+.dc-title{font-size:1.05em;font-weight:600;margin-bottom:4px}
+.dc-count{font-size:1.8em;font-weight:700;color:var(--green-t);margin-bottom:6px;line-height:1}
+.dc-desc{font-size:.82em;color:var(--muted)}
+
+/* SECTION VIEW */
+.sec-header{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.back-btn{background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:.88em;display:flex;align-items:center;gap:6px}
+.back-btn:hover{border-color:var(--green-t);color:var(--green-t)}
+.sec-title{font-size:1.2em;font-weight:600}
+.sec-header-actions{margin-left:auto;display:flex;gap:8px}
+
+/* BUTTONS */
+.btn{padding:8px 18px;border:none;border-radius:8px;cursor:pointer;font-size:.88em;font-weight:600;transition:background .15s}
+.btn-p{background:var(--green);color:#fff}.btn-p:hover{background:var(--green-h)}
+.btn-s{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}.btn-s:hover{border-color:var(--green-t)}
+.btn-d{background:var(--red);color:#fff}.btn-d:hover{background:var(--red-h)}
+.btn-sm{padding:5px 12px;font-size:.82em}
+.btn-xs{padding:3px 9px;font-size:.78em}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+
+/* CARDS GRID */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;transition:border-color .15s}
+.card:hover{border-color:#484f58}
+.card h3{font-size:.95em;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.card .meta{color:var(--muted);font-size:.8em}
+.card-body{cursor:pointer}
+
+/* GOAL BADGES */
+.goal{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.72em;font-weight:600}
+.goal-ege{background:#2d1f5e;color:#a78bfa}.goal-olymp{background:#3a2a00;color:#fbbf24}.goal-base{background:#0d2e1e;color:#34d399}
+
+/* ACCT BADGE */
+.acct-tag{font-size:.72em;padding:2px 7px;border-radius:20px;background:#0d2e1e;color:var(--green-t);border:1px solid #1a5e32}
+
+/* DOT MENU */
+.dot-menu{position:absolute;top:12px;right:12px}
+.dot-btn{background:none;border:1px solid transparent;border-radius:6px;cursor:pointer;color:var(--muted);font-size:1.1em;width:30px;height:30px;display:flex;align-items:center;justify-content:center;line-height:1}
+.dot-btn:hover{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+.dot-dd{display:none;position:absolute;right:0;top:34px;background:var(--surface);border:1px solid var(--border);border-radius:10px;min-width:190px;box-shadow:0 8px 24px #0008;z-index:20;overflow:hidden}
+.dot-dd.open{display:block}
+.dot-dd button{display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;color:var(--text);font-size:.88em;cursor:pointer}
+.dot-dd button:hover{background:var(--surface-2)}
+.dot-dd button.danger{color:#f87171}
+.dot-dd hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+
+/* USERS LIST */
+.user-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.user-row-info{flex:1}
+.user-row-name{font-size:.92em;font-weight:600;margin-bottom:2px}
+.user-row-meta{font-size:.78em;color:var(--muted)}
+.role-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.72em;font-weight:600}
+.rb-owner{background:#2d1f5e;color:#a78bfa}.rb-tutor{background:#0d2e3a;color:#38bdf8}
+.rb-student{background:#0d2e1e;color:var(--green-t)}.rb-parent{background:#3a2200;color:#fb923c}
+.subj-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.subj-tag{font-size:.72em;padding:2px 7px;border-radius:20px;background:var(--surface-2);color:var(--muted);border:1px solid var(--border)}
+
+/* SUBJECTS LIST */
+.subj-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.subj-row-icon{font-size:1.4em;width:36px;text-align:center}
+.subj-row-name{font-size:.92em;font-weight:600;flex:1}
+
+/* FORM */
+input,select,textarea{padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.9em;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-weight:500}
+.form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.form-row>*{flex:1;min-width:100px}
+
+/* MODALS */
+.modal-bg{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:200}
 .modal-bg.show{display:flex}
-.modal{background:#1e293b;border-radius:12px;padding:24px;width:420px;max-width:90vw;max-height:80vh;overflow-y:auto}
-.modal h2{font-size:1.1em;margin-bottom:16px}
-.modal label{display:block;color:#94a3b8;font-size:.85em;margin:8px 0 4px}
-.modal input,.modal select{width:100%;margin-bottom:4px}
-.empty{text-align:center;color:#64748b;padding:40px}
-.goal{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75em;font-weight:600}
-.goal-ege{background:#7c3aed33;color:#a78bfa}.goal-olymp{background:#f59e0b33;color:#fbbf24}.goal-base{background:#10b98133;color:#34d399}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:460px;max-width:94vw;max-height:86vh;overflow-y:auto}
+.modal h2{font-size:1.1em;font-weight:600;margin-bottom:20px;color:var(--text)}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.tab-bar{display:flex;gap:4px;margin-bottom:16px;background:var(--surface-2);padding:4px;border-radius:8px}
+.tab-bar button{flex:1;padding:7px;border:none;border-radius:6px;background:none;color:var(--muted);cursor:pointer;font-size:.85em;font-weight:500}
+.tab-bar button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px #0004}
+
+/* MULTI-SELECT SUBJECTS */
+.subj-multi{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--surface-2)}
+.subj-chk{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px;border-radius:4px}
+.subj-chk:hover{background:var(--surface)}
+.subj-chk input[type=checkbox]{width:15px;height:15px;accent-color:var(--green-t);flex-shrink:0;cursor:pointer}
+.subj-chk span{font-size:.88em}
+
+.empty{text-align:center;color:var(--muted);padding:48px;font-size:.92em}
 </style></head><body>
-<div class="top">
-<h1>📐 HBM</h1>
-<div class="top-r">
-<span id="userName"></span><span class="badge" id="userRole"></span>
-<a href="/courses.html">Курсы</a>
-<button class="link" onclick="logout()">Выйти</button>
-</div></div>
-<div class="wrap">
-<div class="tabs" id="tabs"></div>
-<div id="content"></div>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    HBM
+  </div>
+  <div class="topbar-r">
+    <span class="topbar-name" id="userName"></span>
+    <span class="role-pill" id="userRole"></span>
+    <button class="notif-btn" onclick="goSection('messages')" title="Сообщения">🔔<span class="notif-badge" id="notifBadge"></span></button>
+    <button class="link-btn" onclick="logout()">Выйти</button>
+  </div>
 </div>
 
-<!-- Modal: Add Student -->
+<div class="wrap" id="main"></div>
+
+<!-- Modal: Add/Edit Student -->
 <div class="modal-bg" id="mStudent"><div class="modal">
-<h2>Новый ученик</h2>
-<label>Имя</label><input id="sName">
-<label>Класс</label><input id="sGrade" value="9">
-<div class="row" style="margin-top:8px">
-<div><label>Цель</label><select id="sGoal"><option value="ege">ЕГЭ</option><option value="olymp">Олимпиады</option><option value="base">База</option></select></div>
-<div><label>Ставка ₽</label><input id="sRate" type="number" value="1500" style="width:100px"></div>
-<div><label>Формат</label><select id="sFormat"><option value="online">Онлайн</option><option value="offline">Офлайн</option></select></div>
+<h2 id="mStudentTitle">Новый ученик</h2>
+<label>Имя</label><input id="sName" placeholder="Имя ученика">
+<div class="form-row">
+  <div><label>Класс</label><input id="sGrade" value="9" style="width:80px"></div>
+  <div><label>Цель</label><select id="sGoal"><option value="ege">ЕГЭ</option><option value="olymp">Олимпиады</option><option value="base">База</option></select></div>
 </div>
-<label>Предмет</label><select id="sSubject"></select>
-<div class="row" style="margin-top:16px;justify-content:flex-end">
-<button class="btn btn-s" onclick="closeM('mStudent')">Отмена</button>
-<button class="btn btn-p" onclick="saveStudent()">Создать</button>
+<div class="form-row">
+  <div><label>Ставка (₽/ч)</label><input id="sRate" type="number" value="1500"></div>
+  <div><label>Формат</label><select id="sFormat"><option value="online">Онлайн</option><option value="offline">Офлайн</option></select></div>
+</div>
+<label>Предмет <span style="color:var(--muted)">(необязательно)</span></label>
+<select id="sSubject"></select>
+<div class="modal-footer">
+  <button class="btn btn-s" onclick="closeM('mStudent')">Отмена</button>
+  <button class="btn btn-p" onclick="saveStudent()">Сохранить</button>
+</div></div></div>
+
+<!-- Modal: Student Account -->
+<div class="modal-bg" id="mStudAccount"><div class="modal">
+<h2>Аккаунт ученика</h2>
+<p style="color:var(--muted);font-size:.85em;margin-bottom:12px">Создать учётную запись для входа в систему</p>
+<label>Логин</label><input id="acLogin">
+<label>Пароль</label><input id="acPw" value="hbm1234">
+<div class="modal-footer">
+  <button class="btn btn-s" onclick="closeM('mStudAccount')">Отмена</button>
+  <button class="btn btn-p" onclick="saveStudAccount()">Создать</button>
+</div></div></div>
+
+<!-- Modal: Add Parent -->
+<div class="modal-bg" id="mStudParent"><div class="modal">
+<h2>Добавить родителя</h2>
+<div class="tab-bar">
+  <button id="pTabNew" class="active" onclick="switchParentTab('new')">Новый аккаунт</button>
+  <button id="pTabExist" onclick="switchParentTab('exist')">Существующий</button>
+</div>
+<div id="pPanelNew">
+  <label>Имя</label><input id="pName" placeholder="Имя родителя">
+  <label>Логин</label><input id="pLogin">
+  <label>Пароль</label><input id="pPw" value="hbm1234">
+</div>
+<div id="pPanelExist" style="display:none">
+  <label>Пользователь с ролью «Родитель»</label>
+  <select id="pExistUser" style="width:100%"></select>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-s" onclick="closeM('mStudParent')">Отмена</button>
+  <button class="btn btn-p" onclick="saveStudParent()">Добавить</button>
+</div></div></div>
+
+<!-- Modal: Add Tutor to Student -->
+<div class="modal-bg" id="mStudTutor"><div class="modal">
+<h2>Добавить преподавателя</h2>
+<label>Преподаватель</label>
+<select id="tTutor" style="width:100%" onchange="updateTutorSubjects()"></select>
+<div id="tutorSubjWrap" style="display:none">
+  <label>Предмет (необязательно)</label>
+  <select id="tSubject" style="width:100%"><option value="">— без предмета —</option></select>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-s" onclick="closeM('mStudTutor')">Отмена</button>
+  <button class="btn btn-p" onclick="saveStudTutor()">Добавить</button>
 </div></div></div>
 
 <!-- Modal: Add User -->
 <div class="modal-bg" id="mUser"><div class="modal">
 <h2>Новый пользователь</h2>
-<label>Роль</label><select id="uRole" onchange="onRoleChange()"><option value="tutor">Преподаватель</option><option value="student">Ученик</option><option value="parent">Родитель</option></select>
+<label>Роль</label><select id="uRole" onchange="onRoleChange()"></select>
 <label>Имя</label><input id="uName">
 <label>Логин</label><input id="uLogin">
 <label>Пароль</label><input id="uPw" value="">
-<div id="uTutorFields"><label>Предмет</label><select id="uSubject"></select></div>
-<div id="uStudentFields" style="display:none"><label>Профиль ученика</label><select id="uStudent"></select></div>
-<div id="uParentFields" style="display:none"><label>Дети (ID через запятую)</label><input id="uChildren"></div>
-<div class="row" style="margin-top:16px;justify-content:flex-end">
-<button class="btn btn-s" onclick="closeM('mUser')">Отмена</button>
-<button class="btn btn-p" onclick="saveUser()">Создать</button>
+<div id="uTutorFields" style="display:none">
+  <label>Предметы</label>
+  <div class="subj-multi" id="uSubjectsList"></div>
+</div>
+<div id="uStudentFields" style="display:none"><label>Профиль ученика</label><select id="uStudent" style="width:100%"></select></div>
+<div id="uParentFields" style="display:none"><label>Дети</label><select id="uChildren" multiple style="height:90px;width:100%"></select></div>
+<div class="modal-footer">
+  <button class="btn btn-s" onclick="closeM('mUser')">Отмена</button>
+  <button class="btn btn-p" onclick="saveUser()">Создать</button>
+</div></div></div>
+
+<!-- Modal: Link Student to User -->
+<div class="modal-bg" id="mLinkStudent"><div class="modal">
+<h2>Привязать профиль ученика</h2>
+<p id="mLinkStudentInfo" style="color:var(--muted);font-size:.85em;margin-bottom:12px"></p>
+<label>Профиль ученика</label>
+<select id="linkStudentSel" style="width:100%"></select>
+<div class="modal-footer">
+  <button class="btn btn-s" onclick="closeM('mLinkStudent')">Отмена</button>
+  <button class="btn btn-p" onclick="saveLinkStudent()">Привязать</button>
+</div></div></div>
+
+<!-- Modal: Manage Tutor Subjects -->
+<div class="modal-bg" id="mTutorSubjects"><div class="modal">
+<h2>Предметы преподавателя</h2>
+<p id="mTutorSubjectsName" style="color:var(--muted);font-size:.85em;margin-bottom:12px"></p>
+<div class="subj-multi" id="tSubjectsList"></div>
+<div class="modal-footer">
+  <button class="btn btn-s" onclick="closeM('mTutorSubjects')">Закрыть</button>
+  <button class="btn btn-p" onclick="saveTutorSubjects()">Сохранить</button>
 </div></div></div>
 
 <script src="/api.js"></script>
 <script>
 if(!requireAuth(['owner','tutor']))throw'';
 const R=role(),isOwner=R==='owner';
-document.getElementById('userName').textContent=localStorage.getItem('name');
-document.getElementById('userRole').textContent=isOwner?'Владелец':'Преподаватель';
+const uname=localStorage.getItem('name');
+document.getElementById('userName').textContent=uname;
+const rp=document.getElementById('userRole');
+rp.textContent=isOwner?'Владелец':'Преподаватель';
+if(isOwner) rp.classList.add('owner');
 
 let subjects=[],students=[],users=[];
-const tabsDef=[{id:'students',label:'Ученики'},{id:'users',label:'Пользователи'}];
-if(isOwner)tabsDef.push({id:'subjects',label:'Предметы'});
-let curTab='students';
+let curSection=null; // null=home, 'students'|'users'|'subjects'
 
-function renderTabs(){
-    document.getElementById('tabs').innerHTML=tabsDef.map(t=>`<div class="tab${t.id===curTab?' active':''}" onclick="switchTab('${t.id}')">${t.label}</div>`).join('')}
-function switchTab(t){curTab=t;renderTabs();renderContent()}
+// ─── NAV ──────────────────────────────────────────────────────────────────
+function goHome(){curSection=null;render()}
+function goSection(s){curSection=s;if(s==='messages')loadConvos();render()}
+function render(){
+  if(curSection===null) renderHome();
+  else if(curSection==='students') renderStudents();
+  else if(curSection==='users') renderUsers();
+  else if(curSection==='subjects') renderSubjects();
+  else if(curSection==='messages') renderMessages()}
 
-async function load(){
-    subjects=await get('/api/subjects').catch(()=>[]);
-    students=await get('/api/students').catch(()=>[]);
-    if(isOwner||R==='tutor')users=await get('/api/users').catch(()=>[]);
-    renderTabs();renderContent()}
+// ─── HOME ─────────────────────────────────────────────────────────────────
+function renderHome(){
+  const m=document.getElementById('main');
+  const sections=[
+    {key:'students',icon:'👥',title:'Ученики',count:students.length,desc:'Профили и успеваемость'},
+    {key:'users',icon:'👤',title:'Пользователи',count:users.length,desc:'Аккаунты системы'},
+    {key:'courses',icon:'📚',title:'Курсы',count:null,desc:'Учебные программы',href:'/courses.html'},
+  ];
+  if(isOwner) sections.push({key:'subjects',icon:'📐',title:'Предметы',count:subjects.length,desc:'Учебные предметы'});
+  let cards='';
+  for(const s of sections){
+    const el=s.href?'a':'div';
+    const attr=s.href?`href="${s.href}"`:`onclick="goSection('${s.key}')"`;
+    const cnt=s.count!==null?`<div class="dc-count">${s.count}</div>`:'<div class="dc-count" style="font-size:.9em;color:var(--muted)">→</div>';
+    cards+=`<${el} class="dash-card" ${attr}><div class="dc-icon">${s.icon}</div><div class="dc-title">${s.title}</div>${cnt}<div class="dc-desc">${s.desc}</div></${el}>`;
+  }
+  m.innerHTML=`<div class="dash-header"><h1>Добро пожаловать, ${uname}</h1><p>Выберите раздел для работы</p></div><div class="dash-grid">${cards}</div>`}
 
-function renderContent(){
-    if(curTab==='students')renderStudents();
-    else if(curTab==='users')renderUsers();
-    else if(curTab==='subjects')renderSubjects()}
 
+// ─── STUDENTS ─────────────────────────────────────────────────────────────
 function renderStudents(){
-    const c=document.getElementById('content');
-    let h=`<div class="row"><button class="btn btn-p" onclick="openM('mStudent')">+ Ученик</button></div>`;
-    if(!students.length){c.innerHTML=h+'<div class="empty">Нет учеников</div>';return}
-    h+='<div class="grid">';
-    for(const s of students){
-        const g=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
-        const gc=`goal-${s.goal}`;
-        const subj=subjects.find(x=>x.id===s.subject_id);
-        h+=`<div class="card" style="cursor:pointer" onclick="location.href='/student.html?id=${s.id}'">
-<h3>${s.name}</h3>
-<div class="meta">${s.grade} класс · <span class="goal ${gc}">${g}</span> · ${s.base_rate}₽${subj?' · '+subj.icon+' '+subj.name:''}</div>
+  const m=document.getElementById('main');
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">👥 Ученики</span>
+    <div class="sec-header-actions"><button class="btn btn-p" onclick="openAddStudent()">+ Ученик</button></div>
+  </div>`;
+  if(!students.length){m.innerHTML=h+'<div class="empty">Нет учеников. Создайте первого!</div>';return}
+  h+='<div class="cards-grid">';
+  for(const s of students){
+    const gc=s.goal==='ege'?'goal-ege':s.goal==='olymp'?'goal-olymp':'goal-base';
+    const gl=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
+    const subj=subjects.find(x=>x.id===s.subject_id);
+    const hasAcct=users.some(u=>u.student_id===s.id);
+    h+=`<div class="card" id="sc_${s.id}">
+  <div class="card-body" onclick="location.href='/student.html?id=${s.id}'">
+    <h3>${s.name}${hasAcct?` <span class="acct-tag">👤 Аккаунт</span>`:''}</h3>
+    <div class="meta" style="margin-bottom:6px">
+      ${s.grade} кл · <span class="goal ${gc}">${gl}</span> · ${s.base_rate} ₽/ч
+      ${subj?'· '+subj.icon+' '+subj.name:''}
+    </div>
+    <a href="/board.html?id=${s.id}" onclick="event.stopPropagation()" style="font-size:.78em;color:var(--green-t);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface-2);border-radius:6px;border:1px solid var(--border);text-decoration:none;margin-top:4px">🎨 Доска</a>
+  </div>
+  <div class="dot-menu" id="dm_${s.id}">
+    <button class="dot-btn" onclick="event.stopPropagation();toggleMenu('${s.id}')">⋯</button>
+    <div class="dot-dd" id="dd_${s.id}">
+      <button onclick="closeMenuThen(()=>editStud('${s.id}'))">✏️ Редактировать</button>
+      <button onclick="closeMenuThen(()=>openStudAccount('${s.id}'))">👤 ${hasAcct?'Изменить аккаунт':'Добавить аккаунт'}</button>
+      <button onclick="closeMenuThen(()=>openStudParent('${s.id}'))">👨‍👩‍👧 Добавить родителя</button>
+      ${isOwner?`<button onclick="closeMenuThen(()=>openStudTutor('${s.id}'))">👨‍🏫 Добавить преподавателя</button>`:''}
+      <hr>
+      <button class="danger" onclick="closeMenuThen(()=>delStud('${s.id}'))">🗑 Удалить</button>
+    </div>
+  </div>
 </div>`}
-    h+='</div>';c.innerHTML=h}
+  h+='</div>';m.innerHTML=h}
 
+// ─── USERS ─────────────────────────────────────────────────────────────────
 function renderUsers(){
-    const c=document.getElementById('content');
-    let h=`<div class="row"><button class="btn btn-p" onclick="openM('mUser')">+ Пользователь</button></div>`;
-    const rl={owner:'👑 Владелец',tutor:'👨‍🏫 Преподаватель',student:'🎓 Ученик',parent:'👨‍👩‍👧 Родитель'};
-    for(const u of users){
-        const canDel=isOwner&&u.role!=='owner';
-        h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
-<div><h3>${u.name}</h3><div class="meta">${rl[u.role]||u.role} · ${u.login}</div></div>
-${canDel?`<button class="btn btn-d btn-sm" onclick="delUser('${u.id}')">✕</button>`:''}
-</div></div>`}
-    c.innerHTML=h}
+  const m=document.getElementById('main');
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">👤 Пользователи</span>
+    <div class="sec-header-actions"><button class="btn btn-p" onclick="openM('mUser')">+ Пользователь</button></div>
+  </div>`;
+  const rl={owner:'rb-owner',tutor:'rb-tutor',student:'rb-student',parent:'rb-parent'};
+  const rn={owner:'👑 Владелец',tutor:'👨‍🏫 Преподаватель',student:'🎓 Ученик',parent:'👨‍👩‍👧 Родитель'};
+  for(const u of users){
+    const canDel=isOwner&&u.role!=='owner';
+    const subjTags=u.subject_ids&&u.subject_ids.length
+      ?u.subject_ids.map(sid=>{const s=subjects.find(x=>x.id===sid);return s?`<span class="subj-tag">${s.icon} ${s.name}</span>`:''}).join('')
+      :'';
+    let studentInfo='';
+    if(u.role==='student'){
+      const st=students.find(x=>x.id===u.student_id);
+      studentInfo=st
+        ?`<span style="font-size:.78em;color:var(--green-t)">🎓 ${esc(st.name)}</span>`
+        :`<span style="font-size:.78em;color:#f87171">⚠ Профиль не привязан</span>`;}
+    h+=`<div class="user-row">
+  <div class="user-row-info">
+    <div class="user-row-name">${u.name}</div>
+    <div class="user-row-meta"><span class="role-badge ${rl[u.role]||''}">${rn[u.role]||u.role}</span> · ${u.login}</div>
+    ${subjTags?`<div class="subj-tags">${subjTags}</div>`:''}
+    ${studentInfo?`<div style="margin-top:2px">${studentInfo}</div>`:''}
+  </div>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    ${u.role==='tutor'&&isOwner?`<button class="btn btn-s btn-sm" onclick="openTutorSubjects('${u.id}','${u.name}')">📐 Предметы</button>`:''}
+    ${u.role==='student'?`<button class="btn btn-s btn-sm" onclick="openLinkStudent('${u.id}','${esc(u.name)}','${u.student_id||''}')">🔗 ${u.student_id?'Сменить':'Привязать'}</button>`:''}
+    ${u.role==='student'&&u.student_id?`<button class="btn btn-s btn-sm" onclick="unlinkStudent('${u.id}','${esc(u.name)}')" title="Отвязать профиль">✂</button>`:''}
+    ${canDel?`<button class="btn btn-d btn-sm" onclick="delUser('${u.id}')">✕</button>`:''}
+  </div>
+</div>`}
+  m.innerHTML=h}
 
+// ─── SUBJECTS ─────────────────────────────────────────────────────────────
 function renderSubjects(){
-    const c=document.getElementById('content');
-    let h=`<div class="row"><input id="newSubjName" placeholder="Название"><input id="newSubjIcon" placeholder="Иконка" value="📐" style="width:60px"><button class="btn btn-p" onclick="addSubj()">+ Предмет</button></div>`;
-    for(const s of subjects){
-        h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
-<div><h3>${s.icon} ${s.name}</h3></div>
-<button class="btn btn-d btn-sm" onclick="delSubj('${s.id}')">✕</button>
-</div></div>`}
-    c.innerHTML=h}
+  const m=document.getElementById('main');
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">📐 Предметы</span>
+  </div>
+  <div class="row">
+    <input id="newSubjName" placeholder="Название предмета" style="width:auto;flex:1;max-width:220px">
+    <input id="newSubjIcon" placeholder="🔢" style="width:60px">
+    <button class="btn btn-p" onclick="addSubj()">+ Добавить</button>
+  </div>`;
+  for(const s of subjects){
+    h+=`<div class="subj-row">
+  <div class="subj-row-icon">${s.icon}</div>
+  <div class="subj-row-name">${s.name}</div>
+  <button class="btn btn-d btn-sm" onclick="delSubj('${s.id}')">✕</button>
+</div>`}
+  m.innerHTML=h}
 
-function openM(id){document.getElementById(id).classList.add('show');
-    if(id==='mStudent')fillSubjSelect('sSubject');
-    if(id==='mUser'){fillSubjSelect('uSubject');fillStudentSelect();onRoleChange()}}
-function closeM(id){document.getElementById(id).classList.remove('show')}
+// ─── DROPDOWN MENUS ───────────────────────────────────────────────────────
+function toggleMenu(stid){
+  const dd=document.getElementById('dd_'+stid);
+  const wasOpen=dd.classList.contains('open');
+  document.querySelectorAll('.dot-dd.open').forEach(el=>el.classList.remove('open'));
+  if(!wasOpen){dd.classList.add('open');setTimeout(()=>document.addEventListener('click',closeAllMenus,{once:true}),0)}}
+function closeAllMenus(){document.querySelectorAll('.dot-dd.open').forEach(el=>el.classList.remove('open'))}
+function closeMenuThen(fn){closeAllMenus();fn()}
 
-function fillSubjSelect(id){
-    const s=document.getElementById(id);s.innerHTML=subjects.map(x=>`<option value="${x.id}">${x.icon} ${x.name}</option>`).join('');
-    if(!subjects.length)s.innerHTML='<option value="">Нет предметов</option>'}
-function fillStudentSelect(){
-    const s=document.getElementById('uStudent');s.innerHTML='<option value="">—</option>'+students.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
-function onRoleChange(){
-    const r=document.getElementById('uRole').value;
-    document.getElementById('uTutorFields').style.display=r==='tutor'?'':'none';
-    document.getElementById('uStudentFields').style.display=r==='student'?'':'none';
-    document.getElementById('uParentFields').style.display=r==='parent'?'':'none';
-    if(!isOwner)document.querySelector('#uRole option[value="tutor"]').disabled=true}
-
+// ─── STUDENT CRUD ─────────────────────────────────────────────────────────
+let editStudId=null;
+function openAddStudent(){
+  editStudId=null;
+  document.getElementById('mStudentTitle').textContent='Новый ученик';
+  document.getElementById('sName').value='';
+  document.getElementById('sGrade').value='9';
+  document.getElementById('sGoal').value='ege';
+  document.getElementById('sRate').value='1500';
+  document.getElementById('sFormat').value='online';
+  fillSubjSelect('sSubject');
+  openM('mStudent')}
+function editStud(stid){
+  const s=students.find(x=>x.id===stid); if(!s) return;
+  editStudId=stid;
+  document.getElementById('mStudentTitle').textContent='Редактировать ученика';
+  document.getElementById('sName').value=s.name;
+  document.getElementById('sGrade').value=s.grade;
+  document.getElementById('sGoal').value=s.goal;
+  document.getElementById('sRate').value=s.base_rate;
+  document.getElementById('sFormat').value=s.format;
+  fillSubjSelect('sSubject');
+  setTimeout(()=>document.getElementById('sSubject').value=s.subject_id||'',50);
+  openM('mStudent')}
 async function saveStudent(){
-    try{
-        const d={name:document.getElementById('sName').value,grade:document.getElementById('sGrade').value,
-            goal:document.getElementById('sGoal').value,base_rate:+document.getElementById('sRate').value,
-            format:document.getElementById('sFormat').value,subject_id:document.getElementById('sSubject').value||null};
-        await post('/api/students',d);closeM('mStudent');await load();
-    }catch(e){alert(e.detail||'Ошибка')}}
+  try{
+    const d={name:document.getElementById('sName').value,grade:document.getElementById('sGrade').value,
+      goal:document.getElementById('sGoal').value,base_rate:+document.getElementById('sRate').value,
+      format:document.getElementById('sFormat').value,subject_id:document.getElementById('sSubject').value||null};
+    if(editStudId) await patch('/api/students/'+editStudId,d);
+    else await post('/api/students',d);
+    closeM('mStudent');await load();
+  }catch(e){alert(e.detail||'Ошибка')}}
 
-async function saveUser(){
-    try{
-        const r=document.getElementById('uRole').value;
-        const d={role:r,name:document.getElementById('uName').value,login:document.getElementById('uLogin').value,
-            password:document.getElementById('uPw').value};
-        if(r==='tutor')d.subject_id=document.getElementById('uSubject').value||null;
-        if(r==='student')d.student_id=document.getElementById('uStudent').value||null;
-        if(r==='parent'){const v=document.getElementById('uChildren').value;d.children_ids=v?v.split(',').map(x=>x.trim()):[];}
-        await post('/api/users',d);closeM('mUser');await load();
-    }catch(e){alert(e.detail||'Ошибка')}}
+let acctStudId=null;
+function openStudAccount(stid){
+  acctStudId=stid;
+  document.getElementById('acLogin').value='';
+  document.getElementById('acPw').value='hbm1234';
+  openM('mStudAccount')}
+async function saveStudAccount(){
+  if(!acctStudId) return;
+  try{
+    const s=students.find(x=>x.id===acctStudId);
+    await post('/api/users',{role:'student',name:s?s.name:'Ученик',
+      login:document.getElementById('acLogin').value,password:document.getElementById('acPw').value,student_id:acctStudId});
+    closeM('mStudAccount');await load();
+  }catch(e){alert(e.detail||'Ошибка')}}
 
-async function delUser(id){if(confirm('Удалить?')){await del('/api/users/'+id);await load()}}
+let parentStudId=null,parentTab='new';
+function openStudParent(stid){
+  parentStudId=stid;switchParentTab('new');
+  document.getElementById('pName').value='';document.getElementById('pLogin').value='';document.getElementById('pPw').value='hbm1234';
+  const parents=users.filter(u=>u.role==='parent');
+  document.getElementById('pExistUser').innerHTML=parents.map(p=>`<option value="${p.id}">${p.name} (${p.login})</option>`).join('');
+  openM('mStudParent')}
+function switchParentTab(t){
+  parentTab=t;
+  document.getElementById('pPanelNew').style.display=t==='new'?'':'none';
+  document.getElementById('pPanelExist').style.display=t==='exist'?'':'none';
+  document.getElementById('pTabNew').className=t==='new'?'active':'';
+  document.getElementById('pTabExist').className=t==='exist'?'active':''}
+async function saveStudParent(){
+  if(!parentStudId) return;
+  try{
+    if(parentTab==='new'){
+      await post('/api/users',{role:'parent',name:document.getElementById('pName').value,
+        login:document.getElementById('pLogin').value,password:document.getElementById('pPw').value,children_ids:[parentStudId]});
+    }else{
+      const uid=document.getElementById('pExistUser').value;
+      if(!uid){alert('Выберите родителя');return}
+      await post('/api/students/'+parentStudId+'/link-parent/'+uid,{});
+    }
+    closeM('mStudParent');await load();
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+let tutorStudId=null;
+function openStudTutor(stid){
+  tutorStudId=stid;
+  const tutors=users.filter(u=>u.role==='tutor');
+  document.getElementById('tTutor').innerHTML=tutors.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  updateTutorSubjects();
+  openM('mStudTutor')}
+async function updateTutorSubjects(){
+  const tid=document.getElementById('tTutor').value;
+  if(!tid){document.getElementById('tutorSubjWrap').style.display='none';return}
+  const t=users.find(u=>u.id===tid);
+  const sids=t?t.subject_ids:[];
+  const opts=sids.map(sid=>{const s=subjects.find(x=>x.id===sid);return s?`<option value="${s.id}">${s.icon} ${s.name}</option>`:''}).join('');
+  document.getElementById('tSubject').innerHTML='<option value="">— без предмета —</option>'+opts;
+  document.getElementById('tutorSubjWrap').style.display=sids.length?'':'none'}
+async function saveStudTutor(){
+  if(!tutorStudId) return;
+  const tid=document.getElementById('tTutor').value;
+  if(!tid){alert('Нет преподавателей');return}
+  try{await post('/api/students/'+tutorStudId+'/assign-tutor/'+tid,{});closeM('mStudTutor');await load();}
+  catch(e){alert(e.detail||'Ошибка')}}
+
+async function delStud(stid){
+  const s=students.find(x=>x.id===stid);
+  if(!confirm(`Удалить ученика «${s?s.name:stid}»?`)) return;
+  try{await del('/api/students/'+stid);await load();}catch(e){alert(e.detail||'Ошибка')}}
+
+// ─── USER CRUD ─────────────────────────────────────────────────────────────
+async function delUser(id){if(confirm('Удалить пользователя?')){await del('/api/users/'+id);await load()}}
+
+// ─── USER-STUDENT LINK ─────────────────────────────────────────────────────
+let linkUserId=null;
+function openLinkStudent(uid,name,curStid){
+  linkUserId=uid;
+  document.getElementById('mLinkStudentInfo').textContent='Аккаунт: '+name;
+  const sel=document.getElementById('linkStudentSel');
+  sel.innerHTML='<option value="">— выберите ученика —</option>'+
+    students.map(s=>`<option value="${s.id}"${s.id===curStid?' selected':''}>${s.name} (${s.grade} кл.)</option>`).join('');
+  openM('mLinkStudent')}
+async function saveLinkStudent(){
+  if(!linkUserId) return;
+  const stid=document.getElementById('linkStudentSel').value;
+  if(!stid){alert('Выберите ученика');return}
+  try{await post('/api/users/'+linkUserId+'/link-student/'+stid,{});closeM('mLinkStudent');await load();}
+  catch(e){alert(e.detail||'Ошибка')}}
+async function unlinkStudent(uid,name){
+  if(!confirm('Отвязать профиль ученика от аккаунта «'+name+'»?')) return;
+  try{await del('/api/users/'+uid+'/unlink-student');await load();}
+  catch(e){alert(e.detail||'Ошибка')}}
+
+// ─── TUTOR SUBJECTS ────────────────────────────────────────────────────────
+let tutorSubjEditId=null;
+function openTutorSubjects(uid,name){
+  tutorSubjEditId=uid;
+  document.getElementById('mTutorSubjectsName').textContent=name;
+  const t=users.find(u=>u.id===uid);
+  const activeSids=new Set(t?t.subject_ids:[]);
+  document.getElementById('tSubjectsList').innerHTML=subjects.map(s=>`
+    <label class="subj-chk">
+      <input type="checkbox" value="${s.id}" ${activeSids.has(s.id)?'checked':''}>
+      <span>${s.icon} ${s.name}</span>
+    </label>`).join('');
+  openM('mTutorSubjects')}
+async function saveTutorSubjects(){
+  if(!tutorSubjEditId) return;
+  const t=users.find(u=>u.id===tutorSubjEditId);
+  const prev=new Set(t?t.subject_ids:[]);
+  const now=new Set([...document.querySelectorAll('#tSubjectsList input:checked')].map(el=>el.value));
+  const toAdd=[...now].filter(id=>!prev.has(id));
+  const toDel=[...prev].filter(id=>!now.has(id));
+  try{
+    await Promise.all([
+      ...toAdd.map(sid=>post('/api/users/'+tutorSubjEditId+'/subjects/'+sid,{})),
+      ...toDel.map(sid=>del('/api/users/'+tutorSubjEditId+'/subjects/'+sid))
+    ]);
+    closeM('mTutorSubjects');await load();
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+// ─── SUBJECTS ─────────────────────────────────────────────────────────────
 async function addSubj(){
-    const n=document.getElementById('newSubjName').value,i=document.getElementById('newSubjIcon').value||'📐';
-    if(!n)return;try{await post('/api/subjects',{name:n,icon:i});await load()}catch(e){alert(e.detail||'Ошибка')}}
+  const n=document.getElementById('newSubjName').value,i=document.getElementById('newSubjIcon').value||'📐';
+  if(!n)return;try{await post('/api/subjects',{name:n,icon:i});await load()}catch(e){alert(e.detail||'Ошибка')}}
 async function delSubj(id){if(confirm('Удалить предмет?')){await del('/api/subjects/'+id);await load()}}
 
-load();
+// ─── NEW USER MODAL ────────────────────────────────────────────────────────
+function fillSubjSelect(id){
+  const s=document.getElementById(id);
+  s.innerHTML='<option value="">— без предмета —</option>'+subjects.map(x=>`<option value="${x.id}">${x.icon} ${x.name}</option>`).join('')}
+function fillSubjMulti(){
+  document.getElementById('uSubjectsList').innerHTML=subjects.map(s=>`
+    <label class="subj-chk"><input type="checkbox" value="${s.id}"><span>${s.icon} ${s.name}</span></label>`).join('')}
+function fillStudentSelect(){
+  document.getElementById('uStudent').innerHTML='<option value="">—</option>'+students.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
+function fillChildrenSelect(){
+  document.getElementById('uChildren').innerHTML=students.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
+function buildRoleOptions(){
+  const sel=document.getElementById('uRole');
+  const opts=isOwner?[['tutor','👨‍🏫 Преподаватель'],['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель']]:[['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель']];
+  sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}
+function onRoleChange(){
+  const r=document.getElementById('uRole').value;
+  document.getElementById('uTutorFields').style.display=r==='tutor'?'':'none';
+  document.getElementById('uStudentFields').style.display=r==='student'?'':'none';
+  document.getElementById('uParentFields').style.display=r==='parent'?'':'none'}
+async function saveUser(){
+  try{
+    const r=document.getElementById('uRole').value;
+    const d={role:r,name:document.getElementById('uName').value,login:document.getElementById('uLogin').value,password:document.getElementById('uPw').value};
+    if(r==='tutor'){
+      const sids=[...document.querySelectorAll('#uSubjectsList input:checked')].map(el=>el.value);
+      d.subject_ids=sids; if(sids.length) d.subject_id=sids[0];}
+    if(r==='student')d.student_id=document.getElementById('uStudent').value||null;
+    if(r==='parent'){const sel=document.getElementById('uChildren');d.children_ids=[...sel.selectedOptions].map(o=>o.value);}
+    await post('/api/users',d);closeM('mUser');await load();
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+// ─── MODAL HELPERS ─────────────────────────────────────────────────────────
+function openM(id){
+  document.getElementById(id).classList.add('show');
+  if(id==='mUser'){buildRoleOptions();fillSubjMulti();fillStudentSelect();fillChildrenSelect();onRoleChange()}}
+function closeM(id){document.getElementById(id).classList.remove('show')}
+
+// ─── MESSAGES ─────────────────────────────────────────────────────────────
+let convos=[],chatUid=null,chatThread=[],chatPollTimer=null,chatName='';
+async function loadConvos(){
+  clearInterval(chatPollTimer);chatPollTimer=null;
+  convos=await get('/api/messages').catch(()=>[]);
+  if(curSection==='messages') renderMessages()}
+function renderMessages(){
+  const m=document.getElementById('main');
+  if(chatUid){renderChat(m);return}
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">💬 Сообщения</span>
+  </div>`;
+  if(!convos.length){m.innerHTML=h+'<div class="empty">Нет сообщений</div>';return}
+  h+='<div style="display:flex;flex-direction:column;gap:6px">';
+  for(const c of convos){
+    const unr=c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.7em;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto">${c.unread}</span>`:'';
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="openChat('${c.partner_id}','${esc(c.partner_name)}')">
+  <div style="width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${(c.partner_name||'?')[0].toUpperCase()}</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:600;font-size:.92em">${esc(c.partner_name)}</div>
+    <div style="color:var(--muted);font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.last_text||'')}</div>
+  </div>
+  ${unr}
+</div>`}
+  h+='</div>';m.innerHTML=h}
+async function openChat(uid,name){
+  chatUid=uid;if(name)chatName=name;
+  chatThread=await get('/api/messages/'+uid).catch(()=>[]);
+  renderChat(document.getElementById('main'));
+  clearInterval(chatPollTimer);
+  chatPollTimer=setInterval(refreshChat,5000);}
+async function refreshChat(){
+  if(!chatUid) return;
+  const msgs=await get('/api/messages/'+chatUid).catch(()=>[]);
+  chatThread=msgs;
+  const tb=document.getElementById('threadBox');
+  if(!tb) return;
+  const atBottom=tb.scrollHeight-tb.scrollTop-tb.clientHeight<60;
+  tb.innerHTML=msgs.map(msg=>{
+    const mine=msg.from_id!==chatUid;
+    return`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
+  <div style="max-width:72%;padding:8px 12px;border-radius:12px;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'};font-size:.88em">
+    ${esc(msg.text)}
+  </div>
+</div>`}).join('');
+  if(atBottom) tb.scrollTop=tb.scrollHeight;
+  pollNotifs();}
+function renderChat(m){
+  const name=convos.find(c=>c.partner_id===chatUid)?.partner_name||chatName||chatUid;
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="clearInterval(chatPollTimer);chatPollTimer=null;chatUid=null;loadConvos()">← Сообщения</button>
+    <span class="sec-title">💬 ${esc(name)}</span>
+  </div>
+  <div id="threadBox" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:60vh;overflow-y:auto;padding:4px">`;
+  for(const msg of chatThread){
+    const mine=msg.from_id!==chatUid;
+    h+=`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
+  <div style="max-width:72%;padding:8px 12px;border-radius:12px;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'};font-size:.88em">
+    ${esc(msg.text)}
+  </div>
+</div>`}
+  h+=`</div>
+  <div style="display:flex;gap:8px">
+    <input id="msgIn" placeholder="Написать..." style="flex:1" onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="btn btn-p" onclick="sendMsg()">Отправить</button>
+  </div>`;
+  m.innerHTML=h;
+  const tb=document.getElementById('threadBox');if(tb)tb.scrollTop=tb.scrollHeight}
+async function sendMsg(){
+  const inp=document.getElementById('msgIn');if(!inp||!inp.value.trim())return;
+  try{await post('/api/messages',{to_id:chatUid,text:inp.value.trim()});inp.value='';
+    await refreshChat();}catch(e){alert(e.detail||'Ошибка')}}
+async function pollNotifs(){
+  try{const r=await get('/api/notifications');
+    const n=r.unread||0;
+    const b=document.getElementById('notifBadge');
+    if(b){b.textContent=n>9?'9+':n;b.style.display=n>0?'':'none'}}catch(e){}
+  setTimeout(pollNotifs,30000)}
+
+// ─── LOAD ──────────────────────────────────────────────────────────────────
+async function load(){
+  [subjects,students,users]=await Promise.all([
+    get('/api/subjects').catch(()=>[]),
+    get('/api/students').catch(()=>[]),
+    (isOwner||R==='tutor')?get('/api/users').catch(()=>[]):Promise.resolve([])]);
+  render()}
+
+load();pollNotifs();
 </script></body></html>

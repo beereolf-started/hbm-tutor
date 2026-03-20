@@ -1,56 +1,518 @@
 <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HBM — Мой кабинет</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
-.top{background:#1e293b;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
-.top h1{font-size:1.1em}a{color:#60a5fa;text-decoration:none;font-size:.9em}
-button.link{color:#60a5fa;background:none;border:none;cursor:pointer;font-size:.9em}
-.wrap{max-width:800px;margin:0 auto;padding:24px}
-.meta{color:#94a3b8;font-size:.85em;margin-bottom:16px}
-.sec{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:10px;overflow:hidden}
-.sec-h{padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
-.sec-h:hover{background:#334155}.sec-h h3{font-size:.95em}
-.sec-body{padding:0 16px 16px;display:none}.sec.open .sec-body{display:block}
-.item{padding:6px 10px;background:#0f172a;border-radius:6px;margin-bottom:4px;display:flex;align-items:center;gap:8px;font-size:.9em}
-.status{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.st-none{background:#64748b}.st-progress{background:#f59e0b}.st-done{background:#10b981}
-.hw-bar{height:4px;background:#334155;border-radius:2px;flex:1;max-width:80px}
-.hw-fill{height:100%;background:#3b82f6;border-radius:2px}
-.goal{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75em;font-weight:600}
-.goal-ege{background:#7c3aed33;color:#a78bfa}.goal-olymp{background:#f59e0b33;color:#fbbf24}.goal-base{background:#10b98133;color:#34d399}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950;
+  --red:#b91c1c;--blue:#1f6feb;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-logo{font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px}
+.topbar-r{display:flex;align-items:center;gap:10px}
+.topbar-name{color:var(--muted);font-size:.88em}
+.link-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85em;padding:4px 8px;border-radius:6px}
+.link-btn:hover{background:var(--surface-2);color:var(--text)}
+.notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:4px 8px;border-radius:6px;line-height:1}
+.notif-btn:hover{background:var(--surface-2)}
+.notif-badge{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:.6em;font-weight:700;padding:1px 4px;border-radius:10px;min-width:14px;text-align:center;display:none}
+
+.wrap{max-width:860px;margin:0 auto;padding:28px 20px}
+
+/* ── HOME DASHBOARD ── */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:4px}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px 20px;cursor:pointer;transition:border-color .15s,transform .1s;text-decoration:none;display:block;color:var(--text)}
+.dash-card:hover{border-color:var(--green-t);transform:translateY(-1px)}
+.dash-card-icon{font-size:2em;margin-bottom:10px}
+.dash-card h3{font-size:1em;font-weight:600;margin-bottom:4px}
+.dash-card-sub{color:var(--muted);font-size:.82em}
+.dash-card-count{font-size:1.6em;font-weight:700;color:var(--green-t);line-height:1;margin-bottom:2px}
+
+/* ── SECTION HEADER ── */
+.sec-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.back-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;cursor:pointer;color:var(--muted);font-size:.85em}
+.back-btn:hover{background:var(--surface-2);color:var(--text)}
+.sec-title{font-size:1.1em;font-weight:700;flex:1}
+
+/* ── COURSE INFO BLOCK ── */
+.course-head{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+.course-head-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.course-head-title{font-size:1.05em;font-weight:700}
+.course-head-meta{color:var(--muted);font-size:.85em;margin-top:3px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.btn-board{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.85em;text-decoration:none;cursor:pointer;transition:border-color .15s}
+.btn-board:hover{border-color:var(--green-t);color:var(--green-t)}
+.goal{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.75em;font-weight:600}
+.goal-ege{background:#2d1f5e;color:#a78bfa}.goal-olymp{background:#3a2a00;color:#fbbf24}.goal-base{background:#0d2e1e;color:#34d399}
+
+/* ── PRICE ── */
+.price-block{background:var(--surface-2);border-radius:10px;padding:14px 16px;display:flex;align-items:center;flex-wrap:wrap;gap:14px}
+.price-cur{font-size:1.4em;font-weight:700;color:var(--green-t);line-height:1}
+.price-base{font-size:.8em;color:var(--muted);text-decoration:line-through;margin-top:1px}
+.price-disc{font-size:.83em;color:#fbbf24;font-weight:500}
+.price-prog{height:5px;background:var(--border);border-radius:3px;flex:1;min-width:70px;max-width:140px}
+.price-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-t));border-radius:3px;transition:width .4s}
+
+/* ── SECTIONS ── */
+.sec{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s}
+.sec.locked{border-color:#1a5e32}
+.sec-h{padding:13px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none}
+.sec-h:hover{background:var(--surface-2)}
+.sec-h h3{font-size:.92em;font-weight:600;display:flex;align-items:center;gap:8px;flex:1}
+.sec-body{padding:0 16px 14px;display:none}
+.sec.open .sec-body{display:block}
+.lock-badge{font-size:.72em;padding:2px 7px;border-radius:20px;background:#0d2e1e;color:var(--green-t);border:1px solid #1a5e32}
+.badges{display:flex;gap:4px;flex-wrap:wrap}
+.badge{font-size:.72em;padding:2px 7px;border-radius:20px;font-weight:600}
+.b-ctrl-pass{background:#0d2e1e;color:#34d399}.b-ctrl-fail{background:#2d0d0d;color:#f87171}.b-ctrl-none{background:var(--surface-2);color:var(--muted)}
+.b-idz{background:#1a1040;color:#a78bfa}
+
+/* ── ITEMS ── */
+.item{padding:8px 10px;background:var(--surface-2);border-radius:6px;margin-bottom:4px;display:flex;align-items:center;gap:8px;font-size:.87em;border:1px solid transparent}
+.item:hover{border-color:var(--border)}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.st-none{background:#1c5e30}.st-progress{background:#f59e0b}.st-done{background:#10b981}
+.grade-sel{padding:3px 8px;font-size:.82em;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
+.grade-sel:disabled{opacity:.6}
+.grade-5{border-color:var(--green-t)!important;color:var(--green-t)!important}
+.grade-4{border-color:#84cc16!important;color:#bef264!important}
+.grade-3{border-color:#eab308!important;color:#fde047!important}
+.grade-2{border-color:#f97316!important;color:#fdba74!important}
+.grade-1{border-color:#ef4444!important;color:#fca5a5!important}
+.sec-footer{border-top:1px solid var(--border);padding:10px 16px;display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.panel-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.panel-lbl{font-size:.85em;font-weight:600}
+.panel-lbl-ctrl{color:var(--green-t)}.panel-lbl-idz{color:#a78bfa}
+.idz-desc{font-size:.8em;color:var(--muted);flex:1}
+.subblocks{margin-top:4px;margin-left:16px}
+.subblock{padding:5px 9px;background:var(--bg);border-radius:5px;margin-bottom:3px;border-left:2px solid var(--border);font-size:.82em;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+.subblock.sb-media{border-left-color:#6e40c9}
+.subblock a{font-size:.9em;color:var(--green-t)}
+
+/* ── PLATFORM COURSES ── */
+.course-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.course-card:hover{border-color:var(--green-t)}
+.course-card h3{font-size:.95em;font-weight:600;margin-bottom:4px}
+.access-pill{font-size:.7em;padding:1px 7px;border-radius:20px;font-weight:600}
+.access-public{background:#0d2e1e;color:#34d399}
+
+/* ── PLATFORM COURSE DETAIL ── */
+.pc-sec{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden}
+.pc-sec-h{padding:11px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.pc-sec-h:hover{background:var(--surface-2)}
+.pc-sec-h h4{font-size:.88em;font-weight:600}
+.pc-sec-body{padding:0 14px 12px;display:none}
+.pc-sec.open .pc-sec-body{display:block}
+.pc-item{padding:6px 8px;background:var(--surface-2);border-radius:5px;margin-bottom:3px;font-size:.84em;display:flex;align-items:center;gap:7px}
+
+/* ── CONTACTS ── */
+.contact-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.contact-avatar{width:44px;height:44px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1em;font-weight:700;flex-shrink:0}
+.contact-info{flex:1;min-width:0}
+.contact-name{font-size:.95em;font-weight:600;margin-bottom:2px}
+.contact-sub{color:var(--muted);font-size:.82em}
+.btn-msg{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.82em;cursor:pointer;transition:border-color .15s}
+.btn-msg:hover{border-color:var(--green-t);color:var(--green-t)}
+
+/* ── MESSAGES OVERLAY ── */
+#msgOverlay{display:none;position:fixed;inset:0;background:#000c;z-index:200;align-items:flex-end;justify-content:flex-end}
+.msg-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;width:380px;max-width:100vw;height:72vh;display:flex;flex-direction:column}
+.msg-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.msg-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px}
+.msg-foot{padding:10px;border-top:1px solid var(--border);display:flex;gap:6px;flex-shrink:0}
+.msg-bubble{max-width:76%;padding:8px 12px;border-radius:12px;font-size:.87em;line-height:1.4}
+.msg-mine{background:var(--green);color:#fff;align-self:flex-end;border-radius:12px 12px 4px 12px}
+.msg-their{background:var(--surface-2);color:var(--text);align-self:flex-start;border-radius:12px 12px 12px 4px}
+
+/* ── EMPTY ── */
+.empty{text-align:center;color:var(--muted);padding:48px 20px;font-size:.9em}
 </style></head><body>
-<div class="top"><h1>📐 Мой кабинет</h1><div style="display:flex;gap:12px;align-items:center"><span id="uname" class="meta"></span><button class="link" onclick="logout()">Выйти</button></div></div>
-<div class="wrap">
-<div id="info" class="meta"></div>
-<div id="sections"></div>
+
+<div class="topbar">
+  <div class="topbar-logo">📐 Мой кабинет</div>
+  <div class="topbar-r">
+    <span class="topbar-name" id="uname"></span>
+    <button class="notif-btn" onclick="toggleMessages()" title="Сообщения">🔔<span class="notif-badge" id="notifBadge"></span></button>
+    <button class="link-btn" onclick="logout()">Выйти</button>
+  </div>
 </div>
+
+<div class="wrap" id="main"></div>
+
+<!-- Messages overlay -->
+<div id="msgOverlay">
+<div class="msg-panel">
+  <div class="msg-head">
+    <span id="msgTitle" style="font-weight:600;font-size:.95em">💬 Сообщения</span>
+    <button class="link-btn" onclick="toggleMessages()">✕</button>
+  </div>
+  <div class="msg-body" id="msgBody"></div>
+  <div class="msg-foot" id="msgFoot" style="display:none">
+    <input id="msgIn" placeholder="Написать..." style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface-2);color:var(--text);font-size:.88em;outline:none" onkeydown="if(event.key==='Enter')sendMsg()">
+    <button style="padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:600;font-size:.88em" onclick="sendMsg()">→</button>
+  </div>
+</div>
+</div>
+
 <script src="/api.js"></script>
 <script>
 if(!requireAuth(['student']))throw'';
 document.getElementById('uname').textContent=localStorage.getItem('name');
-let student=null;
 
-async function load(){
-    const list=await get('/api/students');
-    if(!list.length){document.getElementById('sections').innerHTML='<p class="meta">Профиль не привязан</p>';return}
-    student=await get('/api/students/'+list[0].id);render()}
+let curSection=null; // null=home, 'courses', 'extra', 'extra-detail', 'contacts'
+let student=null, contacts={tutors:[],parents:[]};
+let platformCourses=[], curPlatformCourse=null;
+const openSecs=new Set(), openPcSecs=new Set();
+
+// ── NAV ──────────────────────────────────────────────────────────────────
+function goHome(){curSection=null;render()}
+function goSection(s){curSection=s;render()}
 
 function render(){
-    const s=student,gl=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
-    document.getElementById('info').innerHTML=`${s.name} · ${s.grade} класс · <span class="goal goal-${s.goal}">${gl}</span> · <a href="/board.html?id=${s.id}">🎨 Доска</a>`;
-    const el=document.getElementById('sections');
-    if(!s.sections.length){el.innerHTML='<p class="meta" style="text-align:center;padding:40px">Программа пока не назначена</p>';return}
-    el.innerHTML=s.sections.map(sec=>`<div class="sec${sec.is_open?' open':''}" onclick="toggle('${sec.id}',this)">
-<div class="sec-h"><h3>${sec.is_open?'▼':'▶'} ${sec.title}</h3>
-<span class="meta">${sec.idz_enabled?'ИДЗ:'+sec.idz+'/10 ':' '}${sec.control_enabled?(sec.control==='passed'?'✅':sec.control==='failed'?'❌':'—'):''}</span></div>
-<div class="sec-body">${sec.items.map(i=>{
-    let extra='';
-    if(i.type==='hw'&&i.total){const p=i.done?Math.round(i.done/i.total*100):0;extra=`<div class="hw-bar"><div class="hw-fill" style="width:${p}%"></div></div><span class="meta">${i.done||0}/${i.total}</span>`}
-    return`<div class="item"><div class="status st-${i.status||'none'}"></div><span style="flex:1">${i.name||i.type}</span>${extra}</div>`}).join('')}
-</div></div>`).join('')}
+  const m=document.getElementById('main');
+  if(curSection===null) renderHome(m);
+  else if(curSection==='courses') renderCourses(m);
+  else if(curSection==='extra') renderExtra(m);
+  else if(curSection==='extra-detail') renderExtraDetail(m);
+  else if(curSection==='contacts') renderContacts(m);
+}
 
-async function toggle(id,el){
-    const sec=student.sections.find(s=>s.id===id);if(!sec)return;
-    try{await patch('/api/sections/'+id,{is_open:!sec.is_open});sec.is_open=!sec.is_open;render()}catch(e){}}
-load();
+// ── HOME ─────────────────────────────────────────────────────────────────
+function renderHome(m){
+  if(!student){m.innerHTML='<div class="empty">Загрузка...</div>';return}
+  const secCount=student.sections.length;
+  const tutorCount=contacts.tutors.length+contacts.parents.length;
+  const pcCount=platformCourses.length;
+  m.innerHTML=`<div style="margin-bottom:20px">
+  <div style="font-size:1.15em;font-weight:700;margin-bottom:2px">Добро пожаловать, ${esc(student.name)}</div>
+  <div style="color:var(--muted);font-size:.85em">${student.grade} класс · ${student.format}</div>
+</div>
+<div class="dash-grid">
+  <div class="dash-card" onclick="goSection('courses')">
+    <div class="dash-card-icon">📚</div>
+    <h3>Основные курсы</h3>
+    <div class="dash-card-count">${secCount}</div>
+    <div class="dash-card-sub">разделов в программе</div>
+  </div>
+  <div class="dash-card" onclick="goSection('extra')">
+    <div class="dash-card-icon">🎓</div>
+    <h3>Доп. курсы платформы</h3>
+    <div class="dash-card-count">${pcCount}</div>
+    <div class="dash-card-sub">доступных курсов</div>
+  </div>
+  <div class="dash-card" onclick="goSection('contacts')">
+    <div class="dash-card-icon">👥</div>
+    <h3>Контакты</h3>
+    <div class="dash-card-count">${tutorCount}</div>
+    <div class="dash-card-sub">преподавателей и родителей</div>
+  </div>
+</div>`}
+
+// ── COURSES ──────────────────────────────────────────────────────────────
+function calcPrice(st){
+  const n=st.sections.length;
+  if(!n)return{base:st.base_rate,discount:0,current:st.base_rate,pct:0};
+  const share=st.base_rate*0.30/n; let disc=0;
+  for(const sec of st.sections){
+    const hw=sec.items.filter(i=>i.type==='hw');
+    if(hw.length>0&&hw.every(i=>(i.grade||0)===5)) disc+=share/3;
+    if(sec.control==='passed') disc+=share/3;
+    if(sec.idz_enabled&&(sec.idz||0)===5) disc+=share/3;
+  }
+  const d=Math.round(disc);
+  return{base:st.base_rate,discount:d,current:st.base_rate-d,pct:Math.round(d/st.base_rate*100)};
+}
+
+function renderCourses(m){
+  if(!student){m.innerHTML='<div class="empty">Загрузка...</div>';return}
+  const s=student, p=calcPrice(s);
+  const gl=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
+  const tutorStr=contacts.tutors.map(t=>t.name+(t.subjects&&t.subjects.length?' ('+t.subjects.join(', ')+')':'')).join(', ');
+
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">📚 Основные курсы</span>
+  </div>
+  <div class="course-head">
+    <div class="course-head-top">
+      <div>
+        <div class="course-head-title">${esc(s.name)}</div>
+        <div class="course-head-meta">
+          ${s.grade} класс · <span class="goal goal-${s.goal}">${gl}</span> · ${s.format}
+          ${tutorStr?'· 👨‍🏫 '+tutorStr:''}
+        </div>
+      </div>
+      <a href="/board.html?id=${s.id}" class="btn-board">🎨 Доска</a>
+    </div>
+    <div class="price-block">
+      <div>
+        <div class="price-cur">${p.current} ₽<span style="font-size:.45em;color:var(--muted);font-weight:400"> / ч</span></div>
+        <div class="price-base">${p.base} ₽/ч</div>
+      </div>
+      <div style="text-align:center">
+        <div class="price-disc">−${p.discount} ₽ (−${p.pct}%)</div>
+        <div style="font-size:.76em;color:var(--muted)">скидка за прогресс</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end">
+        <span style="font-size:.8em;color:var(--muted)">${p.pct}%</span>
+        <div class="price-prog"><div class="price-prog-fill" style="width:${Math.min(100,p.pct*100/30)}%"></div></div>
+        <span style="font-size:.8em;color:var(--muted)">30%</span>
+      </div>
+    </div>
+  </div>`;
+  if(!s.sections.length) h+='<div class="empty">Программа пока не назначена</div>';
+  else h+=s.sections.map(sec=>renderSec(sec)).join('');
+  m.innerHTML=h}
+
+function gradeClass(g){return g===5?'grade-5':g===4?'grade-4':g===3?'grade-3':g===2?'grade-2':g===1?'grade-1':''}
+
+function renderSubs(it){
+  if(!it.subblocks||!it.subblocks.length) return '';
+  return '<div class="subblocks">'+it.subblocks.map(sb=>{
+    if(sb.type==='media'){const url=sb.file_path?'/'+sb.file_path.replace(/\\/g,'/'):null;
+      return`<div class="subblock sb-media">${url?`<a href="${url}" target="_blank">📎 ${esc(sb.name||'файл')}</a>`:'<span>медиа</span>'}</div>`}
+    return`<div class="subblock">${esc(sb.content||'')}</div>`}).join('')+'</div>'}
+
+function renderSec(sec){
+  const locked=sec.locked, isOpen=openSecs.has(sec.id);
+  const ctrlBadge=sec.control_enabled?(sec.control==='passed'?`<span class="badge b-ctrl-pass">✓ Контр.</span>`:sec.control==='failed'?`<span class="badge b-ctrl-fail">✗ Контр.</span>`:`<span class="badge b-ctrl-none">Контр.</span>`):''
+  const idzBadge=sec.idz_enabled?`<span class="badge b-idz">ИДЗ${sec.idz?' '+sec.idz:''}${sec.idz===5?' ★':''}</span>`:''
+  const lockBadge=locked?`<span class="lock-badge">🔒 Закрыт</span>`:''
+  const items=sec.items.map(it=>renderItem(it,sec)).join('')
+  const footer=renderFooter(sec,locked)
+  return`<div class="sec${isOpen?' open':''}${locked?' locked':''}" id="sec_${sec.id}">
+<div class="sec-h" onclick="toggleSec('${sec.id}')">
+  <h3><span style="color:var(--muted);font-size:.85em">${isOpen?'▼':'▶'}</span> ${esc(sec.title)} ${lockBadge}</h3>
+  <div class="badges">${ctrlBadge}${idzBadge}</div>
+</div>
+<div class="sec-body">${items}${footer}</div>
+</div>`}
+
+function renderItem(it,sec){
+  const locked=sec.locked, icon={topic:'📌',hw:'📋',media:'🗂',note:'📝'}[it.type]||'▪';
+  if(it.type==='hw'){
+    const g=it.grade||0, gcls=gradeClass(g);
+    return`<div class="item"><span>${icon}</span><span style="flex:1">${esc(it.name||'ДЗ')}${it.total?`<span style="color:var(--muted);font-size:.82em"> (${it.total} зад.)</span>`:''}</span>
+${it.text?`<span style="color:var(--muted);font-size:.78em;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.text)}</span>`:''}
+<select class="grade-sel ${gcls}" onchange="setGrade('${it.id}',+this.value)" ${locked?'disabled':''}>
+  <option value="0" ${g===0?'selected':''}>— оценка</option>
+  <option value="1" ${g===1?'selected':''}>1</option><option value="2" ${g===2?'selected':''}>2</option>
+  <option value="3" ${g===3?'selected':''}>3</option><option value="4" ${g===4?'selected':''}>4</option>
+  <option value="5" ${g===5?'selected':''}>5 ★</option>
+</select></div>${renderSubs(it)}`}
+  if(it.type==='topic'){
+    const sc={none:'st-none',progress:'st-progress',done:'st-done'};
+    return`<div class="item"><div class="status-dot ${sc[it.status]||'st-none'}"></div><span style="flex:1">${esc(it.name||'Тема')}</span>
+<select class="grade-sel" style="border-color:var(--border)" onchange="setStatus('${it.id}',this.value)" ${locked?'disabled':''}>
+  <option value="none" ${it.status==='none'?'selected':''}>—</option>
+  <option value="progress" ${it.status==='progress'?'selected':''}>▶ В работе</option>
+  <option value="done" ${it.status==='done'?'selected':''}>✓ Готово</option>
+</select></div>${renderSubs(it)}`}
+  if(it.type==='media'){
+    const att=it.attachments&&it.attachments[0];
+    const url=att&&att.file_path?'/'+att.file_path.replace(/\\/g,'/'):null;
+    return`<div class="item"><span>${icon}</span><span style="flex:1">${esc(it.name||'Файл')}</span>
+${url?`<a href="${url}" target="_blank" style="font-size:.82em">📎 ${esc(att.name)}</a>`:''}
+</div>${renderSubs(it)}`}
+  return`<div class="item"><span>${icon}</span><span style="flex:1">${esc(it.name||it.text||it.type)}</span></div>${renderSubs(it)}`}
+
+function renderFooter(sec,locked){
+  if(!sec.idz_enabled&&!sec.control_enabled) return '';
+  const idzG=sec.idz||0, gcls=gradeClass(idzG);
+  return`<div class="sec-footer">
+${sec.control_enabled?`<div class="panel-row"><span class="panel-lbl panel-lbl-ctrl">Контрольная</span>
+${sec.control==='passed'?`<span style="color:var(--green-t);font-size:.85em">✓ Сдана</span>`:sec.control==='failed'?`<span style="color:#f87171;font-size:.85em">✗ Не сдана</span>`:`<span style="color:var(--muted);font-size:.82em">Ожидает</span>`}
+</div>`:''}\
+${sec.idz_enabled?`<div class="panel-row"><span class="panel-lbl panel-lbl-idz">ИДЗ</span>
+${sec.idz_text?`<span class="idz-desc">${esc(sec.idz_text)}</span>`:''}
+<select class="grade-sel ${gcls}" onchange="setIdz('${sec.id}',+this.value)" ${locked?'disabled':''}>
+  <option value="0" ${idzG===0?'selected':''}>— оценка</option>
+  <option value="1" ${idzG===1?'selected':''}>1</option><option value="2" ${idzG===2?'selected':''}>2</option>
+  <option value="3" ${idzG===3?'selected':''}>3</option><option value="4" ${idzG===4?'selected':''}>4</option>
+  <option value="5" ${idzG===5?'selected':''}>5 ★</option>
+</select></div>`:''}\
+</div>`}
+
+function toggleSec(id){
+  if(openSecs.has(id)) openSecs.delete(id); else openSecs.add(id);
+  renderCourses(document.getElementById('main'));
+  const sec=student&&student.sections.find(s=>s.id===id);
+  if(sec){sec.is_open=openSecs.has(id);patch('/api/sections/'+id,{is_open:sec.is_open}).catch(()=>{})}}
+
+async function setGrade(itemId,grade){
+  try{await patch('/api/items/'+itemId,{grade});
+    student.sections.forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.grade=grade});
+    renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
+async function setStatus(itemId,status){
+  try{await patch('/api/items/'+itemId,{status});
+    student.sections.forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.status=status});
+    renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
+async function setIdz(secId,val){
+  try{await patch('/api/sections/'+secId,{idz:val});
+    const sec=student.sections.find(s=>s.id===secId);if(sec)sec.idz=val;
+    renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
+
+// ── EXTRA COURSES ────────────────────────────────────────────────────────
+function renderExtra(m){
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">🎓 Доп. курсы платформы</span>
+  </div>`;
+  if(!platformCourses.length){
+    h+='<div class="empty">Дополнительные материалы от преподавателя появятся здесь</div>';
+    m.innerHTML=h; return}
+  h+=platformCourses.map(c=>{
+    const subj=c.subject_name||'';
+    return`<div class="course-card" onclick="openPlatformCourse('${c.id}')">
+  <h3>${esc(c.title)} <span class="access-pill access-public">публичный</span></h3>
+  <div style="color:var(--muted);font-size:.82em">${subj?subj+' · ':''}${c.sections_count} разд. · ${esc(c.author_name||'')}</div>
+  ${c.description?`<div style="color:var(--muted);font-size:.8em;margin-top:4px">${esc(c.description.slice(0,100))}</div>`:''}
+</div>`}).join('');
+  m.innerHTML=h}
+
+async function openPlatformCourse(cid){
+  curPlatformCourse=await get('/api/platform-courses/'+cid).catch(()=>null);
+  if(!curPlatformCourse){alert('Курс не найден');return}
+  curSection='extra-detail';render()}
+
+function renderExtraDetail(m){
+  const c=curPlatformCourse;
+  if(!c){goSection('extra');return}
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goSection('extra')">← Курсы</button>
+    <span class="sec-title">🎓 ${esc(c.title)}</span>
+  </div>`;
+  if(!c.sections||!c.sections.length){h+='<div class="empty">Курс пуст</div>';m.innerHTML=h;return}
+  h+=c.sections.map(sec=>{
+    const isOpen=openPcSecs.has(sec.id);
+    const items=sec.items||[];
+    const itemsHtml=items.map(it=>{
+      const icon={topic:'📌',hw:'📋',media:'🗂',note:'📝'}[it.type]||'▪';
+      const sbHtml=(it.subblocks||[]).filter(sb=>sb.type==='text').map(sb=>`<div style="color:var(--muted);font-size:.8em;padding:3px 0 0 20px">${esc(sb.content||'')}</div>`).join('');
+      let mediaLink='';
+      if(it.type==='media'&&it.file_path){const url='/'+it.file_path.replace(/\\/g,'/');mediaLink=`<a href="${url}" target="_blank" style="font-size:.8em;color:var(--green-t);margin-left:auto">📎 файл</a>`}
+      return`<div class="pc-item">${icon} ${esc(it.name||it.type)}${mediaLink}</div>${sbHtml}`}).join('');
+    return`<div class="pc-sec${isOpen?' open':''}" id="pc_${sec.id}">
+<div class="pc-sec-h" onclick="togglePcSec('${sec.id}')">
+  <h4><span style="color:var(--muted)">${isOpen?'▼':'▶'}</span> ${esc(sec.title)}</h4>
+  <span style="color:var(--muted);font-size:.78em">${items.length} элем.</span>
+</div>
+<div class="pc-sec-body">${itemsHtml||'<div style="color:var(--muted);font-size:.85em;padding:4px 0">Нет элементов</div>'}</div>
+</div>`}).join('');
+  m.innerHTML=h}
+
+function togglePcSec(id){
+  if(openPcSecs.has(id)) openPcSecs.delete(id); else openPcSecs.add(id);
+  renderExtraDetail(document.getElementById('main'))}
+
+// ── CONTACTS ─────────────────────────────────────────────────────────────
+function renderContacts(m){
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">👥 Контакты</span>
+  </div>`;
+  if(!contacts.tutors.length&&!contacts.parents.length){
+    h+='<div class="empty">Контакты не назначены</div>';m.innerHTML=h;return}
+  if(contacts.tutors.length){
+    h+='<div style="color:var(--muted);font-size:.82em;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">👨‍🏫 Преподаватели</div>';
+    h+=contacts.tutors.map(t=>`<div class="contact-card">
+  <div class="contact-avatar">${(t.name||'?')[0].toUpperCase()}</div>
+  <div class="contact-info">
+    <div class="contact-name">${esc(t.name)}</div>
+    <div class="contact-sub">${t.subjects&&t.subjects.length?t.subjects.join(' · '):''}</div>
+  </div>
+  <button class="btn-msg" onclick="startChat('${t.id}','${esc(t.name)}')">💬 Написать</button>
+</div>`).join('')}
+  if(contacts.parents.length){
+    h+=`<div style="color:var(--muted);font-size:.82em;font-weight:600;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.05em">👨‍👩‍👧 Родители</div>`;
+    h+=contacts.parents.map(p=>`<div class="contact-card">
+  <div class="contact-avatar">${(p.name||'?')[0].toUpperCase()}</div>
+  <div class="contact-info">
+    <div class="contact-name">${esc(p.name)}</div>
+    <div class="contact-sub">Родитель</div>
+  </div>
+  <button class="btn-msg" onclick="startChat('${p.id}','${esc(p.name)}')">💬 Написать</button>
+</div>`).join('')}
+  m.innerHTML=h}
+
+// ── MESSAGING ────────────────────────────────────────────────────────────
+let msgChatUid=null, msgOpen=false, chatPollTimer=null, msgChatName='';
+
+function toggleMessages(){
+  const ov=document.getElementById('msgOverlay');
+  msgOpen=!msgOpen;ov.style.display=msgOpen?'flex':'none';
+  if(msgOpen&&!msgChatUid) loadConvos();
+  if(!msgOpen){clearInterval(chatPollTimer);chatPollTimer=null;}}
+
+function startChat(uid,name){
+  msgOpen=true; document.getElementById('msgOverlay').style.display='flex';
+  openChatWith(uid,name)}
+
+async function loadConvos(){
+  clearInterval(chatPollTimer);chatPollTimer=null;
+  const convos=await get('/api/messages').catch(()=>[]);
+  const body=document.getElementById('msgBody');
+  document.getElementById('msgTitle').textContent='💬 Сообщения';
+  document.getElementById('msgFoot').style.display='none';
+  msgChatUid=null;
+  if(!convos.length){body.innerHTML='<div class="empty">Нет сообщений</div>';return}
+  body.innerHTML=convos.map(c=>`<div style="padding:10px 6px;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''" onclick="openChatWith('${c.partner_id}','${esc(c.partner_name)}')">
+  <div style="width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0">${(c.partner_name||'?')[0].toUpperCase()}</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:.88em;font-weight:600">${esc(c.partner_name)}</div>
+    <div style="font-size:.78em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.last_text||'')}</div>
+  </div>
+  ${c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.68em;font-weight:700;padding:1px 5px;border-radius:8px">${c.unread}</span>`:''}
+</div>`).join('')}
+
+async function openChatWith(uid,name){
+  msgChatUid=uid;
+  if(name) msgChatName=name;
+  document.getElementById('msgTitle').innerHTML=`<button onclick="loadConvos()" style="background:none;border:none;cursor:pointer;color:var(--muted);margin-right:4px;font-size:.85em">←</button> ${esc(msgChatName)}`;
+  document.getElementById('msgFoot').style.display='flex';
+  await refreshChat();
+  clearInterval(chatPollTimer);
+  chatPollTimer=setInterval(refreshChat,5000);}
+
+async function refreshChat(){
+  if(!msgChatUid) return;
+  const msgs=await get('/api/messages/'+msgChatUid).catch(()=>[]);
+  const body=document.getElementById('msgBody');
+  if(!body) return;
+  const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
+  body.innerHTML=msgs.map(m=>{
+    const mine=m.to_id===msgChatUid;
+    return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}">${esc(m.text)}</div>`}).join('');
+  if(atBottom) body.scrollTop=body.scrollHeight;
+  pollNotifs();}
+
+async function sendMsg(){
+  const inp=document.getElementById('msgIn');if(!inp||!inp.value.trim())return;
+  try{await post('/api/messages',{to_id:msgChatUid,text:inp.value.trim()});inp.value='';
+    await refreshChat();}catch(e){alert(e.detail||'Ошибка')}}
+
+async function pollNotifs(){
+  try{const r=await get('/api/notifications');const n=r.unread||0;
+    const b=document.getElementById('notifBadge');
+    if(b){b.textContent=n>9?'9+':n;b.style.display=n>0?'':'none'}}catch(e){}
+  setTimeout(pollNotifs,30000)}
+
+// ── LOAD ─────────────────────────────────────────────────────────────────
+async function load(){
+  const list=await get('/api/students');
+  if(!list.length){
+    document.getElementById('main').innerHTML='<div class="empty">Профиль не привязан к аккаунту</div>';return}
+  const id=list[0].id;
+  [student,contacts,platformCourses]=await Promise.all([
+    get('/api/students/'+id),
+    get('/api/students/'+id+'/contacts').catch(()=>({tutors:[],parents:[]})),
+    get('/api/platform-courses').catch(()=>[])]);
+  for(const sec of student.sections){if(sec.is_open) openSecs.add(sec.id)}
+  render()}
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+load();pollNotifs();
 </script></body></html>
