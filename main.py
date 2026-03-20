@@ -1,8 +1,9 @@
-from fastapi import FastAPI,Depends,HTTPException,UploadFile,File,WebSocket,WebSocketDisconnect
+from fastapi import FastAPI,Depends,HTTPException,UploadFile,File,WebSocket,WebSocketDisconnect,Request,Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session,joinedload
-import os,json,jwt
+import os,json,jwt,secrets
+from datetime import datetime,timezone
 from collections import defaultdict
 from database import get_db,SessionLocal
 from models import *
@@ -16,6 +17,27 @@ BASE_DIR=os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR=os.path.join(BASE_DIR,"uploads"); os.makedirs(UPLOAD_DIR,exist_ok=True)
 def _up(aid,ext): return os.path.join(UPLOAD_DIR,f"{aid}{ext}"),f"uploads/{aid}{ext}"
 def is_tr(u): return u.role in ("owner","tutor")
+
+# ═══ LAST SEEN MIDDLEWARE ═══
+@app.middleware("http")
+async def update_last_seen(request: Request, call_next):
+    response = await call_next(request)
+    auth = request.headers.get("authorization","")
+    if auth.startswith("Bearer "):
+        try:
+            payload = jwt.decode(auth[7:], SECRET_KEY, algorithms=[ALGORITHM])
+            uid = payload.get("sub")
+            if uid:
+                db = SessionLocal()
+                try:
+                    u = db.query(User).filter(User.id==uid).first()
+                    if u:
+                        u.last_seen = datetime.now(timezone.utc)
+                        db.commit()
+                except: pass
+                finally: db.close()
+        except: pass
+    return response
 
 # ═══ AUTH ═══
 @app.post("/api/auth/login",response_model=LoginResponse)
@@ -168,7 +190,7 @@ def del_subj(sid:str,o:User=Depends(require_owner),db:Session=Depends(get_db)):
 def list_courses(subject_id:str=None,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     q=db.query(Course).options(joinedload(Course.author),joinedload(Course.subject))
     if subject_id: q=q.filter(Course.subject_id==subject_id)
-    if u.role=="tutor": q=q.filter((Course.access=="public")|(Course.author_id==u.id))
+    if u.role=="tutor": q=q.filter((Course.access.in_(["public","internal"]))|(Course.author_id==u.id))
     return [CourseListItem(id=c.id,subject_id=c.subject_id,author_id=c.author_id,title=c.title,
         description=c.description,access=c.access,author_name=c.author.name if c.author else None,
         subject_name=c.subject.name if c.subject else None,sections_count=len(c.sections),
@@ -186,9 +208,78 @@ def list_platform_courses(u:User=Depends(get_current_user),db:Session=Depends(ge
 def get_platform_course(cid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     c=db.query(Course).options(
         joinedload(Course.sections).joinedload(CourseSection.items).joinedload(CourseSectionItem.subblocks)
-    ).filter(Course.id==cid,Course.access=="public").first()
+    ).filter(Course.id==cid,Course.access.in_(["public","internal"])).first()
     if not c: raise HTTPException(404)
     return c
+
+# ═══ STUDENT PLATFORM COURSES (assigned extra courses) ═══
+@app.get("/api/students/{stid}/platform-courses")
+def get_student_platform_courses(stid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    """Courses assigned to this student as extra material."""
+    st=db.query(Student).filter(Student.id==stid).first()
+    if not st: raise HTTPException(404)
+    # Check access
+    if u.role=="student":
+        if u.student_id!=stid: raise HTTPException(403)
+    elif u.role=="parent":
+        rows=db.execute(parent_student_link.select().where((parent_student_link.c.parent_id==u.id)&(parent_student_link.c.student_id==stid))).first()
+        if not rows: raise HTTPException(403)
+    rows=db.execute(student_platform_courses.select().where(student_platform_courses.c.student_id==stid)).fetchall()
+    cids=[r.course_id for r in rows]
+    if not cids: return []
+    courses=db.query(Course).options(joinedload(Course.author),joinedload(Course.subject)).filter(Course.id.in_(cids)).all()
+    return [CourseListItem(id=c.id,subject_id=c.subject_id,author_id=c.author_id,title=c.title,
+        description=c.description,access=c.access,author_name=c.author.name if c.author else None,
+        subject_name=c.subject.name if c.subject else None,sections_count=len(c.sections),
+        created_at=c.created_at) for c in courses]
+
+@app.post("/api/students/{stid}/platform-courses/{cid}",status_code=200)
+def assign_student_course(stid:str,cid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    if not db.query(Student).filter(Student.id==stid).first(): raise HTTPException(404)
+    c=db.query(Course).filter(Course.id==cid).first()
+    if not c: raise HTTPException(404)
+    if c.access=="private" and c.author_id!=u.id and u.role!="owner": raise HTTPException(403)
+    if u.role=="tutor":
+        allowed=set(_tutor_student_ids(u.id,db))
+        if stid not in allowed: raise HTTPException(403)
+    exists=db.execute(student_platform_courses.select().where(
+        (student_platform_courses.c.student_id==stid)&(student_platform_courses.c.course_id==cid))).first()
+    if not exists:
+        db.execute(student_platform_courses.insert().values(student_id=stid,course_id=cid))
+        db.commit()
+    return {"ok":True}
+
+@app.delete("/api/students/{stid}/platform-courses/{cid}",status_code=200)
+def unassign_student_course(stid:str,cid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    if u.role=="tutor":
+        allowed=set(_tutor_student_ids(u.id,db))
+        if stid not in allowed: raise HTTPException(403)
+    db.execute(student_platform_courses.delete().where(
+        (student_platform_courses.c.student_id==stid)&(student_platform_courses.c.course_id==cid)))
+    db.commit(); return {"ok":True}
+
+@app.post("/api/me/platform-courses/{cid}",status_code=200)
+def self_assign_course(cid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    """Student self-assigns a public course."""
+    if u.role not in ("student","parent"): raise HTTPException(403,"Только для учеников")
+    if not u.student_id: raise HTTPException(400,"Профиль ученика не привязан")
+    c=db.query(Course).filter(Course.id==cid).first()
+    if not c: raise HTTPException(404)
+    if c.access!="public": raise HTTPException(403,"Курс недоступен")
+    exists=db.execute(student_platform_courses.select().where(
+        (student_platform_courses.c.student_id==u.student_id)&(student_platform_courses.c.course_id==cid))).first()
+    if not exists:
+        db.execute(student_platform_courses.insert().values(student_id=u.student_id,course_id=cid))
+        db.commit()
+    return {"ok":True}
+
+@app.delete("/api/me/platform-courses/{cid}",status_code=200)
+def self_unassign_course(cid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    if u.role not in ("student","parent"): raise HTTPException(403)
+    if not u.student_id: raise HTTPException(400)
+    db.execute(student_platform_courses.delete().where(
+        (student_platform_courses.c.student_id==u.student_id)&(student_platform_courses.c.course_id==cid)))
+    db.commit(); return {"ok":True}
 
 @app.get("/api/courses/{cid}",response_model=CourseOut)
 def get_course(cid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
@@ -524,7 +615,9 @@ def create_sec(stid:str,d:SectionCreate,u:User=Depends(require_tutor_or_owner),d
     chk_acc(stid,u,db)
     if not db.query(Student).filter(Student.id==stid).first(): raise HTTPException(404)
     mp=db.query(Section.position).filter(Section.student_id==stid).order_by(Section.position.desc()).first()
-    sec=Section(student_id=stid,title=d.title,position=(mp[0]+1) if mp else 0,idz_enabled=d.idz_enabled,control_enabled=d.control_enabled)
+    sec=Section(student_id=stid,title=d.title,position=(mp[0]+1) if mp else 0,
+                idz_enabled=d.idz_enabled,control_enabled=d.control_enabled,
+                course_id=d.course_id,idz_text=d.idz_text)
     db.add(sec); db.commit(); db.refresh(sec); return sec
 
 @app.patch("/api/sections/{sid}",response_model=SectionOut)
@@ -569,6 +662,9 @@ def upd_item(iid:str,d:ItemUpdate,u:User=Depends(get_current_user),db:Session=De
         chk_acc(sec.student_id,u,db)
         if sec.locked and not is_tr(u): raise HTTPException(403,"Раздел заблокирован")
     ud=d.model_dump(exclude_unset=True)
+    if not is_tr(u):
+        student_allowed={"status","student_answer"}
+        ud={k:v for k,v in ud.items() if k in student_allowed}
     for f,v in ud.items(): setattr(it,f,v)
     db.commit(); db.refresh(it); return it
 
@@ -636,6 +732,8 @@ def _cln_stu(st,db):
 
 # ═══ BOARD ═══
 brd_conns: dict[str,set[WebSocket]] = defaultdict(set)
+brd_users: dict[str,dict[str,str]] = defaultdict(dict)  # stid -> {uid: name}
+
 def _get_board(stid,db):
     b=db.query(Board).filter(Board.student_id==stid).first()
     if not b: b=Board(student_id=stid,strokes="[]"); db.add(b); db.commit(); db.refresh(b)
@@ -683,9 +781,13 @@ async def board_ws(ws:WebSocket,stid:str):
                 if not db.execute(tutor_student_link.select().where((tutor_student_link.c.tutor_id==user.id)&(tutor_student_link.c.student_id==stid))).first():
                     await ws.close(code=4003); return
         _get_board(stid,db)
+        uname_board=user.name
     finally: db.close()
     brd_conns[stid].add(ws)
-    await ws.send_text(json.dumps({"type":"hello","user_id":uid}))
+    brd_users[stid][uid]=uname_board
+    # notify others about join
+    await _bcast(stid,json.dumps({"type":"user_join","uid":uid,"name":uname_board,"online":list({"uid":k,"name":v} for k,v in brd_users[stid].items())}),ws)
+    await ws.send_text(json.dumps({"type":"hello","user_id":uid,"name":uname_board,"online":[{"uid":k,"name":v} for k,v in brd_users[stid].items() if k!=uid]}))
     try:
         while True:
             raw=await ws.receive_text()
@@ -730,11 +832,18 @@ async def board_ws(ws:WebSocket,stid:str):
                 try: b=_get_board(stid,db); c=json.loads(b.strokes); b.strokes=json.dumps([s for s in c if s.get("id")!=eid]); db.commit()
                 finally: db.close()
                 await _bcast(stid,json.dumps({"type":"erase_stroke","id":eid}),ws)
+            elif mt in ("cursor","view"):
+                msg["uid"]=uid; msg["name"]=uname_board
+                await _bcast(stid,json.dumps(msg),ws)
     except WebSocketDisconnect: pass
     except Exception as e: print(f"[WS] {e}")
     finally:
         brd_conns[stid].discard(ws)
-        if not brd_conns[stid]: del brd_conns[stid]
+        brd_users[stid].pop(uid,None)
+        if not brd_conns[stid]:
+            del brd_conns[stid]
+            if stid in brd_users: del brd_users[stid]
+        await _bcast(stid,json.dumps({"type":"user_leave","uid":uid}),None)
 
 # ═══ MESSAGING ═══
 @app.post("/api/messages",status_code=201)
@@ -785,8 +894,474 @@ def get_thread(uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_d
 
 @app.get("/api/notifications")
 def get_notifications(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
-    unread=db.query(Message).filter(Message.to_id==u.id,Message.is_read==False).count()
-    return {"unread":unread}
+    unread_msgs=db.query(Message).filter(Message.to_id==u.id,Message.is_read==False).count()
+    notifs=db.query(Notification).filter(Notification.user_id==u.id).order_by(Notification.created_at.desc()).limit(50).all()
+    unread_notifs=sum(1 for n in notifs if not n.is_read)
+    return {
+        "unread_messages":unread_msgs,
+        "unread_notifications":unread_notifs,
+        "unread":unread_msgs+unread_notifs,
+        "notifications":[{"id":n.id,"text":n.text,"is_read":n.is_read,
+            "created_at":n.created_at.isoformat() if n.created_at else None,
+            "link":n.link,"notif_type":n.notif_type} for n in notifs]}
+
+@app.post("/api/notifications/{nid}/read")
+def mark_notif_read(nid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    n=db.query(Notification).filter(Notification.id==nid,Notification.user_id==u.id).first()
+    if not n: raise HTTPException(404)
+    n.is_read=True; db.commit(); return {"ok":True}
+
+@app.post("/api/notifications/read-all")
+def mark_all_read(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    db.query(Notification).filter(Notification.user_id==u.id,Notification.is_read==False).update({"is_read":True})
+    db.commit(); return {"ok":True}
+
+# ═══ PROFILE ═══
+@app.get("/api/profile")
+def get_own_profile(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    sids=[r.subject_id for r in db.execute(tutor_subject_link.select().where(tutor_subject_link.c.tutor_id==u.id)).fetchall()]
+    courses=[]
+    if u.role in ("tutor","owner"):
+        courses=[{"id":c.id,"title":c.title,"access":c.access,"subject_name":c.subject.name if c.subject else ""}
+                 for c in db.query(Course).options(joinedload(Course.subject)).filter(Course.author_id==u.id).all()]
+    return {"id":u.id,"login":u.login,"role":u.role,"name":u.name,"about":u.about,"photo":u.photo,
+            "must_change_password":u.must_change_password,"student_id":u.student_id,
+            "created_at":u.created_at.isoformat() if u.created_at else None,
+            "last_seen":u.last_seen.isoformat() if u.last_seen else None,
+            "subject_ids":sids,"courses":courses}
+
+@app.patch("/api/profile")
+def update_own_profile(d:ProfileUpdate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    if d.name is not None and d.name.strip(): u.name=d.name.strip()[:200]
+    if d.about is not None: u.about=d.about[:2000] if d.about else None
+    if d.photo is not None: u.photo=d.photo if d.photo else None
+    db.commit(); return {"ok":True}
+
+@app.get("/api/users/{uid}/profile")
+def get_user_profile(uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    t=db.query(User).filter(User.id==uid).first()
+    if not t: raise HTTPException(404)
+    if uid!=u.id:
+        if u.role=="owner": pass
+        elif u.role=="tutor":
+            stids=set(_tutor_student_ids(u.id,db))
+            s_uids={r.id for r in db.query(User.id).filter(User.student_id.in_(stids)).all()} if stids else set()
+            p_ids={r.parent_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(stids))).fetchall()} if stids else set()
+            o_ids={r.id for r in db.query(User.id).filter(User.role=="owner").all()}
+            if uid not in s_uids|p_ids|o_ids: raise HTTPException(403)
+        else:
+            contacts=get_contacts(u,db)
+            if uid not in {c["id"] for c in contacts}: raise HTTPException(403)
+    sids=[r.subject_id for r in db.execute(tutor_subject_link.select().where(tutor_subject_link.c.tutor_id==t.id)).fetchall()]
+    courses=[]
+    if t.role in ("tutor","owner"):
+        if u.role in ("tutor","owner"):
+            access_filter=Course.access.in_(["public","internal"])
+        else:
+            access_filter=Course.access=="public"
+        courses=[{"id":c.id,"title":c.title,"access":c.access,"subject_name":c.subject.name if c.subject else ""}
+                 for c in db.query(Course).options(joinedload(Course.subject)).filter(Course.author_id==t.id,access_filter).all()]
+    result={"id":t.id,"login":t.login,"role":t.role,"name":t.name,"about":t.about,"photo":t.photo,
+            "must_change_password":t.must_change_password,
+            "created_at":t.created_at.isoformat() if t.created_at else None,
+            "last_seen":t.last_seen.isoformat() if t.last_seen else None,
+            "subject_ids":sids,"courses":courses}
+    if u.role=="owner":
+        result["owner_notes"]=t.owner_notes
+        reqs=db.query(ChangeRequest).filter(ChangeRequest.user_id==t.id,ChangeRequest.status=="pending").order_by(ChangeRequest.created_at.desc()).all()
+        result["pending_requests"]=[{"id":r.id,"req_type":r.req_type,
+            "new_value":r.new_value if r.req_type=="login" else "••••••",
+            "created_at":r.created_at.isoformat() if r.created_at else None} for r in reqs]
+    return result
+
+@app.patch("/api/users/{uid}/profile")
+def update_user_profile(uid:str,d:OwnerProfileUpdate,u:User=Depends(require_owner),db:Session=Depends(get_db)):
+    t=db.query(User).filter(User.id==uid).first()
+    if not t: raise HTTPException(404)
+    if d.name is not None and d.name.strip(): t.name=d.name.strip()[:200]
+    if d.about is not None: t.about=d.about[:2000] if d.about else None
+    if d.owner_notes is not None: t.owner_notes=d.owner_notes[:5000] if d.owner_notes else None
+    if d.photo is not None: t.photo=d.photo if d.photo else None
+    if d.login is not None and d.login.strip():
+        if db.query(User).filter(User.login==d.login,User.id!=uid).first(): raise HTTPException(409,"Логин занят")
+        t.login=d.login.strip()[:100]
+        n=Notification(user_id=t.id,text="Ваш логин был изменён администратором",notif_type="system")
+        db.add(n)
+    if d.password is not None and d.password:
+        if len(d.password)<6: raise HTTPException(400,"Минимум 6 символов")
+        t.password_hash=hash_password(d.password); t.must_change_password=False
+        n=Notification(user_id=t.id,text="Ваш пароль был изменён администратором",notif_type="system")
+        db.add(n)
+    db.commit(); return {"ok":True}
+
+# ═══ CHANGE REQUESTS ═══
+@app.post("/api/profile/change-request",status_code=201)
+def create_change_request(d:ChangeRequestCreate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    if d.req_type not in ("login","password"): raise HTTPException(400,"Тип: login или password")
+    if d.req_type=="login":
+        if not d.new_value.strip(): raise HTTPException(400,"Введите логин")
+        if db.query(User).filter(User.login==d.new_value,User.id!=u.id).first(): raise HTTPException(409,"Логин уже занят")
+    if d.req_type=="password" and len(d.new_value)<6: raise HTTPException(400,"Минимум 6 символов")
+    existing=db.query(ChangeRequest).filter(ChangeRequest.user_id==u.id,ChangeRequest.req_type==d.req_type,ChangeRequest.status=="pending").first()
+    if existing:
+        existing.new_value=d.new_value; db.commit(); return {"ok":True}
+    cr=ChangeRequest(user_id=u.id,req_type=d.req_type,new_value=d.new_value)
+    db.add(cr); db.flush()
+    owner=db.query(User).filter(User.role=="owner").first()
+    if owner:
+        label="логина" if d.req_type=="login" else "пароля"
+        n=Notification(user_id=owner.id,text=f"Пользователь {u.name} запросил смену {label}",
+            notif_type="change_request",link=f"/profile.html?uid={u.id}")
+        db.add(n)
+    db.commit(); return {"ok":True}
+
+@app.get("/api/change-requests")
+def list_change_requests(u:User=Depends(require_owner),db:Session=Depends(get_db)):
+    reqs=db.query(ChangeRequest).filter(ChangeRequest.status=="pending").order_by(ChangeRequest.created_at.desc()).all()
+    return [{"id":r.id,"user_id":r.user_id,"user_name":r.req_user.name,"req_type":r.req_type,
+             "new_value":r.new_value if r.req_type=="login" else "••••••",
+             "created_at":r.created_at.isoformat() if r.created_at else None} for r in reqs]
+
+@app.post("/api/change-requests/{rid}/approve")
+def approve_change_request(rid:str,u:User=Depends(require_owner),db:Session=Depends(get_db)):
+    r=db.query(ChangeRequest).filter(ChangeRequest.id==rid).first()
+    if not r: raise HTTPException(404)
+    t=db.query(User).filter(User.id==r.user_id).first()
+    if not t: raise HTTPException(404)
+    if r.req_type=="login":
+        if db.query(User).filter(User.login==r.new_value,User.id!=t.id).first(): raise HTTPException(409,"Логин занят")
+        t.login=r.new_value
+    elif r.req_type=="password":
+        t.password_hash=hash_password(r.new_value); t.must_change_password=False
+    r.status="approved"
+    label="логина" if r.req_type=="login" else "пароля"
+    n=Notification(user_id=t.id,text=f"Ваш запрос на смену {label} одобрен",notif_type="request_approved")
+    db.add(n); db.commit(); return {"ok":True}
+
+@app.post("/api/change-requests/{rid}/reject")
+def reject_change_request(rid:str,u:User=Depends(require_owner),db:Session=Depends(get_db)):
+    r=db.query(ChangeRequest).filter(ChangeRequest.id==rid).first()
+    if not r: raise HTTPException(404)
+    t=db.query(User).filter(User.id==r.user_id).first()
+    r.status="rejected"
+    if t:
+        label="логина" if r.req_type=="login" else "пароля"
+        n=Notification(user_id=t.id,text=f"Ваш запрос на смену {label} отклонён",notif_type="request_rejected")
+        db.add(n)
+    db.commit(); return {"ok":True}
+
+# ═══ CONTACTS ═══
+@app.get("/api/contacts")
+def get_contacts(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    """Returns list of users the current user can message."""
+    ids=set()
+    if u.role=="owner":
+        # owner sees everyone
+        all_u=db.query(User).filter(User.id!=u.id).all()
+        return [{"id":x.id,"name":x.name,"role":x.role,
+                 "last_seen":x.last_seen.isoformat() if x.last_seen else None} for x in all_u]
+    elif u.role=="tutor":
+        stids=set(_tutor_student_ids(u.id,db))
+        # students (users linked to their students)
+        if stids:
+            for r in db.query(User).filter(User.student_id.in_(stids),User.id!=u.id).all():
+                ids.add(r.id)
+            # parents of those students
+            for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(stids))).fetchall():
+                ids.add(r.parent_id)
+        # owner
+        owner=db.query(User).filter(User.role=="owner").first()
+        if owner: ids.add(owner.id)
+    elif u.role=="student":
+        # find tutors of the linked student profile
+        if u.student_id:
+            st=db.query(Student).filter(Student.id==u.student_id).first()
+            if st:
+                if st.created_by: ids.add(st.created_by)
+                for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id==u.student_id)).fetchall():
+                    ids.add(r.tutor_id)
+        owner=db.query(User).filter(User.role=="owner").first()
+        if owner: ids.add(owner.id)
+    elif u.role=="parent":
+        # tutors of children
+        child_ids=[r.student_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.parent_id==u.id)).fetchall()]
+        if child_ids:
+            for stid in child_ids:
+                st=db.query(Student).filter(Student.id==stid).first()
+                if st and st.created_by: ids.add(st.created_by)
+                for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id==stid)).fetchall():
+                    ids.add(r.tutor_id)
+        owner=db.query(User).filter(User.role=="owner").first()
+        if owner: ids.add(owner.id)
+    ids.discard(u.id)
+    users=db.query(User).filter(User.id.in_(ids)).all() if ids else []
+    return [{"id":x.id,"name":x.name,"role":x.role,
+             "last_seen":x.last_seen.isoformat() if x.last_seen else None} for x in users]
+
+# ═══ PERSONAL BOARDS ═══
+@app.get("/api/personal-boards",response_model=list[PersonalBoardListItem])
+def list_personal_boards(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    return db.query(PersonalBoard).filter(PersonalBoard.owner_id==u.id).order_by(PersonalBoard.updated_at.desc()).all()
+
+@app.post("/api/personal-boards",response_model=PersonalBoardOut,status_code=201)
+def create_personal_board(d:PersonalBoardCreate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=PersonalBoard(owner_id=u.id,title=d.title.strip()[:200] if d.title else "Новая доска")
+    db.add(b); db.commit(); db.refresh(b); return b
+
+@app.get("/api/personal-boards/{bid}",response_model=PersonalBoardOut)
+def get_personal_board(bid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+    if not b: raise HTTPException(404)
+    # allow owner or shared users
+    if b.owner_id!=u.id:
+        shared=db.execute(personal_board_share.select().where(
+            (personal_board_share.c.board_id==bid)&(personal_board_share.c.user_id==u.id))).first()
+        if not shared: raise HTTPException(403)
+    return b
+
+@app.patch("/api/personal-boards/{bid}",response_model=PersonalBoardOut)
+def update_personal_board(bid:str,d:PersonalBoardUpdate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
+    if not b: raise HTTPException(404)
+    if d.title is not None: b.title=d.title.strip()[:200]
+    db.commit(); db.refresh(b); return b
+
+@app.delete("/api/personal-boards/{bid}",status_code=204)
+def delete_personal_board(bid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
+    if not b: raise HTTPException(404)
+    db.delete(b); db.commit()
+
+@app.post("/api/personal-boards/{bid}/share",response_model=PersonalBoardOut)
+def share_personal_board(bid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
+    if not b: raise HTTPException(404)
+    if not b.share_token: b.share_token=secrets.token_hex(16)
+    db.commit(); db.refresh(b); return b
+
+@app.delete("/api/personal-boards/{bid}/share",response_model=PersonalBoardOut)
+def unshare_personal_board(bid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
+    if not b: raise HTTPException(404)
+    b.share_token=None; db.commit(); db.refresh(b); return b
+
+@app.post("/api/personal-boards/{bid}/share-with/{uid}",status_code=200)
+def share_board_with_user(bid:str,uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
+    if not b: raise HTTPException(404)
+    target=db.query(User).filter(User.id==uid).first()
+    if not target: raise HTTPException(404,"Пользователь не найден")
+    if not db.execute(personal_board_share.select().where(
+            (personal_board_share.c.board_id==bid)&(personal_board_share.c.user_id==uid))).first():
+        db.execute(personal_board_share.insert().values(board_id=bid,user_id=uid))
+        db.commit()
+    return {"ok":True}
+
+@app.get("/api/personal-boards/by-token/{token}",response_model=PersonalBoardOut)
+def get_board_by_token(token:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.share_token==token).first()
+    if not b: raise HTTPException(404)
+    # auto-add to shared
+    if b.owner_id!=u.id:
+        if not db.execute(personal_board_share.select().where(
+                (personal_board_share.c.board_id==b.id)&(personal_board_share.c.user_id==u.id))).first():
+            db.execute(personal_board_share.insert().values(board_id=b.id,user_id=u.id))
+            db.commit()
+    return b
+
+# ═══ PERSONAL BOARD WEBSOCKET ═══
+pb_conns: dict[str, dict[str,WebSocket]] = defaultdict(dict)  # bid -> {uid: ws}
+
+async def _pb_bcast(bid,msg,exclude_ws=None):
+    dead=[]
+    for uid,c in list(pb_conns.get(bid,{}).items()):
+        if c is exclude_ws: continue
+        try: await c.send_text(msg)
+        except: dead.append((bid,uid))
+    for bid2,uid2 in dead:
+        pb_conns[bid2].pop(uid2,None)
+
+@app.websocket("/ws/personal-board/{bid}")
+async def personal_board_ws(ws:WebSocket,bid:str):
+    await ws.accept()
+    token=ws.query_params.get("token")
+    if not token: await ws.close(code=4001); return
+    try: payload=jwt.decode(token,SECRET_KEY,algorithms=[ALGORITHM])
+    except: await ws.close(code=4001); return
+    uid=payload.get("sub"); uname_ws=payload.get("name","")
+    db=SessionLocal()
+    try:
+        user=db.query(User).filter(User.id==uid).first()
+        if not user: await ws.close(code=4001); return
+        b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+        if not b: await ws.close(code=4004); return
+        if b.owner_id!=uid:
+            shared=db.execute(personal_board_share.select().where(
+                (personal_board_share.c.board_id==bid)&(personal_board_share.c.user_id==uid))).first()
+            if not shared: await ws.close(code=4003); return
+        uname_ws=user.name
+    finally: db.close()
+    pb_conns[bid][uid]=ws
+    # notify others about join
+    await _pb_bcast(bid,json.dumps({"type":"user_join","uid":uid,"name":uname_ws}),ws)
+    # send current users list
+    online=[{"uid":k,"name":"?"} for k in pb_conns[bid] if k!=uid]
+    await ws.send_text(json.dumps({"type":"hello","user_id":uid,"online":online}))
+    try:
+        while True:
+            raw=await ws.receive_text()
+            try: msg=json.loads(raw)
+            except: continue
+            mt=msg.get("type")
+            if mt=="load":
+                db=SessionLocal()
+                try: b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first(); sj=b.strokes if b else "[]"
+                finally: db.close()
+                await ws.send_text(json.dumps({"type":"strokes","data":json.loads(sj)}))
+            elif mt=="stroke":
+                sd=msg.get("data",{}); sd["user_id"]=uid
+                db=SessionLocal()
+                try:
+                    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+                    if b: c=json.loads(b.strokes); c.append(sd); b.strokes=json.dumps(c); db.commit()
+                finally: db.close()
+                await _pb_bcast(bid,json.dumps({"type":"stroke","data":sd}),ws)
+            elif mt=="erase_stroke":
+                eid=msg.get("id")
+                if not eid: continue
+                db=SessionLocal()
+                try:
+                    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+                    if b: b.strokes=json.dumps([s for s in json.loads(b.strokes) if s.get("id")!=eid]); db.commit()
+                finally: db.close()
+                await _pb_bcast(bid,json.dumps({"type":"erase_stroke","id":eid}),ws)
+            elif mt=="clear":
+                db=SessionLocal()
+                try:
+                    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+                    if b: b.strokes="[]"; db.commit()
+                finally: db.close()
+                await _pb_bcast(bid,json.dumps({"type":"clear"}),ws)
+            elif mt in ("cursor","view"):
+                msg["uid"]=uid; msg["name"]=uname_ws
+                await _pb_bcast(bid,json.dumps(msg),ws)
+    except WebSocketDisconnect: pass
+    except Exception as e: print(f"[PB_WS] {e}")
+    finally:
+        pb_conns[bid].pop(uid,None)
+        if not pb_conns[bid]: del pb_conns[bid]
+        await _pb_bcast(bid,json.dumps({"type":"user_leave","uid":uid}))
+
+# ═══ SCHEDULE ═══
+@app.get("/api/schedule")
+def get_schedule(u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    slots=db.query(ScheduleSlot).options(joinedload(ScheduleSlot.student)).filter(ScheduleSlot.tutor_id==u.id).all()
+    return [{"id":s.id,"tutor_id":s.tutor_id,"student_id":s.student_id,
+             "student_name":s.student.name if s.student else None,
+             "day_of_week":s.day_of_week,"slot_index":s.slot_index,
+             "duration":s.duration,"note":s.note,"color":s.color} for s in slots]
+
+@app.post("/api/schedule",status_code=200)
+def set_schedule_slot(d:ScheduleSlotCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    if d.day_of_week not in range(7) or d.slot_index not in range(48): raise HTTPException(400,"Некорректные данные")
+    existing=db.query(ScheduleSlot).filter(
+        ScheduleSlot.tutor_id==u.id,ScheduleSlot.day_of_week==d.day_of_week,ScheduleSlot.slot_index==d.slot_index
+    ).first()
+    dur=max(1,min(d.duration,8))
+    if existing:
+        existing.student_id=d.student_id; existing.duration=dur; existing.note=d.note; existing.color=d.color
+        db.commit(); db.refresh(existing); slot=existing
+    else:
+        slot=ScheduleSlot(tutor_id=u.id,student_id=d.student_id,day_of_week=d.day_of_week,
+                          slot_index=d.slot_index,duration=dur,note=d.note,color=d.color)
+        db.add(slot); db.commit(); db.refresh(slot)
+    st=db.query(Student).filter(Student.id==slot.student_id).first() if slot.student_id else None
+    return {"id":slot.id,"tutor_id":slot.tutor_id,"student_id":slot.student_id,
+            "student_name":st.name if st else None,
+            "day_of_week":slot.day_of_week,"slot_index":slot.slot_index,
+            "duration":slot.duration,"note":slot.note,"color":slot.color}
+
+@app.delete("/api/schedule/{slot_id}",status_code=204)
+def del_schedule_slot(slot_id:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    slot=db.query(ScheduleSlot).filter(ScheduleSlot.id==slot_id,ScheduleSlot.tutor_id==u.id).first()
+    if not slot: raise HTTPException(404)
+    db.delete(slot); db.commit()
+
+@app.get("/api/schedule/my")
+def get_my_schedule(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    if u.role!="student" or not u.student_id: raise HTTPException(403)
+    slots=db.query(ScheduleSlot).options(joinedload(ScheduleSlot.student)).filter(
+        ScheduleSlot.student_id==u.student_id).order_by(ScheduleSlot.day_of_week,ScheduleSlot.slot_index).all()
+    return [{"id":s.id,"tutor_id":s.tutor_id,"student_id":s.student_id,
+             "day_of_week":s.day_of_week,"slot_index":s.slot_index,"duration":s.duration,
+             "note":s.note,"student_note":s.student_note,"color":s.color} for s in slots]
+
+@app.patch("/api/schedule/{slot_id}/student-note",status_code=200)
+def set_student_note(slot_id:str,d:dict=Body(...),u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    if u.role!="student" or not u.student_id: raise HTTPException(403)
+    slot=db.query(ScheduleSlot).filter(ScheduleSlot.id==slot_id,ScheduleSlot.student_id==u.student_id).first()
+    if not slot: raise HTTPException(404)
+    slot.student_note=d.get("student_note","")[:500]
+    db.commit(); return {"ok":True}
+
+# ═══ STUDENT COURSES ═══
+@app.get("/api/students/{stid}/courses")
+def get_student_courses(stid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    chk_acc(stid,u,db)
+    courses=db.query(StudentCourse).filter(StudentCourse.student_id==stid).order_by(StudentCourse.created_at).all()
+    result=[]
+    for c in courses:
+        tutor=db.query(User).filter(User.id==c.tutor_id).first() if c.tutor_id else None
+        secs=db.query(Section).filter(Section.course_id==c.id).order_by(Section.position).all()
+        result.append({"id":c.id,"student_id":c.student_id,"title":c.title,
+                       "tutor_id":c.tutor_id,"tutor_name":tutor.name if tutor else None,
+                       "sections":[{"id":s.id,"student_id":s.student_id,"course_id":s.course_id,
+                                    "title":s.title,"position":s.position,"is_open":s.is_open,
+                                    "idz_enabled":s.idz_enabled,"control_enabled":s.control_enabled,
+                                    "idz":s.idz,"control":s.control.value if s.control else "none",
+                                    "locked":s.locked,"idz_text":s.idz_text,
+                                    "items":[{"id":i.id,"section_id":i.section_id,"type":i.type.value if i.type else i.type,
+                                              "position":i.position,"name":i.name,"status":i.status.value if i.status else "none",
+                                              "total":i.total,"done":i.done,"grade":i.grade,"note":i.note,
+                                              "student_answer":i.student_answer,"text":i.text,
+                                              "attachments":[{"id":a.id,"item_id":a.item_id,"name":a.name,
+                                                              "mime":a.mime,"size":a.size,"file_path":a.file_path} for a in i.attachments],
+                                              "subblocks":[{"id":sb.id,"item_id":sb.item_id,"type":sb.type,
+                                                            "content":sb.content,"position":sb.position} for sb in i.subblocks]
+                                             } for i in s.items]} for s in secs]})
+    return result
+
+@app.post("/api/students/{stid}/courses",status_code=201)
+def create_student_course(stid:str,d:StudentCourseCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    chk_acc(stid,u,db)
+    if not db.query(Student).filter(Student.id==stid).first(): raise HTTPException(404)
+    if d.tutor_id:
+        t=db.query(User).filter(User.id==d.tutor_id,User.role.in_(["tutor","owner"])).first()
+        if not t: raise HTTPException(404,"Преподаватель не найден")
+    c=StudentCourse(student_id=stid,tutor_id=d.tutor_id,title=d.title.strip()[:200])
+    db.add(c); db.commit(); db.refresh(c)
+    tutor=db.query(User).filter(User.id==c.tutor_id).first() if c.tutor_id else None
+    return {"id":c.id,"student_id":c.student_id,"title":c.title,
+            "tutor_id":c.tutor_id,"tutor_name":tutor.name if tutor else None,"sections":[]}
+
+@app.patch("/api/student-courses/{cid}",status_code=200)
+def upd_student_course(cid:str,d:StudentCourseUpdate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    c=db.query(StudentCourse).filter(StudentCourse.id==cid).first()
+    if not c: raise HTTPException(404)
+    chk_acc(c.student_id,u,db)
+    if d.title is not None: c.title=d.title.strip()[:200]
+    if d.tutor_id is not None: c.tutor_id=d.tutor_id or None
+    db.commit(); db.refresh(c)
+    tutor=db.query(User).filter(User.id==c.tutor_id).first() if c.tutor_id else None
+    return {"id":c.id,"student_id":c.student_id,"title":c.title,
+            "tutor_id":c.tutor_id,"tutor_name":tutor.name if tutor else None}
+
+@app.delete("/api/student-courses/{cid}",status_code=204)
+def del_student_course(cid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    c=db.query(StudentCourse).filter(StudentCourse.id==cid).first()
+    if not c: raise HTTPException(404)
+    chk_acc(c.student_id,u,db)
+    db.delete(c); db.commit()
 
 # ═══ STATIC ═══
 app.mount("/uploads",StaticFiles(directory=UPLOAD_DIR),name="uploads")

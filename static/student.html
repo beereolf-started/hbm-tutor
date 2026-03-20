@@ -114,6 +114,7 @@ textarea{resize:vertical}
     <button class="btn btn-s" onclick="openApply()">📋 Применить курс</button>
     <button class="btn btn-s" onclick="openM('mTpl')">📦 Шаблон</button>
     <button class="btn btn-s" onclick="openSaveAs()">💾 Сохранить как курс</button>
+    <button class="btn btn-s" onclick="openExtraCourses()">🎓 Доп. курсы</button>
   </div>
   <div id="secs"></div>
 </div>
@@ -152,12 +153,27 @@ textarea{resize:vertical}
 <div class="modal-bg" id="mSaveCourse"><div class="modal"><h2>Сохранить программу как курс</h2>
 <label>Предмет</label><select id="scSubj"></select>
 <label>Название курса</label><input id="scTitle">
-<label>Доступ</label><select id="scAccess"><option value="public">Публичный</option><option value="private">Приватный</option></select>
+<label>Доступ</label><select id="scAccess"><option value="public">Публичный (все пользователи)</option><option value="internal">Внутренний (только преподаватели)</option><option value="private">Приватный (только вы)</option></select>
 <label>Заменить существующий (опционально)</label><select id="scReplace"><option value="">— создать новый —</option></select>
 <div class="row" style="margin-top:16px;justify-content:flex-end">
   <button class="btn btn-s" onclick="closeM('mSaveCourse')">Отмена</button>
   <button class="btn btn-p" onclick="doSaveAsCourse()">Сохранить</button>
 </div></div></div>
+
+<!-- Modal: Extra Courses -->
+<div class="modal-bg" id="mExtra"><div class="modal" style="width:500px">
+<h2>🎓 Дополнительные курсы ученика</h2>
+<p class="meta" style="margin-bottom:12px">Выбранные курсы будут доступны ученику в его кабинете.</p>
+<div id="extraAssigned" style="margin-bottom:12px"></div>
+<hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
+<p style="font-size:.82em;color:var(--muted);margin-bottom:8px">Добавить курс:</p>
+<select id="extraSelect" style="width:100%"><option value="">— выберите курс —</option></select>
+<div class="row" style="margin-top:10px">
+  <button class="btn btn-p" onclick="assignExtraCourse()">+ Добавить</button>
+  <div style="flex:1"></div>
+  <button class="btn btn-s" onclick="closeM('mExtra')">Закрыть</button>
+</div>
+</div></div>
 
 <script src="/api.js"></script>
 <script>
@@ -447,6 +463,47 @@ async function doSaveAsCourse(){
   try{await post(`/api/students/${SID}/save-as-course`,d);closeM('mSaveCourse');alert('Курс сохранён!')}catch(e){alert(e.detail||'Ошибка')}}
 
 async function delS(){if(confirm('Удалить ученика и все данные?')){await del('/api/students/'+SID);location.href='/hbm_tutor.html'}}
+
+// ── EXTRA COURSES ──────────────────────────────────────────────────────────
+let assignedCourseIds=new Set();
+async function openExtraCourses(){
+  // Load available courses and assigned courses in parallel
+  if(!courses.length) courses=await get('/api/courses').catch(()=>[]);
+  const assigned=await get(`/api/students/${SID}/platform-courses`).catch(()=>[]);
+  assignedCourseIds=new Set(assigned.map(c=>c.id));
+  renderExtraAssigned(assigned);
+  // Populate select with non-assigned courses
+  const sel=document.getElementById('extraSelect');
+  const available=courses.filter(c=>!assignedCourseIds.has(c.id));
+  sel.innerHTML='<option value="">— выберите курс —</option>'+available.map(c=>`<option value="${c.id}">${c.title}</option>`).join('');
+  openM('mExtra')}
+function renderExtraAssigned(list){
+  const div=document.getElementById('extraAssigned');
+  if(!list.length){div.innerHTML='<p style="color:var(--muted);font-size:.85em">Курсов не назначено</p>';return}
+  div.innerHTML=list.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+    <span style="flex:1;font-size:.88em">${esc(c.title)}<span style="color:var(--muted);font-size:.8em;margin-left:6px">${c.subject_name||''}</span></span>
+    <button onclick="removeExtraCourse('${c.id}')" style="background:none;border:none;cursor:pointer;color:#f87171;font-size:.85em">✕</button>
+  </div>`).join('')}
+async function assignExtraCourse(){
+  const cid=document.getElementById('extraSelect').value;
+  if(!cid) return;
+  try{
+    await post(`/api/students/${SID}/platform-courses/${cid}`,{});
+    const assigned=await get(`/api/students/${SID}/platform-courses`).catch(()=>[]);
+    assignedCourseIds=new Set(assigned.map(c=>c.id));
+    renderExtraAssigned(assigned);
+    const available=courses.filter(c=>!assignedCourseIds.has(c.id));
+    document.getElementById('extraSelect').innerHTML='<option value="">— выберите курс —</option>'+available.map(c=>`<option value="${c.id}">${c.title}</option>`).join('');
+  }catch(e){alert(e.detail||'Ошибка')}}
+async function removeExtraCourse(cid){
+  try{
+    await del(`/api/students/${SID}/platform-courses/${cid}`);
+    const assigned=await get(`/api/students/${SID}/platform-courses`).catch(()=>[]);
+    assignedCourseIds=new Set(assigned.map(c=>c.id));
+    renderExtraAssigned(assigned);
+    const available=courses.filter(c=>!assignedCourseIds.has(c.id));
+    document.getElementById('extraSelect').innerHTML='<option value="">— выберите курс —</option>'+available.map(c=>`<option value="${c.id}">${c.title}</option>`).join('');
+  }catch(e){alert(e.detail||'Ошибка')}}
 
 function openEditSt(){/* TODO: edit student info */}
 function openM(id){document.getElementById(id).classList.add('show')}

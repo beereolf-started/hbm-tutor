@@ -23,6 +23,20 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:4px 8px;border-radius:6px;line-height:1}
 .notif-btn:hover{background:var(--surface-2);color:var(--text)}
 .notif-badge{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:.6em;font-weight:700;padding:1px 4px;border-radius:10px;min-width:14px;text-align:center;display:none}
+.notif-panel{position:fixed;top:52px;right:12px;width:340px;max-height:480px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 30px #0008;z-index:100;display:none;flex-direction:column;overflow:hidden}
+.notif-panel.open{display:flex}
+.notif-panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:.88em;flex-shrink:0}
+.notif-panel-body{overflow-y:auto;flex:1}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--surface-2)}
+.notif-item.unread{background:#1a2a1a}
+.notif-item.unread:hover{background:#1f321f}
+.notif-item-text{font-size:.85em;line-height:1.4}
+.notif-item-time{font-size:.75em;color:var(--muted);margin-top:3px}
+.notif-msgs-row{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.85em;cursor:pointer}
+.notif-msgs-row:hover{background:var(--surface-2)}
+.notif-empty{padding:24px;text-align:center;color:var(--muted);font-size:.85em}
 
 /* WRAP */
 .wrap{max-width:1000px;margin:0 auto;padding:32px 24px}
@@ -123,6 +137,29 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
 .subj-chk span{font-size:.88em}
 
 .empty{text-align:center;color:var(--muted);padding:48px;font-size:.92em}
+
+/* SCHEDULE */
+.sched-outer{overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:4px;max-height:calc(100vh - 180px)}
+.sched-table{border-collapse:collapse;width:100%;min-width:680px}
+.sched-table thead th{background:var(--surface);padding:9px 6px;font-size:.78em;font-weight:600;color:var(--muted);text-align:center;border:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap}
+.sched-table thead th.tc{position:sticky;left:0;z-index:11;min-width:54px;background:var(--surface)}
+.sched-time{background:var(--surface);position:sticky;left:0;z-index:5;padding:3px 8px;font-size:.72em;color:var(--muted);border:1px solid var(--border);text-align:right;white-space:nowrap;min-width:54px;width:54px;vertical-align:top;user-select:none;height:34px}
+.sched-time.h{font-weight:700;color:var(--text)}
+.sched-cell{border:1px solid var(--border);padding:2px 3px;height:34px;min-width:110px;cursor:pointer;vertical-align:top;transition:background .1s;position:relative;user-select:none}
+.sched-cell:hover{background:var(--surface-2) !important}
+.sched-cell.sched-drag-sel{background:#1f3a5f !important;outline:2px solid #3fb950}
+.sched-chip{font-size:.7em;padding:3px 6px;border-radius:4px;line-height:1.35;overflow:hidden;height:100%;display:flex;flex-direction:column;justify-content:center;cursor:pointer}
+.sched-chip:hover{filter:brightness(1.15)}
+.sched-chip-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sched-chip-note{opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.9em}
+.sched-edit-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.45);border:none;color:#fff;width:20px;height:20px;border-radius:3px;font-size:.65em;cursor:pointer;display:none;padding:0;line-height:20px;text-align:center;z-index:2}
+.sched-cell:hover .sched-edit-btn{display:block}
+.sched-controls{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.sched-today-badge{font-size:.75em;padding:2px 8px;border-radius:20px;background:#0d2e1e;color:var(--green-t);border:1px solid #1a5e32;font-weight:600}
+.sched-expand-row td{text-align:center;padding:6px}
+.sched-expand-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 18px;font-size:.75em;cursor:pointer}
+.sched-expand-btn:hover{background:var(--surface-2);color:var(--text)}
+.sched-shutter-top td,.sched-shutter-bot td{background:var(--surface);border:1px solid var(--border)}
 </style></head><body>
 
 <div class="topbar">
@@ -133,9 +170,21 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
   <div class="topbar-r">
     <span class="topbar-name" id="userName"></span>
     <span class="role-pill" id="userRole"></span>
-    <button class="notif-btn" onclick="goSection('messages')" title="Сообщения">🔔<span class="notif-badge" id="notifBadge"></span></button>
+    <a class="link-btn" href="/profile.html" title="Мой профиль">👤</a>
+    <button class="notif-btn" onclick="toggleNotifPanel()" title="Уведомления">🔔<span class="notif-badge" id="notifBadge"></span></button>
     <button class="link-btn" onclick="logout()">Выйти</button>
   </div>
+</div>
+
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-panel-head">
+    <span>🔔 Уведомления</span>
+    <div style="display:flex;gap:8px">
+      <button class="link-btn" style="font-size:.78em" onclick="markAllNotifsRead()">Прочитать все</button>
+      <button class="link-btn" style="font-size:.78em" onclick="closeNotifPanel()">✕</button>
+    </div>
+  </div>
+  <div class="notif-panel-body" id="notifPanelBody"><div class="notif-empty">Загрузка...</div></div>
 </div>
 
 <div class="wrap" id="main"></div>
@@ -223,6 +272,31 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
   <button class="btn btn-p" onclick="saveUser()">Создать</button>
 </div></div></div>
 
+<!-- Modal: Schedule Slot -->
+<div class="modal-bg" id="mSched"><div class="modal" style="width:400px">
+<h2 id="mSchedTitle">Занятие</h2>
+<p id="mSchedDay" style="color:var(--muted);font-size:.85em;margin-bottom:16px"></p>
+<label>Ученик</label>
+<select id="schedStudent" style="width:100%"></select>
+<label>Продолжительность</label>
+<select id="schedDuration" style="width:100%">
+  <option value="1">30 минут</option>
+  <option value="2">1 час</option>
+  <option value="3">1,5 часа</option>
+  <option value="4">2 часа</option>
+  <option value="5">2,5 часа</option>
+  <option value="6">3 часа</option>
+  <option value="7">3,5 часа</option>
+  <option value="8">4 часа</option>
+</select>
+<label>Заметка <span style="color:var(--muted)">(необязательно)</span></label>
+<input id="schedNote" placeholder="Тема урока, пометка..." maxlength="80">
+<div class="modal-footer">
+  <button class="btn btn-d btn-sm" id="schedDelBtn" onclick="clearSchedSlot()" style="margin-right:auto;display:none">🗑 Удалить</button>
+  <button class="btn btn-s" onclick="closeM('mSched')">Отмена</button>
+  <button class="btn btn-p" onclick="saveSchedSlot()">Сохранить</button>
+</div></div></div>
+
 <!-- Modal: Link Student to User -->
 <div class="modal-bg" id="mLinkStudent"><div class="modal">
 <h2>Привязать профиль ученика</h2>
@@ -260,13 +334,20 @@ let curSection=null; // null=home, 'students'|'users'|'subjects'
 
 // ─── NAV ──────────────────────────────────────────────────────────────────
 function goHome(){curSection=null;render()}
-function goSection(s){curSection=s;if(s==='messages')loadConvos();render()}
+function goSection(s){
+  curSection=s;
+  if(s==='messages')loadConvos();
+  if(s==='contacts')loadContacts();
+  if(s==='schedule')loadSchedule();
+  render()}
 function render(){
   if(curSection===null) renderHome();
   else if(curSection==='students') renderStudents();
   else if(curSection==='users') renderUsers();
   else if(curSection==='subjects') renderSubjects();
-  else if(curSection==='messages') renderMessages()}
+  else if(curSection==='messages') renderMessages();
+  else if(curSection==='contacts') renderContacts();
+  else if(curSection==='schedule') renderSchedule()}
 
 // ─── HOME ─────────────────────────────────────────────────────────────────
 function renderHome(){
@@ -275,6 +356,9 @@ function renderHome(){
     {key:'students',icon:'👥',title:'Ученики',count:students.length,desc:'Профили и успеваемость'},
     {key:'users',icon:'👤',title:'Пользователи',count:users.length,desc:'Аккаунты системы'},
     {key:'courses',icon:'📚',title:'Курсы',count:null,desc:'Учебные программы',href:'/courses.html'},
+    {key:'contacts',icon:'💬',title:'Контакты',count:null,desc:'Написать ученику или родителю'},
+    {key:'schedule',icon:'📅',title:'Расписание',count:null,desc:'Занятия по дням недели'},
+    {key:'workshop',icon:'🛠',title:'Мастерская',count:null,desc:'Мои личные доски',href:'/workshop.html'},
   ];
   if(isOwner) sections.push({key:'subjects',icon:'📐',title:'Предметы',count:subjects.length,desc:'Учебные предметы'});
   let cards='';
@@ -354,6 +438,7 @@ function renderUsers(){
     ${studentInfo?`<div style="margin-top:2px">${studentInfo}</div>`:''}
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <a class="btn btn-s btn-sm" href="/profile.html?uid=${u.id}" title="Профиль пользователя">👤</a>
     ${u.role==='tutor'&&isOwner?`<button class="btn btn-s btn-sm" onclick="openTutorSubjects('${u.id}','${u.name}')">📐 Предметы</button>`:''}
     ${u.role==='student'?`<button class="btn btn-s btn-sm" onclick="openLinkStudent('${u.id}','${esc(u.name)}','${u.student_id||''}')">🔗 ${u.student_id?'Сменить':'Привязать'}</button>`:''}
     ${u.role==='student'&&u.student_id?`<button class="btn btn-s btn-sm" onclick="unlinkStudent('${u.id}','${esc(u.name)}')" title="Отвязать профиль">✂</button>`:''}
@@ -589,6 +674,55 @@ function openM(id){
   if(id==='mUser'){buildRoleOptions();fillSubjMulti();fillStudentSelect();fillChildrenSelect();onRoleChange()}}
 function closeM(id){document.getElementById(id).classList.remove('show')}
 
+// ─── CONTACTS ─────────────────────────────────────────────────────────────
+let contacts=[];
+async function loadContacts(){
+  contacts=await get('/api/contacts').catch(()=>[]);
+  if(curSection==='contacts') renderContacts()}
+
+function onlineLabel(last_seen){
+  if(!last_seen) return '<span style="color:var(--muted);font-size:.78em">не был в сети</span>';
+  const diff=Date.now()-new Date(last_seen).getTime();
+  const mins=Math.floor(diff/60000);
+  if(mins<2) return '<span style="color:#3fb950;font-size:.78em">● онлайн</span>';
+  if(mins<60) return `<span style="color:var(--muted);font-size:.78em">был(а) ${mins} мин назад</span>`;
+  const hrs=Math.floor(mins/60);
+  if(hrs<24) return `<span style="color:var(--muted);font-size:.78em">был(а) ${hrs} ч назад</span>`;
+  const days=Math.floor(hrs/24);
+  return `<span style="color:var(--muted);font-size:.78em">был(а) ${days} д назад</span>`}
+
+function renderContacts(){
+  const m=document.getElementById('main');
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">💬 Контакты</span>
+  </div>`;
+  if(!contacts.length){
+    m.innerHTML=h+'<div class="empty">Нет доступных контактов</div>';return}
+  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
+  h+='<div style="display:flex;flex-direction:column;gap:6px">';
+  for(const c of contacts){
+    h+=`<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+  <div style="width:40px;height:40px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1em;flex-shrink:0">${(c.name||'?')[0].toUpperCase()}</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:600;font-size:.92em"><a href="/profile.html?uid=${c.id}" style="color:var(--text);text-decoration:none" onmouseover="this.style.color='var(--green-t)'" onmouseout="this.style.color='var(--text)'">${esc(c.name)}</a></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+      <span style="color:var(--muted);font-size:.78em">${roleLabel[c.role]||c.role}</span>
+      ${onlineLabel(c.last_seen)}
+    </div>
+  </div>
+  <button class="btn btn-p" style="padding:5px 12px;font-size:.82em" onclick="goToChat('${c.id}','${esc(c.name)}')">Написать</button>
+</div>`;
+  }
+  h+='</div>';
+  m.innerHTML=h}
+
+function goToChat(uid,name){
+  curSection='messages';
+  chatUid=uid; chatName=name;
+  get('/api/messages/'+uid).then(t=>{chatThread=t;renderChat(document.getElementById('main'));
+    clearInterval(chatPollTimer);chatPollTimer=setInterval(refreshChat,5000)}).catch(()=>{})}
+
 // ─── MESSAGES ─────────────────────────────────────────────────────────────
 let convos=[],chatUid=null,chatThread=[],chatPollTimer=null,chatName='';
 async function loadConvos(){
@@ -662,12 +796,240 @@ async function sendMsg(){
   const inp=document.getElementById('msgIn');if(!inp||!inp.value.trim())return;
   try{await post('/api/messages',{to_id:chatUid,text:inp.value.trim()});inp.value='';
     await refreshChat();}catch(e){alert(e.detail||'Ошибка')}}
+let notifPanelOpen=false;
+let lastNotifsData=null;
+function fmtNotifTime(iso){
+  if(!iso) return '';
+  const d=Date.now()-new Date(iso).getTime(),m=Math.floor(d/60000);
+  if(m<2) return 'только что';if(m<60) return m+' мин назад';
+  const h=Math.floor(m/60);if(h<24) return h+' ч назад';
+  return new Date(iso).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}
 async function pollNotifs(){
-  try{const r=await get('/api/notifications');
+  try{
+    const r=await get('/api/notifications');
+    lastNotifsData=r;
     const n=r.unread||0;
     const b=document.getElementById('notifBadge');
-    if(b){b.textContent=n>9?'9+':n;b.style.display=n>0?'':'none'}}catch(e){}
+    if(b){b.textContent=n>99?'99+':n;b.style.display=n>0?'':'none'}
+    if(notifPanelOpen) renderNotifPanel(r);
+  }catch(e){}
   setTimeout(pollNotifs,30000)}
+function renderNotifPanel(r){
+  const body=document.getElementById('notifPanelBody');
+  if(!body) return;
+  const msgs=r.unread_messages||0;
+  const notifs=r.notifications||[];
+  let h='';
+  if(msgs>0) h+=`<div class="notif-msgs-row" onclick="closeNotifPanel();goSection('messages')">
+    <span>💬 ${msgs} новых сообщений</span><span style="color:var(--green-t);font-size:.8em">Открыть →</span></div>`;
+  if(!notifs.length&&!msgs){h='<div class="notif-empty">Нет уведомлений</div>';}
+  else h+=notifs.map(n=>`<div class="notif-item${n.is_read?'':' unread'}" onclick="handleNotif('${n.id}','${n.link||''}')">
+    <div class="notif-item-text">${esc(n.text)}</div>
+    <div class="notif-item-time">${fmtNotifTime(n.created_at)}</div></div>`).join('');
+  body.innerHTML=h}
+function toggleNotifPanel(){
+  notifPanelOpen=!notifPanelOpen;
+  document.getElementById('notifPanel').classList.toggle('open',notifPanelOpen);
+  if(notifPanelOpen){if(lastNotifsData) renderNotifPanel(lastNotifsData);pollNotifs();}}
+function closeNotifPanel(){notifPanelOpen=false;document.getElementById('notifPanel').classList.remove('open')}
+async function handleNotif(id,link){
+  await post('/api/notifications/'+id+'/read',{}).catch(()=>{});
+  if(link) location.href=link;
+  pollNotifs();}
+async function markAllNotifsRead(){
+  await post('/api/notifications/read-all',{}).catch(()=>{});
+  pollNotifs();}
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('notifPanel');
+  const btn=e.target.closest('.notif-btn');
+  if(!btn&&panel&&!panel.contains(e.target)){closeNotifPanel();}});
+
+// ─── SCHEDULE ─────────────────────────────────────────────────────────────
+let schedSlots=[];
+let schedEditDay=null,schedEditSlot=null,schedEditId=null;
+
+const DAYS_FULL=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+const DAYS_S=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const S_COLORS=['#1f6feb','#3fb950','#f97316','#a78bfa','#ec4899','#14b8a6','#eab308','#ef4444'];
+const SCHED_VIS_START=20; // 10:00
+const SCHED_VIS_END=41;   // 20:30
+
+function slotTime(i){const h=Math.floor(i/2),m=i%2?'30':'00';return String(h).padStart(2,'0')+':'+m}
+function stColor(stid){
+  if(!stid) return '#30363d';
+  const idx=students.findIndex(s=>s.id===stid);
+  return S_COLORS[idx>=0?idx%S_COLORS.length:0]}
+
+async function loadSchedule(){
+  schedSlots=await get('/api/schedule').catch(()=>[]);
+  if(curSection==='schedule') renderSchedule()}
+
+// Глобальные переменные для drag-выделения
+let _sdDay=null,_sdStart=null,_sdEnd=null,_sdDragging=false,_sdMoved=false;
+document.addEventListener('mouseup',function(){
+  if(!_sdDragging) return;
+  _sdDragging=false;
+  const tbl=document.getElementById('schedTable');
+  if(tbl) tbl.querySelectorAll('.sched-drag-sel').forEach(c=>c.classList.remove('sched-drag-sel'));
+  if(_sdDay!==null){
+    const lo=Math.min(_sdStart,_sdEnd),hi=Math.max(_sdStart,_sdEnd);
+    const dur=_sdMoved?(hi-lo+1):2;
+    openSchedAdd(_sdDay,lo,dur);
+  }
+  _sdDay=null;_sdStart=null;_sdEnd=null;_sdMoved=false;
+});
+
+function expandSched(which){
+  const m=document.getElementById('main');
+  if(which==='top'){
+    m.querySelectorAll('.sched-row-hidden-top').forEach(r=>r.style.display='');
+    const sh=m.querySelector('.sched-shutter-top');if(sh)sh.style.display='none';
+  } else {
+    m.querySelectorAll('.sched-row-hidden-bot').forEach(r=>r.style.display='');
+    const sh=m.querySelector('.sched-shutter-bot');if(sh)sh.style.display='none';
+  }}
+
+function renderSchedule(){
+  const m=document.getElementById('main');
+  const todayDow=(new Date().getDay()+6)%7;
+  const slotMap={};
+  for(const s of schedSlots) slotMap[s.day_of_week+'_'+s.slot_index]=s;
+  // Ячейки, перекрытые многослотовыми занятиями (не стартовые)
+  const skipSet=new Set();
+  for(const s of schedSlots){
+    for(let k=1;k<(s.duration||1);k++) skipSet.add(s.day_of_week+'_'+(s.slot_index+k));}
+
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">📅 Расписание</span>
+    <div class="sec-header-actions">
+      <span class="sched-today-badge">${DAYS_FULL[todayDow]}</span>
+    </div>
+  </div>
+  <p style="color:var(--muted);font-size:.82em;margin-bottom:10px">Нажмите на ячейку или потяните мышью, чтобы добавить занятие. Клик по занятию — открыть доску.</p>
+  <div class="sched-outer" id="schedOuter"><table class="sched-table" id="schedTable">
+  <thead><tr><th class="tc">Время</th>`;
+  for(let d=0;d<7;d++){
+    const isTod=d===todayDow;
+    h+=`<th style="${isTod?'color:var(--green-t)':''}">${DAYS_S[d]}${isTod?' ●':''}</th>`}
+  h+=`</tr></thead><tbody>`;
+
+  // Верхняя шторка
+  h+=`<tr class="sched-shutter-top"><td colspan="8" class="sched-expand-row">
+    <button class="sched-expand-btn" onclick="expandSched('top')">▲ Раньше (00:00 – 09:30)</button>
+  </td></tr>`;
+
+  for(let i=0;i<48;i++){
+    // Нижняя шторка перед слотом 42
+    if(i===SCHED_VIS_END+1){
+      h+=`<tr class="sched-shutter-bot"><td colspan="8" class="sched-expand-row">
+        <button class="sched-expand-btn" onclick="expandSched('bot')">▼ Позже (21:00 – 23:30)</button>
+      </td></tr>`;}
+
+    const isHidTop=i<SCHED_VIS_START;
+    const isHidBot=i>SCHED_VIS_END;
+    const rowCls=isHidTop?'sched-row-hidden-top':(isHidBot?'sched-row-hidden-bot':'');
+    const rowStyle=rowCls?' style="display:none"':'';
+    const isHour=i%2===0;
+
+    h+=`<tr class="${rowCls}"${rowStyle}>`;
+    h+=`<td class="sched-time${isHour?' h':''}">${slotTime(i)}</td>`;
+    for(let d=0;d<7;d++){
+      if(skipSet.has(d+'_'+i)) continue;
+      const isTod=d===todayDow;
+      const slot=slotMap[d+'_'+i];
+      const bg=isTod&&!slot?'background:#0f1f12;':'';
+      const dur=slot?(slot.duration||1):1;
+      const rsAttr=dur>1?` rowspan="${dur}"`:'';
+      if(slot){
+        const col=slot.color||stColor(slot.student_id);
+        const colBg=col+'28';
+        const sid=slot.student_id||'';
+        h+=`<td class="sched-cell" data-day="${d}" data-slot="${i}" data-has-slot="1"${rsAttr} style="${bg}background:${colBg}">
+          <div class="sched-chip" style="background:${col};color:#fff" onclick="event.stopPropagation();if('${sid}')window.location.href='/board.html?id=${sid}'">
+            <div class="sched-chip-name">${esc(slot.student_name||'?')}</div>
+            ${slot.note?`<div class="sched-chip-note">${esc(slot.note)}</div>`:''}
+          </div>
+          <button class="sched-edit-btn" onclick="event.stopPropagation();openSchedEdit(${d},${i})">✏</button>
+        </td>`;
+      } else {
+        h+=`<td class="sched-cell" data-day="${d}" data-slot="${i}" style="${bg}"></td>`}
+    }
+    h+=`</tr>`}
+  h+=`</tbody></table></div>`;
+  m.innerHTML=h;
+
+  // Drag-выделение через event delegation
+  const tbl=document.getElementById('schedTable');
+  tbl.addEventListener('mousedown',e=>{
+    const cell=e.target.closest('.sched-cell[data-day]');
+    if(!cell||cell.dataset.hasSlot) return;
+    e.preventDefault();
+    _sdDay=+cell.dataset.day; _sdStart=+cell.dataset.slot; _sdEnd=_sdStart;
+    _sdDragging=true; _sdMoved=false;
+    _sdHighlight(tbl);
+  });
+  tbl.addEventListener('mouseover',e=>{
+    if(!_sdDragging) return;
+    const cell=e.target.closest('.sched-cell[data-day]');
+    if(!cell||+cell.dataset.day!==_sdDay||cell.dataset.hasSlot) return;
+    const ns=+cell.dataset.slot;
+    if(ns!==_sdEnd){_sdMoved=true; _sdEnd=ns; _sdHighlight(tbl);}
+  });}
+
+function _sdHighlight(tbl){
+  tbl.querySelectorAll('.sched-drag-sel').forEach(c=>c.classList.remove('sched-drag-sel'));
+  if(_sdDay===null) return;
+  const lo=Math.min(_sdStart,_sdEnd),hi=Math.max(_sdStart,_sdEnd);
+  tbl.querySelectorAll('.sched-cell[data-day]').forEach(c=>{
+    if(+c.dataset.day===_sdDay&&+c.dataset.slot>=lo&&+c.dataset.slot<=hi&&!c.dataset.hasSlot)
+      c.classList.add('sched-drag-sel');
+  });}
+
+function openSchedAdd(day,slotIdx,dur=2){
+  schedEditDay=day; schedEditSlot=slotIdx; schedEditId=null;
+  document.getElementById('mSchedTitle').textContent='Добавить занятие';
+  const endTime=dur>1?' – '+slotTime(slotIdx+dur):'';
+  document.getElementById('mSchedDay').textContent=DAYS_FULL[day]+' · '+slotTime(slotIdx)+endTime;
+  document.getElementById('schedNote').value='';
+  document.getElementById('schedDelBtn').style.display='none';
+  document.getElementById('schedDuration').value=String(Math.min(Math.max(dur,1),8));
+  const sel=document.getElementById('schedStudent');
+  sel.innerHTML='<option value="">— выберите ученика —</option>'+
+    students.map(s=>`<option value="${s.id}">${esc(s.name)} (${s.grade} кл.)</option>`).join('');
+  openM('mSched')}
+
+function openSchedEdit(day,slotIdx){
+  const slot=schedSlots.find(s=>s.day_of_week===day&&s.slot_index===slotIdx);
+  if(!slot){openSchedAdd(day,slotIdx);return}
+  schedEditDay=day; schedEditSlot=slotIdx; schedEditId=slot.id;
+  document.getElementById('mSchedTitle').textContent='Изменить занятие';
+  document.getElementById('mSchedDay').textContent=DAYS_FULL[day]+' · '+slotTime(slotIdx);
+  document.getElementById('schedNote').value=slot.note||'';
+  document.getElementById('schedDuration').value=String(slot.duration||2);
+  document.getElementById('schedDelBtn').style.display='';
+  const sel=document.getElementById('schedStudent');
+  sel.innerHTML='<option value="">— выберите ученика —</option>'+
+    students.map(s=>`<option value="${s.id}"${s.id===slot.student_id?' selected':''}>${esc(s.name)} (${s.grade} кл.)</option>`).join('');
+  openM('mSched')}
+
+async function saveSchedSlot(){
+  const stid=document.getElementById('schedStudent').value;
+  const note=document.getElementById('schedNote').value.trim();
+  const dur=parseInt(document.getElementById('schedDuration').value)||2;
+  if(!stid){alert('Выберите ученика');return}
+  try{
+    await post('/api/schedule',{student_id:stid,day_of_week:schedEditDay,slot_index:schedEditSlot,duration:dur,note:note||null});
+    closeM('mSched'); await loadSchedule();
+  }catch(e){alert('Ошибка сохранения')}}
+
+async function clearSchedSlot(){
+  if(!schedEditId) return;
+  if(!confirm('Удалить это занятие?')) return;
+  try{
+    await del('/api/schedule/'+schedEditId);
+    closeM('mSched'); await loadSchedule();
+  }catch(e){alert('Ошибка удаления')}}
 
 // ─── LOAD ──────────────────────────────────────────────────────────────────
 async function load(){
@@ -675,7 +1037,11 @@ async function load(){
     get('/api/subjects').catch(()=>[]),
     get('/api/students').catch(()=>[]),
     (isOwner||R==='tutor')?get('/api/users').catch(()=>[]):Promise.resolve([])]);
-  render()}
+  render();
+  // Handle ?chat=uid&name=name from profile page
+  const _qp=new URLSearchParams(location.search);
+  const _initChat=_qp.get('chat');
+  if(_initChat){history.replaceState(null,'',location.pathname);goToChat(_initChat,_qp.get('name')||_initChat);}}
 
-load();pollNotifs();
+load();pollNotifs();loadContacts();
 </script></body></html>

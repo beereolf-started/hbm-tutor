@@ -37,7 +37,7 @@ textarea{resize:vertical;min-height:52px;width:100%}
 .modal input,.modal select,.modal textarea{width:100%}
 .empty{text-align:center;color:var(--muted);padding:40px}
 .access{font-size:.75em;padding:2px 8px;border-radius:20px;font-weight:600}
-.access-public{background:#0d2e1e;color:#34d399}.access-private{background:#3a2a00;color:#fbbf24}
+.access-public{background:#0d2e1e;color:#34d399}.access-internal{background:#1e2e1e;color:#a3e635}.access-private{background:#3a2a00;color:#fbbf24}
 
 /* Editor */
 .sec{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
@@ -110,7 +110,11 @@ textarea{resize:vertical;min-height:52px;width:100%}
 <label>Предмет</label><select id="cSubject"></select>
 <label>Название</label><input id="cTitle">
 <label>Описание</label><textarea id="cDesc"></textarea>
-<label>Доступ</label><select id="cAccess"><option value="public">Публичный</option><option value="private">Приватный</option></select>
+<label>Доступ</label><select id="cAccess">
+  <option value="public">Публичный (видят все, включая учеников)</option>
+  <option value="internal">Для преподавателей (только коллеги)</option>
+  <option value="private">Приватный (только вы)</option>
+</select>
 <div class="row" style="margin-top:16px;justify-content:flex-end">
 <button class="btn btn-s" onclick="closeM('mCourse')">Отмена</button>
 <button class="btn btn-p" id="cSaveBtn" onclick="saveCourse()">Создать</button>
@@ -132,14 +136,19 @@ textarea{resize:vertical;min-height:52px;width:100%}
 <script src="/api.js"></script>
 <script>
 if(!requireAuth(['owner','tutor']))throw'';
-let subjects=[],courses=[],curCourse=null,editingId=null;
+let subjects=[],courses=[],curCourse=null,editingId=null,myId=null;
 
 async function load(){
-  subjects=await get('/api/subjects').catch(()=>[]);
-  courses=await get('/api/courses').catch(()=>[]);
+  [subjects,courses]= await Promise.all([get('/api/subjects').catch(()=>[]),get('/api/courses').catch(()=>[])]);
+  const me=await get('/api/profile').catch(()=>null);
+  myId=me?me.id:null;
   const f=document.getElementById('filterSubj');
   f.innerHTML='<option value="">Все предметы</option>'+subjects.map(s=>`<option value="${s.id}">${s.icon} ${s.name}</option>`).join('');
-  fillSubj('cSubject');renderList()}
+  fillSubj('cSubject');renderList();
+  // Auto-open course from ?open=cid URL param (e.g. from profile page link)
+  const openId=new URLSearchParams(location.search).get('open');
+  if(openId) openCourse(openId);
+}
 
 function fillSubj(id){
   document.getElementById(id).innerHTML=subjects.map(s=>`<option value="${s.id}">${s.icon} ${s.name}</option>`).join('')}
@@ -147,13 +156,23 @@ function fillSubj(id){
 function renderList(){
   const filt=document.getElementById('filterSubj').value;
   let list=filt?courses.filter(c=>c.subject_id===filt):courses;
-  if(!list.length){document.getElementById('courseList').innerHTML='<div class="empty">Нет курсов</div>';return}
-  document.getElementById('courseList').innerHTML='<div class="grid">'+list.map(c=>{
-    const acc=c.access==='public'?'public':'private';
-    return`<div class="card" style="cursor:pointer" onclick="openCourse('${c.id}')">
-<h3>${c.title} <span class="access access-${acc}">${c.access==='public'?'публичный':'приватный'}</span></h3>
+  const ACC_CLS={public:'public',internal:'internal',private:'private'};
+  const ACC_LBL={public:'публичный',internal:'для преподавателей',private:'приватный'};
+  function courseCard(c){
+    const acc=ACC_CLS[c.access]||'private';
+    return`<div class="card" onclick="openCourse('${c.id}')">
+<h3>${c.title} <span class="access access-${acc}">${ACC_LBL[c.access]||c.access}</span></h3>
 <div class="meta">${c.subject_name||''} · ${c.sections_count} разд. · ${c.author_name||''}</div>
-${c.description?`<div class="meta" style="margin-top:4px">${c.description.slice(0,80)}</div>`:''}</div>`}).join('')+'</div>'}
+${c.description?`<div class="meta" style="margin-top:4px">${c.description.slice(0,80)}</div>`:''}</div>`}
+  const mine=list.filter(c=>c.author_id===myId);
+  const others=list.filter(c=>c.author_id!==myId);
+  let html='';
+  if(mine.length){
+    html+=`<div style="font-weight:600;font-size:.85em;color:var(--muted);margin:12px 0 6px">МОИ КУРСЫ</div><div class="grid">${mine.map(courseCard).join('')}</div>`;}
+  if(others.length){
+    html+=`<div style="font-weight:600;font-size:.85em;color:var(--muted);margin:16px 0 6px">КУРСЫ КОЛЛЕГ</div><div class="grid">${others.map(courseCard).join('')}</div>`;}
+  if(!html) html='<div class="empty">Нет курсов</div>';
+  document.getElementById('courseList').innerHTML=html;}
 
 function openM(id){document.getElementById(id).classList.add('show')}
 function closeM(id){document.getElementById(id).classList.remove('show')}
@@ -190,7 +209,8 @@ async function openCourse(id){
   document.getElementById('editView').style.display='';
   document.getElementById('courseTitle').textContent=curCourse.title;
   const subj=subjects.find(s=>s.id===curCourse.subject_id);
-  document.getElementById('courseMeta').innerHTML=`${subj?subj.icon+' '+subj.name:''} · <span class="access access-${curCourse.access}">${curCourse.access==='public'?'публичный':'приватный'}</span>${curCourse.description?' · '+curCourse.description:''}`;
+  const ACC_LBL2={public:'публичный',internal:'для преподавателей',private:'приватный'};
+  document.getElementById('courseMeta').innerHTML=`${subj?subj.icon+' '+subj.name:''} · <span class="access access-${curCourse.access}">${ACC_LBL2[curCourse.access]||curCourse.access}</span>${curCourse.description?' · '+curCourse.description:''}`;
   renderSections()}
 
 function backToList(){document.getElementById('listView').style.display='';document.getElementById('editView').style.display='none';curCourse=null;load()}

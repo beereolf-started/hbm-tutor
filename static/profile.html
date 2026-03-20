@@ -1,0 +1,573 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HBM — Профиль</title>
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950;
+  --red:#b91c1c;--red-t:#f85149;--blue:#1f6feb;--blue-t:#58a6ff;--yellow:#d29922;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-logo{font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px}
+.topbar-logo svg{width:18px;height:18px;stroke:var(--green-t);stroke-width:2;fill:none}
+.topbar-r{display:flex;align-items:center;gap:10px}
+.link-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85em;padding:4px 8px;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.link-btn:hover{background:var(--surface-2);color:var(--text)}
+
+.wrap{max-width:760px;margin:0 auto;padding:28px 20px}
+
+/* Profile header */
+.prof-head{display:flex;align-items:flex-start;gap:24px;margin-bottom:28px;flex-wrap:wrap}
+.avatar-wrap{position:relative;flex-shrink:0}
+.avatar{width:96px;height:96px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:2.4em;font-weight:700;overflow:hidden;cursor:default}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar-edit{position:absolute;bottom:2px;right:2px;width:24px;height:24px;border-radius:50%;background:var(--surface-2);border:2px solid var(--border);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:.7em}
+.avatar-wrap:hover .avatar-edit{display:flex}
+.prof-info{flex:1;min-width:200px}
+.prof-name{font-size:1.5em;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.role-badge{font-size:.55em;padding:3px 10px;border-radius:20px;font-weight:600;vertical-align:middle}
+.role-owner{background:#2d1e5f;color:#a78bfa}
+.role-tutor{background:#1e3a5f;color:#60a5fa}
+.role-student{background:#1a3a1a;color:#4ade80}
+.role-parent{background:#3a2a10;color:#fb923c}
+.online-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:4px}
+.online-dot.on{background:var(--green-t)}
+.prof-meta{font-size:.82em;color:var(--muted);margin-top:4px;display:flex;flex-direction:column;gap:3px}
+.prof-login{font-size:.88em;color:var(--muted);font-family:monospace}
+.prof-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
+/* Sections */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-weight:600;font-size:.95em;display:flex;align-items:center;gap:8px}
+.section-edit{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.82em;padding:4px 8px;border-radius:5px}
+.section-edit:hover{background:var(--border);color:var(--text)}
+
+/* About */
+.about-text{font-size:.9em;line-height:1.6;color:var(--text);white-space:pre-wrap;min-height:40px}
+.about-empty{color:var(--muted);font-size:.88em;font-style:italic}
+.about-edit{width:100%;min-height:100px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);font-size:.9em;outline:none;font-family:inherit;line-height:1.6}
+.about-edit:focus{border-color:var(--blue)}
+
+/* Notes (owner only) */
+.notes-edit{width:100%;min-height:80px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);font-size:.88em;outline:none;font-family:inherit;line-height:1.5}
+.notes-edit:focus{border-color:var(--yellow)}
+
+/* Courses */
+.course-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:.88em}
+.course-item:last-child{margin-bottom:0}
+.course-subj{color:var(--muted);font-size:.8em}
+
+/* Change request cards */
+.req-card{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.req-card:last-child{margin-bottom:0}
+.req-type{font-size:.82em;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 10px}
+.req-value{font-family:monospace;font-size:.88em}
+.req-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* Pending request banner */
+.pending-banner{background:#1c2a1c;border:1px solid #2d4a2d;border-radius:8px;padding:12px 14px;font-size:.85em;display:flex;align-items:center;gap:8px}
+.pending-banner-icon{font-size:1.1em}
+
+/* Account management */
+.field-row{margin-bottom:12px}
+.field-row label{display:block;color:var(--muted);font-size:.8em;font-weight:500;margin-bottom:4px}
+.field-row input{padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.9em;outline:none;width:100%}
+.field-row input:focus{border-color:var(--blue)}
+
+.btn{padding:7px 16px;border-radius:6px;border:none;cursor:pointer;font-size:.82em;font-weight:500}
+.btn-p{background:var(--green);color:#fff}.btn-p:hover{background:var(--green-h)}
+.btn-s{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}.btn-s:hover{border-color:var(--green-t)}
+.btn-d{background:none;color:var(--red-t);border:1px solid transparent;padding:4px 10px;font-size:.8em}.btn-d:hover{border-color:var(--red-t)}
+.btn-yellow{background:#3a2d00;color:#e3b341;border:1px solid #5a4500}.btn-yellow:hover{background:#4a3d00}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:200}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:420px;max-width:94vw}
+.modal h2{font-size:1.05em;font-weight:600;margin-bottom:16px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-weight:500}
+input,select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.9em;outline:none;width:100%}
+input:focus{border-color:var(--blue)}
+.hint{font-size:.78em;color:var(--muted);margin-top:4px}
+
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+.loading{text-align:center;color:var(--muted);padding:60px}
+</style></head><body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+    </svg>HBM — Профиль
+  </div>
+  <div class="topbar-r">
+    <a class="link-btn" id="backLink" href="/">← Назад</a>
+    <button class="link-btn" onclick="logout()">Выйти</button>
+  </div>
+</div>
+
+<div class="wrap" id="main"><div class="loading">Загрузка...</div></div>
+
+<!-- Modal: Change request -->
+<div class="modal-bg" id="mChangeReq">
+  <div class="modal">
+    <h2 id="mChangeReqTitle">Запрос на смену логина</h2>
+    <p style="font-size:.85em;color:var(--muted);margin-bottom:12px">Запрос будет отправлен владельцу на рассмотрение. После одобрения изменение вступит в силу.</p>
+    <label id="mChangeReqLabel">Новый логин</label>
+    <input id="mChangeReqVal" placeholder="">
+    <p class="hint" id="mChangeReqHint"></p>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('mChangeReq')">Отмена</button>
+      <button class="btn btn-p" onclick="submitChangeReq()">Отправить запрос</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit profile (owner — own or others) -->
+<div class="modal-bg" id="mOwnerEdit">
+  <div class="modal" style="width:480px">
+    <h2 id="mOwnerEditTitle">Редактировать профиль</h2>
+    <div class="field-row"><label>Имя</label><input id="oeName"></div>
+    <div class="field-row">
+      <label>О себе</label>
+      <textarea id="oeAbout" style="width:100%;min-height:80px;resize:vertical;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.88em;outline:none;font-family:inherit" maxlength="2000"></textarea>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+    <div class="field-row"><label>Логин</label><input id="oeLogin" autocomplete="off"></div>
+    <div class="field-row">
+      <label>Новый пароль <span style="color:var(--muted)">(оставьте пустым, чтобы не менять)</span></label>
+      <input id="oePassword" type="password" placeholder="минимум 6 символов" autocomplete="new-password">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('mOwnerEdit')">Отмена</button>
+      <button class="btn btn-p" onclick="saveOwnerEdit()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit photo -->
+<div class="modal-bg" id="mPhoto">
+  <div class="modal">
+    <h2>Фото профиля</h2>
+    <p style="font-size:.85em;color:var(--muted);margin-bottom:12px">Выберите файл — он будет сжат до 128×128 пикселей.</p>
+    <input type="file" id="photoFile" accept="image/*" style="padding:6px">
+    <canvas id="photoCanvas" style="display:none"></canvas>
+    <div id="photoPreview" style="margin-top:12px;display:none;text-align:center">
+      <img id="photoPreviewImg" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-d" onclick="removePhoto()">Удалить фото</button>
+      <button class="btn btn-s" onclick="closeModal('mPhoto')">Отмена</button>
+      <button class="btn btn-p" onclick="savePhoto()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script src="/api.js"></script>
+<script>
+if(!requireAuth())throw'';
+const Q=new URLSearchParams(location.search);
+const TARGET_UID=Q.get('uid');   // if set, viewing someone else's profile
+const IS_OWN=!TARGET_UID;
+const MY_ROLE=role();
+
+// Back link
+const back=MY_ROLE==='student'?'/student_lk.html':MY_ROLE==='parent'?'/parent_lk.html':'/hbm_tutor.html';
+document.getElementById('backLink').href=back;
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function openModal(id){document.getElementById(id).classList.add('show')}
+window.onclick=e=>{if(e.target.classList.contains('modal-bg'))e.target.classList.remove('show')}
+
+const ROLE_LABELS={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
+const ROLE_BADGE_CLS={owner:'role-owner',tutor:'role-tutor',student:'role-student',parent:'role-parent'};
+
+let profile=null;
+let editingAbout=false;
+let photoData=null;
+
+function onlineLabel(ls){
+  if(!ls) return '<span class="online-dot"></span><span style="color:var(--muted)">не был в сети</span>';
+  const diff=Date.now()-new Date(ls).getTime(),mins=Math.floor(diff/60000);
+  if(mins<2) return '<span class="online-dot on"></span><span style="color:var(--green-t)">онлайн</span>';
+  if(mins<60) return `<span class="online-dot"></span><span style="color:var(--muted)">был(а) ${mins} мин назад</span>`;
+  const hrs=Math.floor(mins/60);
+  if(hrs<24) return `<span class="online-dot"></span><span style="color:var(--muted)">был(а) ${hrs} ч назад</span>`;
+  return `<span class="online-dot"></span><span style="color:var(--muted)">был(а) ${Math.floor(hrs/24)} д назад</span>`;
+}
+
+function fmtDate(iso){
+  if(!iso) return '';
+  return new Date(iso).toLocaleDateString('ru-RU',{year:'numeric',month:'long',day:'numeric'});
+}
+
+async function load(){
+  try{
+    profile=IS_OWN ? await get('/api/profile') : await get('/api/users/'+TARGET_UID+'/profile');
+  }catch(e){
+    document.getElementById('main').innerHTML=`<div class="loading">Профиль недоступен</div>`;
+    return;
+  }
+  render();
+}
+
+function avatarContent(p){
+  if(p.photo) return `<img src="${p.photo}" alt="">`;
+  return (p.name||'?')[0].toUpperCase();
+}
+
+function render(){
+  const p=profile;
+  const isOwnerRole=MY_ROLE==='owner';
+  const canEdit=IS_OWN||isOwnerRole;
+  const isOwnerViewing=(!IS_OWN)&&isOwnerRole;
+  const canDirectEdit=isOwnerRole; // owner can always directly edit (own or others)
+
+  // Check if own pending requests exist
+  const pendingReqs=p.pending_requests||[];
+
+  let html=`
+<div class="prof-head">
+  <div class="avatar-wrap">
+    <div class="avatar" id="avatarDiv" style="${p.photo?'':'background:'+avatarBg(p.id)}">
+      ${avatarContent(p)}
+    </div>
+    ${canEdit?`<div class="avatar-edit" onclick="openPhotoModal()" title="Сменить фото">📷</div>`:''}
+  </div>
+  <div class="prof-info">
+    <div class="prof-name">
+      ${esc(p.name)}
+      <span class="role-badge ${ROLE_BADGE_CLS[p.role]||''}">${ROLE_LABELS[p.role]||p.role}</span>
+    </div>
+    <div class="prof-login">@${esc(p.login)}</div>
+    <div class="prof-meta">
+      <span>${onlineLabel(p.last_seen)}</span>
+      <span>В системе с ${fmtDate(p.created_at)}</span>
+    </div>
+    <div class="prof-actions">
+      ${!IS_OWN?`<button class="btn btn-s" onclick="goToChat('${p.id}','${esc(p.name)}')">✉ Написать</button>`:''}
+      ${canDirectEdit?`<button class="btn btn-s" onclick="openOwnerEdit()">✏ Редактировать профиль</button>`:''}
+    </div>
+  </div>
+</div>`;
+
+  // About section — inline edit only for non-owner editable users; owner uses unified modal
+  const showInlineAbout=canEdit&&!canDirectEdit;
+  html+=`<div class="section" id="aboutSection">
+  <div class="section-head">
+    <span class="section-title">👤 О себе</span>
+    ${showInlineAbout?`<button class="section-edit" id="aboutEditBtn" onclick="toggleAboutEdit()">✏ Изменить</button>`:''}
+  </div>
+  <div id="aboutView">
+    ${p.about?`<p class="about-text">${esc(p.about)}</p>`:`<p class="about-empty">${canDirectEdit?'Нет описания — нажмите «Редактировать профиль»':'Расскажите немного о себе...'}</p>`}
+  </div>
+  <div id="aboutEditBlock" style="display:none">
+    <textarea class="about-edit" id="aboutInput" placeholder="Расскажите о себе: опыт, специализация, увлечения..." maxlength="2000">${esc(p.about||'')}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-p" onclick="saveAbout()">Сохранить</button>
+      <button class="btn btn-s" onclick="cancelAbout()">Отмена</button>
+    </div>
+  </div>
+</div>`;
+
+  // Owner notes (only owner sees)
+  if(isOwnerViewing){
+    html+=`<div class="section">
+  <div class="section-head">
+    <span class="section-title">🔒 Заметки <span style="font-size:.75em;font-weight:400;color:var(--muted)">(видны только вам)</span></span>
+    <button class="btn btn-yellow" id="notesSaveBtn" onclick="saveNotes()" style="display:none">Сохранить</button>
+  </div>
+  <textarea class="notes-edit" id="notesInput" placeholder="Приватные заметки об этом пользователе..." maxlength="5000"
+    oninput="document.getElementById('notesSaveBtn').style.display='inline-block'">${esc(p.owner_notes||'')}</textarea>
+</div>`;
+  }
+
+  // Courses (shown on tutor/owner profiles)
+  if(p.courses&&p.courses.length){
+    const isStudentViewer=MY_ROLE==='student'||MY_ROLE==='parent';
+    const sectionTitle=isStudentViewer?'📚 Публичные курсы':'📚 Курсы';
+    const ACCESS_LABEL={public:'публичный',internal:'для преподавателей',private:'приватный'};
+    const ACCESS_COLOR={public:'#0d2e1e;color:#34d399',internal:'#1e2e1e;color:#a3e635',private:'#3a2a00;color:#fbbf24'};
+    const cList=p.courses.map(c=>{
+      const badge=(!isStudentViewer&&c.access)?`<span style="font-size:.72em;padding:2px 7px;border-radius:20px;font-weight:600;background:${ACCESS_COLOR[c.access]||''};margin-left:6px">${ACCESS_LABEL[c.access]||c.access}</span>`:'';
+      let action='';
+      if(isStudentViewer){
+        action=`<button class="btn btn-s" style="font-size:.78em;padding:5px 12px" onclick="selfAssignCourse('${c.id}',this)">➕ В мои курсы</button>`;
+      } else {
+        const courseUrl=MY_ROLE==='student'?'#':`/courses.html?open=${c.id}`;
+        action=`<a href="${courseUrl}" class="link-btn" style="font-size:.8em">Открыть →</a>`;
+      }
+      return`<div class="course-item">
+  <div><div style="font-weight:500">${esc(c.title)}${badge}</div><div class="course-subj">${esc(c.subject_name)}</div></div>
+  ${action}
+</div>`;
+    }).join('');
+    html+=`<div class="section">
+  <div class="section-head"><span class="section-title">${sectionTitle}</span></div>
+  ${cList}
+</div>`;
+  }
+
+  // Security section (own profile only)
+  if(IS_OWN){
+    if(isOwnerRole){
+      // Owner can change directly via the unified edit modal
+      html+=`<div class="section">
+  <div class="section-head"><span class="section-title">🔑 Безопасность</span></div>
+  <p style="font-size:.85em;color:var(--muted)">Для смены логина или пароля используйте кнопку <b>«Редактировать профиль»</b> выше.</p>
+</div>`;
+    } else {
+      html+=`<div class="section">
+  <div class="section-head"><span class="section-title">🔑 Безопасность</span></div>
+  <div id="pendingReqsBlock"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-s" onclick="openChangeReq('login')">Запросить смену логина</button>
+    <button class="btn btn-s" onclick="openChangeReq('password')">Запросить смену пароля</button>
+  </div>
+  <p class="hint" style="margin-top:10px">Запросы требуют подтверждения владельца.</p>
+</div>`;
+      loadMyPendingRequests();
+    }
+  }
+
+  // Owner: pending change requests for this user
+  if(isOwnerViewing&&pendingReqs.length){
+    const rList=pendingReqs.map(r=>`<div class="req-card">
+  <div>
+    <span class="req-type">${r.req_type==='login'?'Логин':'Пароль'}</span>
+    ${r.req_type==='login'?`<span class="req-value" style="margin-left:8px">→ @${esc(r.new_value)}</span>`:''}
+    <div style="font-size:.75em;color:var(--muted);margin-top:3px">${fmtDate(r.created_at)}</div>
+  </div>
+  <div class="req-actions">
+    <button class="btn btn-p" onclick="approveReq('${r.id}')">✓ Одобрить</button>
+    <button class="btn btn-d" onclick="rejectReq('${r.id}')">✕ Отклонить</button>
+  </div>
+</div>`).join('');
+    html+=`<div class="section">
+  <div class="section-head"><span class="section-title">📋 Запросы на изменение</span></div>
+  ${rList}
+</div>`;
+  }
+
+  document.getElementById('main').innerHTML=html;
+}
+
+function avatarBg(uid){
+  const COLORS=['#1a7f37','#1f6feb','#6e40c9','#bf4b00','#9e6a03','#b91c1c','#0969da','#1a7f37'];
+  let h=0; for(let i=0;i<(uid||'').length;i++) h=(h*31+uid.charCodeAt(i))&0xfffff;
+  return COLORS[h%COLORS.length];
+}
+
+// ── ABOUT ──
+function toggleAboutEdit(){
+  editingAbout=!editingAbout;
+  document.getElementById('aboutView').style.display=editingAbout?'none':'';
+  document.getElementById('aboutEditBlock').style.display=editingAbout?'':'none';
+  document.getElementById('aboutEditBtn').textContent=editingAbout?'Отмена':'✏ Изменить';
+  if(editingAbout) document.getElementById('aboutInput').focus();
+}
+function cancelAbout(){editingAbout=false;toggleAboutEdit();}
+async function saveAbout(){
+  const text=document.getElementById('aboutInput').value;
+  const url=IS_OWN?'/api/profile':'/api/users/'+TARGET_UID+'/profile';
+  const method=IS_OWN?'patch':patch;
+  try{
+    await patch(url,{about:text});
+    profile.about=text;
+    editingAbout=false;
+    document.getElementById('aboutView').innerHTML=text?`<p class="about-text">${esc(text)}</p>`:`<p class="about-empty">Расскажите немного о себе...</p>`;
+    document.getElementById('aboutView').style.display='';
+    document.getElementById('aboutEditBlock').style.display='none';
+    document.getElementById('aboutEditBtn').textContent='✏ Изменить';
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+
+// ── SELF-ASSIGN COURSE (student) ──
+async function selfAssignCourse(cid,btn){
+  try{
+    await post('/api/me/platform-courses/'+cid,{});
+    btn.textContent='✓ Добавлено';
+    btn.disabled=true;
+    btn.style.color='var(--green-t)';
+    showToast('Курс добавлен в ваши дополнительные материалы');
+  }catch(e){alert(e.detail||'Ошибка при добавлении курса')}
+}
+
+// ── NOTES ──
+async function saveNotes(){
+  const text=document.getElementById('notesInput').value;
+  try{
+    await patch('/api/users/'+TARGET_UID+'/profile',{owner_notes:text});
+    profile.owner_notes=text;
+    document.getElementById('notesSaveBtn').style.display='none';
+    showToast('Заметки сохранены');
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+
+// ── OWNER EDIT MODAL ──
+function openOwnerEdit(){
+  const p=profile;
+  const editingOther=!IS_OWN;
+  document.getElementById('mOwnerEditTitle').textContent=IS_OWN
+    ? 'Редактировать мой профиль'
+    : `Редактировать профиль: ${p.name}`;
+  document.getElementById('oeName').value=p.name||'';
+  document.getElementById('oeAbout').value=p.about||'';
+  document.getElementById('oeLogin').value=p.login||'';
+  document.getElementById('oePassword').value='';
+  openModal('mOwnerEdit');
+}
+async function saveOwnerEdit(){
+  const name=document.getElementById('oeName').value.trim();
+  const about=document.getElementById('oeAbout').value;
+  const login=document.getElementById('oeLogin').value.trim();
+  const pw=document.getElementById('oePassword').value;
+  const data={};
+  if(name&&name!==profile.name) data.name=name;
+  if(about!==profile.about) data.about=about;
+  if(login&&login!==profile.login) data.login=login;
+  if(pw) data.password=pw;
+  if(!Object.keys(data).length){closeModal('mOwnerEdit');return;}
+  // owner edits via /api/users/{uid}/profile (works for own uid too)
+  const uid=IS_OWN?(await get('/api/auth/me').catch(()=>({id:null}))).id||TARGET_UID:TARGET_UID;
+  // use profile id from loaded profile
+  try{
+    const profileUid=profile.id;
+    await patch('/api/users/'+profileUid+'/profile',data);
+    if(data.name){
+      profile.name=data.name;
+      if(IS_OWN){localStorage.setItem('name',data.name);}
+    }
+    if(data.about!==undefined) profile.about=data.about;
+    if(data.login) profile.login=data.login;
+    closeModal('mOwnerEdit');
+    render();
+    showToast('Сохранено');
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+
+// ── PHOTO ──
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('photoFile').addEventListener('change',e=>{
+    const file=e.target.files[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.getElementById('photoCanvas');
+        canvas.width=128; canvas.height=128;
+        const ctx=canvas.getContext('2d');
+        // crop to square center
+        const s=Math.min(img.width,img.height);
+        const ox=(img.width-s)/2, oy=(img.height-s)/2;
+        ctx.drawImage(img,ox,oy,s,s,0,0,128,128);
+        photoData=canvas.toDataURL('image/jpeg',0.82);
+        document.getElementById('photoPreviewImg').src=photoData;
+        document.getElementById('photoPreview').style.display='block';
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+});
+function openPhotoModal(){photoData=null;document.getElementById('photoFile').value='';document.getElementById('photoPreview').style.display='none';openModal('mPhoto');}
+async function savePhoto(){
+  if(!photoData){closeModal('mPhoto');return;}
+  const url=IS_OWN?'/api/profile':'/api/users/'+TARGET_UID+'/profile';
+  try{
+    await patch(url,{photo:photoData});
+    profile.photo=photoData;
+    const av=document.getElementById('avatarDiv');
+    av.innerHTML=`<img src="${photoData}" alt="">`;
+    closeModal('mPhoto');
+    showToast('Фото обновлено');
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+async function removePhoto(){
+  if(!confirm('Удалить фото профиля?')) return;
+  const url=IS_OWN?'/api/profile':'/api/users/'+TARGET_UID+'/profile';
+  try{
+    await patch(url,{photo:''});
+    profile.photo=null;
+    const av=document.getElementById('avatarDiv');
+    av.style.background=avatarBg(profile.id);
+    av.innerHTML=(profile.name||'?')[0].toUpperCase();
+    closeModal('mPhoto');
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+
+// ── CHANGE REQUEST ──
+let changeReqType=null;
+function openChangeReq(type){
+  changeReqType=type;
+  document.getElementById('mChangeReqTitle').textContent=type==='login'?'Запрос на смену логина':'Запрос на смену пароля';
+  document.getElementById('mChangeReqLabel').textContent=type==='login'?'Новый логин':'Новый пароль';
+  document.getElementById('mChangeReqVal').value='';
+  document.getElementById('mChangeReqVal').type=type==='password'?'password':'text';
+  document.getElementById('mChangeReqHint').textContent=type==='password'?'Минимум 6 символов':'';
+  openModal('mChangeReq');
+  setTimeout(()=>document.getElementById('mChangeReqVal').focus(),100);
+}
+async function submitChangeReq(){
+  const val=document.getElementById('mChangeReqVal').value.trim();
+  if(!val){alert('Введите значение');return;}
+  try{
+    await post('/api/profile/change-request',{req_type:changeReqType,new_value:val});
+    closeModal('mChangeReq');
+    showToast('Запрос отправлен владельцу');
+    loadMyPendingRequests();
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+
+async function loadMyPendingRequests(){
+  const block=document.getElementById('pendingReqsBlock');
+  if(!block) return;
+  try{
+    // Reload own profile to get pending status — for now just clear/re-fetch
+    const p=await get('/api/profile');
+    // We don't have a dedicated endpoint for own pending requests yet; show from recent notifications approach
+    block.innerHTML='';
+  }catch(e){}
+}
+
+// ── OWNER: APPROVE/REJECT REQUESTS ──
+async function approveReq(rid){
+  try{
+    await post('/api/change-requests/'+rid+'/approve',{});
+    showToast('Запрос одобрен');
+    await load();
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+async function rejectReq(rid){
+  try{
+    await post('/api/change-requests/'+rid+'/reject',{});
+    showToast('Запрос отклонён');
+    await load();
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+
+// ── CHAT ──
+function goToChat(uid,name){
+  const p=MY_ROLE==='student'?'/student_lk.html':MY_ROLE==='parent'?'/parent_lk.html':'/hbm_tutor.html';
+  location.href=p+'?chat='+uid+'&name='+encodeURIComponent(name);
+}
+
+// ── TOAST ──
+function showToast(msg){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a7f37;color:#fff;padding:8px 18px;border-radius:8px;font-size:.88em;z-index:9999;transition:opacity .3s';
+    document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.opacity='0',2500);
+}
+
+load();
+</script></body></html>

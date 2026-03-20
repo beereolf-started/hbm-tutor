@@ -1,7 +1,7 @@
 # HBM Репетитор
 
-Платформа управления учениками для репетитора по математике.  
-Прогресс-трекинг, домашние задания, тарификация со скидками, электронная доска с real-time совместным рисованием.
+Платформа управления учениками для репетитора по математике.
+Прогресс-трекинг, домашние задания, расписание, мессенджер, тарификация со скидками, электронная доска с real-time совместным рисованием и системой координат.
 
 ---
 
@@ -13,11 +13,13 @@
 - [База данных](#база-данных)
 - [API](#api)
 - [Авторизация и роли](#авторизация-и-роли)
-- [Фронтенд](#фронтенд)
+- [Фронтенд — страницы](#фронтенд--страницы)
+- [Расписание](#расписание)
+- [Мессенджер](#мессенджер)
+- [Курсы и программа](#курсы-и-программа)
 - [Электронная доска](#электронная-доска)
 - [Бизнес-логика](#бизнес-логика)
 - [Развёртывание](#развёртывание)
-- [Разработка](#разработка)
 
 ---
 
@@ -33,7 +35,7 @@
 
 ```bash
 # 1. Клонировать репозиторий
-git clone https://github.com/your-user/hbm-tutor.git
+git clone https://github.com/beereolf-started/hbm-tutor.git
 cd hbm-tutor
 
 # 2. Установить зависимости
@@ -42,19 +44,16 @@ pip install -r requirements.txt
 # 3. Создать базу данных PostgreSQL
 psql -U postgres -c "CREATE DATABASE hbm;"
 
-# 4. Настроить подключение (database.py)
-# Отредактировать DATABASE_URL если пароль/хост отличаются
-
-# 5. Создать таблицы + аккаунт репетитора
+# 4. Создать таблицы + аккаунт репетитора
 python init_db.py
 
-# 6. Запустить сервер
-uvicorn main:app --reload --port 8000
+# 5. Запустить сервер
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 ### Первый вход
 
-Открыть `http://127.0.0.1:8000` (используйте `127.0.0.1`, не `localhost` — обход проблемы с IPv6).
+Открыть `http://127.0.0.1:8000` (используйте `127.0.0.1`, не `localhost`).
 
 | Поле   | Значение   |
 |--------|------------|
@@ -74,24 +73,20 @@ uvicorn main:app --reload --port 8000
 └─────────────────┘                   └─────────────────┘             └──────────────┘
 ```
 
-### Стек
+| Слой        | Технология                                       |
+|-------------|--------------------------------------------------|
+| Бэкенд      | FastAPI + SQLAlchemy ORM                         |
+| СУБД        | PostgreSQL 16                                    |
+| Авторизация | bcrypt (пароли) + JWT/PyJWT (72ч, HS256)        |
+| WebSocket   | FastAPI WebSocket + uvicorn[standard]            |
+| Фронтенд    | Vanilla JS, CSS-переменные, без фреймворков      |
 
-| Слой       | Технология                              |
-|------------|-----------------------------------------|
-| Бэкенд     | FastAPI + SQLAlchemy ORM                |
-| СУБД       | PostgreSQL 16                           |
-| Авторизация| bcrypt (хэши паролей) + JWT (PyJWT)     |
-| WebSocket  | FastAPI WebSocket + uvicorn[standard]   |
-| Фронтенд   | Vanilla JS, CSS-переменные, без фреймворков |
-| Запуск     | uvicorn (ASGI)                          |
-
-### Ключевые принципы
-
-- **Нулевые зависимости на фронте** — ни React, ни Vue, чистый JS
-- **Один HTML файл = одна страница** — SPA не используется
-- **WebSocket для доски** — real-time синхронизация рисования
-- **JWT в localStorage** — простая схема без refresh-токенов
-- **Роли проверяются дважды** — на фронте (UX) и на бэкенде (безопасность)
+**Ключевые принципы:**
+- Нулевые зависимости на фронте — ни React, ни Vue, чистый JS
+- Один HTML файл = одна страница
+- WebSocket для real-time доски
+- JWT в `localStorage` (`token`, `role`, `name`)
+- Роли проверяются дважды — фронт (UX) + бэкенд (безопасность)
 
 ---
 
@@ -99,23 +94,25 @@ uvicorn main:app --reload --port 8000
 
 ```
 HBM/
-├── database.py          # Подключение к PostgreSQL (20 строк)
-├── auth.py              # bcrypt + JWT + get_current_user + require_tutor (60 строк)
-├── models.py            # SQLAlchemy модели (120 строк)
-├── schemas.py           # Pydantic-схемы валидации (170 строк)
-├── main.py              # FastAPI сервер, все эндпоинты + WebSocket (750 строк)
-├── init_db.py           # Создание таблиц + аккаунт admin (30 строк)
-├── requirements.txt     # Python-зависимости
-├── .gitignore
+├── database.py          # Подключение к PostgreSQL
+├── auth.py              # bcrypt + JWT + get_current_user + is_tr()
+├── models.py            # SQLAlchemy модели
+├── schemas.py           # Pydantic-схемы (v2)
+├── main.py              # FastAPI, все эндпоинты, WebSocket
+├── init_db.py           # Создание таблиц + аккаунт admin
+├── requirements.txt
 ├── uploads/             # Загруженные файлы (создаётся автоматически)
 └── static/
-    ├── api.js           # Общий модуль: токен, fetch, logout (60 строк)
-    ├── login.html        # Страница входа + смена пароля
-    ├── hbm_tutor.html    # ЛК репетитора — список учеников
-    ├── student.html      # Профиль ученика (полное редактирование)
-    ├── student_lk.html   # ЛК ученика (только просмотр)
-    ├── parent_lk.html    # ЛК родителя (список детей → просмотр)
-    └── board.html        # Электронная доска (WebSocket, Canvas)
+    ├── api.js            # Общий модуль: token, fetch-хелперы, logout
+    ├── login.html        # Вход + смена пароля
+    ├── hbm_tutor.html    # ЛК репетитора (owner/tutor)
+    ├── student.html      # Профиль ученика — редактирование (репетитор)
+    ├── student_lk.html   # ЛК ученика — просмотр, расписание, курсы
+    ├── parent_lk.html    # ЛК родителя
+    ├── profile.html      # Личный профиль пользователя
+    ├── board.html        # Электронная доска (Canvas + WebSocket)
+    ├── courses.html      # Платформенные курсы
+    └── workshop.html     # Мастерская ученика
 ```
 
 ### Что где искать
@@ -123,87 +120,106 @@ HBM/
 | Задача | Файл(ы) |
 |--------|---------|
 | Добавить эндпоинт | `schemas.py` → `main.py` → фронт |
-| Добавить таблицу/поле | `models.py` → `init_db.py` → `schemas.py` → `main.py` |
-| Добавить страницу | Создать HTML в `static/`, добавить `<script src="api.js">`, вызвать `requireAuth()` |
-| Изменить авторизацию | `auth.py` → `api.js` → `login.html` |
+| Добавить таблицу/поле | `models.py` → миграция SQL → `schemas.py` → `main.py` |
+| Добавить страницу | Создать HTML в `static/`, подключить `api.js`, вызвать `requireAuth()` |
 | Изменить доску | `board.html` (фронт) + `main.py` (WebSocket handler) |
 
 ---
 
 ## База данных
 
-### Схема
+### Основные сущности
 
 ```
-users                          students
-┌─────────────────────┐       ┌──────────────────────┐
-│ id (PK, str12)      │       │ id (PK, str12)       │
-│ login (unique)      │       │ name                 │
-│ password_hash       │       │ grade                │
-│ role (enum)         │       │ goal (enum)          │
-│ name                │       │ base_rate (int)      │
-│ must_change_password│       │ format (enum)        │
-│ student_id (FK) ────┼──────►│ created_at           │
-│ created_at          │       └──────────┬───────────┘
-└──────────┬──────────┘                  │
-           │                             │ 1:N
-           │ N:M                         ▼
-┌──────────┴──────────┐       ┌──────────────────────┐
-│ parent_student_link │       │ sections             │
-│ parent_id (FK users)│       │ id (PK)              │
-│ student_id (FK)     │       │ student_id (FK)      │
-└─────────────────────┘       │ title, position      │
-                              │ is_open              │
-                              │ idz_enabled, idz     │
-                              │ control_enabled      │
-                              │ control (enum)       │
-                              └──────────┬───────────┘
-                                         │ 1:N
-                                         ▼
-                              ┌──────────────────────┐
-                              │ items                │
-                              │ id (PK)              │
-                              │ section_id (FK)      │
-                              │ type (enum)          │
-                              │ position, name       │
-                              │ status, total, done  │
-                              │ closed, date, note   │
-                              │ text, closed_date    │
-                              └──────────┬───────────┘
-                                         │ 1:N
-                                         ▼
-                              ┌──────────────────────┐
-                              │ attachments          │
-                              │ id (PK)              │
-                              │ item_id (FK)         │
-                              │ name, mime, size     │
-                              │ file_path            │
-                              └──────────────────────┘
-
-                              ┌──────────────────────┐
-                              │ boards               │
-                              │ id (PK)              │
-                              │ student_id (FK, uniq)│
-                              │ strokes (TEXT/JSON)  │
-                              │ created_at           │
-                              │ updated_at           │
-                              └──────────────────────┘
+users ──────────────► students
+  │                      │
+  │ (student_id FK)      │ 1:N
+  │                      ▼
+  │               student_courses (курс = группа разделов)
+  │                      │
+  │                      │ 1:N
+  │                      ▼
+  │                   sections
+  │                      │
+  │                      │ 1:N
+  │                      ▼
+  │                    items ──► attachments
+  │
+  └──► schedule_slots (расписание занятий)
+  └──► messages       (мессенджер)
+  └──► notifications
+  └──► parent_student_link
 ```
 
-### Перечисления (Enums)
+### Таблицы
+
+#### `users`
+```
+id, login (unique), password_hash, role (owner/tutor/student/parent),
+name, must_change_password, student_id (FK→students, nullable),
+last_seen, created_at
+```
+
+#### `students`
+```
+id, name, grade, goal (oge/ege/olymp/base), base_rate,
+format (online/offline), created_at
+```
+
+#### `student_courses`
+```
+id, student_id (FK→students CASCADE), tutor_id (FK→users SET NULL),
+title, created_at
+```
+
+#### `sections`
+```
+id, student_id (FK→students CASCADE), course_id (FK→student_courses SET NULL),
+title, position, is_open, idz_enabled, idz_text, idz (1-5),
+control_enabled, control (none/passed/failed)
+```
+
+#### `items`
+```
+id, section_id (FK→sections CASCADE), type (topic/hw/note),
+position, name, status, total, done, closed, date, note,
+text, closed_date, student_answer (Text)
+```
+
+#### `schedule_slots`
+```
+id, tutor_id (FK→users CASCADE), student_id (FK→students CASCADE, nullable),
+day_of_week (0=Пн…6=Вс), slot_index (0=00:00…47=23:30),
+duration (в 30-мин слотах, default=2=1ч),
+note, student_note, color, created_at
+```
+
+#### `messages`
+```
+id, sender_id (FK→users), receiver_id (FK→users),
+text, created_at, read_at
+```
+
+#### `boards`
+```
+id, student_id (FK→students, unique), strokes (TEXT/JSON),
+created_at, updated_at
+```
+
+### ID-генерация
+
+Все первичные ключи: `uuid.uuid4().hex[:12]` (12-символьные hex-строки).
+
+### Перечисления
 
 | Enum | Значения |
 |------|----------|
-| `UserRole` | `tutor`, `parent`, `student` |
-| `GoalType` | `ege`, `olymp`, `base` |
+| `UserRole` | `owner`, `tutor`, `student`, `parent` |
+| `GoalType` | `oge`, `ege`, `olymp`, `base` |
 | `FormatType` | `online`, `offline` |
 | `ItemType` | `topic`, `hw`, `note` |
 | `TopicStatus` | `none`, `progress`, `done` |
 | `ControlStatus` | `none`, `passed`, `failed` |
-
-### ID-генерация
-
-Все первичные ключи — `uuid.uuid4().hex[:12]` (12-символьные hex-строки).
 
 ---
 
@@ -213,376 +229,241 @@ Base URL: `/api`
 
 ### Аутентификация
 
-| Метод | Путь | Описание | Доступ |
-|-------|------|----------|--------|
-| POST | `/auth/login` | Получить JWT-токен | Все |
-| POST | `/auth/change-password` | Сменить пароль | Авторизованные |
-| GET | `/auth/me` | Текущий пользователь | Авторизованные |
+| Метод | Путь | Описание |
+|-------|------|----------|
+| POST | `/auth/login` | Получить JWT |
+| POST | `/auth/change-password` | Сменить пароль |
+| GET | `/auth/me` | Текущий пользователь |
 
 ### Пользователи
 
 | Метод | Путь | Описание | Доступ |
 |-------|------|----------|--------|
-| GET | `/users` | Список всех | Репетитор |
-| POST | `/users` | Создать аккаунт | Репетитор |
-| DELETE | `/users/{id}` | Удалить аккаунт | Репетитор |
+| GET | `/users` | Список | tutor/owner |
+| POST | `/users` | Создать | tutor/owner |
+| DELETE | `/users/{id}` | Удалить | tutor/owner |
+| POST | `/users/{uid}/link-student/{stid}` | Привязать к ученику | tutor/owner |
+| DELETE | `/users/{uid}/unlink-student` | Отвязать | tutor/owner |
 
 ### Ученики
 
-| Метод | Путь | Описание | Доступ |
-|-------|------|----------|--------|
-| GET | `/students` | Список (фильтр по роли) | Авторизованные |
-| GET | `/students/{id}` | Полный профиль | С доступом |
-| POST | `/students` | Создать | Репетитор |
-| PATCH | `/students/{id}` | Обновить | Репетитор |
-| DELETE | `/students/{id}` | Удалить каскадно | Репетитор |
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/students` | Список (фильтр по роли) |
+| GET | `/students/{id}` | Полный профиль |
+| POST | `/students` | Создать |
+| PATCH | `/students/{id}` | Обновить |
+| DELETE | `/students/{id}` | Удалить каскадно |
+| GET | `/students/{id}/contacts` | Контакты ученика |
 
-### Разделы (Sections)
-
-| Метод | Путь | Описание | Доступ |
-|-------|------|----------|--------|
-| POST | `/students/{id}/sections` | Создать раздел | Репетитор |
-| PATCH | `/sections/{id}` | Обновить | Репетитор (is_open — все) |
-| DELETE | `/sections/{id}` | Удалить | Репетитор |
-
-### Элементы ленты (Items)
+### Курсы (StudentCourse)
 
 | Метод | Путь | Описание | Доступ |
 |-------|------|----------|--------|
-| POST | `/sections/{id}/items` | Добавить элемент | Репетитор |
-| PATCH | `/items/{id}` | Обновить | Репетитор |
-| DELETE | `/items/{id}` | Удалить (ДЗ нельзя) | Репетитор |
-| POST | `/sections/{id}/items/reorder` | Переупорядочить | Репетитор |
+| GET | `/students/{id}/courses` | Список курсов + разделы + items | авторизованные |
+| POST | `/students/{id}/courses` | Создать курс | tutor/owner |
+| PATCH | `/student-courses/{cid}` | Обновить title/tutor | tutor/owner |
+| DELETE | `/student-courses/{cid}` | Удалить | tutor/owner |
 
-### Вложения
+### Разделы и элементы
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| POST | `/students/{id}/sections` | Создать раздел |
+| PATCH | `/sections/{id}` | Обновить |
+| DELETE | `/sections/{id}` | Удалить |
+| POST | `/sections/{id}/items` | Добавить элемент |
+| PATCH | `/items/{id}` | Обновить (student: только `status`, `student_answer`) |
+| DELETE | `/items/{id}` | Удалить |
+| POST | `/sections/{id}/items/reorder` | Переупорядочить |
+| POST | `/items/{id}/attachments` | Загрузить файл |
+| DELETE | `/attachments/{id}` | Удалить вложение |
+
+### Расписание
 
 | Метод | Путь | Описание | Доступ |
 |-------|------|----------|--------|
-| POST | `/items/{id}/attachments` | Загрузить файл (≤50 МБ) | Репетитор |
-| DELETE | `/attachments/{id}` | Удалить | Репетитор |
+| GET | `/schedule` | Все слоты репетитора | tutor/owner |
+| POST | `/schedule` | Создать слот | tutor/owner |
+| PATCH | `/schedule/{id}` | Обновить | tutor/owner |
+| DELETE | `/schedule/{id}` | Удалить | tutor/owner |
+| GET | `/schedule/my` | Слоты текущего ученика | student |
+| PATCH | `/schedule/{id}/student-note` | Личная заметка | student |
 
-### Шаблоны
+### Мессенджер
 
-| Метод | Путь | Описание | Доступ |
-|-------|------|----------|--------|
-| POST | `/students/{id}/apply-template/{key}` | Применить шаблон | Репетитор |
-
-Ключи шаблонов: `oge` (ОГЭ Математика), `ege` (ЕГЭ Математика), `olymp` (Олимпиады).
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/contacts` | Список контактов |
+| GET | `/messages/{user_id}` | История чата |
+| POST | `/messages` | Отправить сообщение |
+| POST | `/messages/{user_id}/read` | Отметить прочитанным |
 
 ### Доска
 
-| Метод | Путь | Описание | Доступ |
-|-------|------|----------|--------|
-| GET | `/boards/{student_id}` | Получить данные доски | С доступом |
-| WS | `/ws/board/{student_id}` | WebSocket доски | С доступом |
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/boards/{student_id}` | Данные доски |
+| WS | `/ws/board/{student_id}` | WebSocket |
+
+### Шаблоны
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| POST | `/students/{id}/apply-template/{key}` | Применить шаблон |
+
+Ключи: `oge`, `ege`, `olymp`.
 
 ---
 
 ## Авторизация и роли
 
-### JWT
+| Роль | Страница | Возможности |
+|------|----------|-------------|
+| `owner` | `/hbm_tutor.html` | Полный доступ, владелец аккаунта |
+| `tutor` | `/hbm_tutor.html` | Управление учениками, расписанием, курсами |
+| `student` | `/student_lk.html` | Просмотр своего профиля, расписания, ответы на ДЗ |
+| `parent` | `/parent_lk.html` | Просмотр профилей привязанных детей |
 
-- Алгоритм: HS256
-- Время жизни: 72 часа
-- Секрет: `hbm-secret-change-me-in-production` (→ переменная окружения на проде)
-- Передача: заголовок `Authorization: Bearer <token>`
-- Хранение: `localStorage` (ключи `hbm_token`, `hbm_role`, `hbm_name`)
-
-### Роли
-
-| Роль | Возможности |
-|------|-------------|
-| **tutor** | Полный доступ. Создание/удаление учеников, разделов, ДЗ, аккаунтов. Очистка доски. Единственный аккаунт, создаётся через `init_db.py`. |
-| **student** | Только чтение своего профиля (привязка через `users.student_id`). Просмотр программы, прогресса, тарифа. Рисование на доске. |
-| **parent** | Только чтение профилей привязанных детей (через `parent_student_link`). Может быть привязан к нескольким ученикам. |
-
-### Создание аккаунтов
-
-Репетитор создаёт аккаунты через кнопку 👥+ на карточке ученика:
-1. Генерируется временный пароль
-2. При первом входе — обязательная смена пароля (`must_change_password`)
-3. Данные для входа можно скопировать в буфер
-
-### Проверка доступа
-
-```
-Запрос → auth.py:get_current_user() → роль?
-  ├─ tutor → полный доступ
-  ├─ student → check_student_access(student_id == user.student_id)
-  └─ parent → check_student_access(parent_student_link exists)
-```
+Онлайн-статус: `last_seen` обновляется middleware на каждый запрос. Онлайн = ≤ 5 минут назад.
 
 ---
 
-## Фронтенд
+## Фронтенд — страницы
 
-### Общий модуль (api.js)
+### api.js — ВАЖНО
 
-Все страницы подключают `api.js`, который предоставляет:
+```js
+// Объявлены в глобальном скопе — нельзя переобъявлять в inline-скриптах!
+const get, post, patch, del
+```
 
-| Функция | Описание |
-|---------|----------|
-| `getToken()` | JWT из localStorage |
-| `getRole()` | Роль пользователя |
-| `getUserName()` | Имя пользователя |
-| `requireAuth(roles?)` | Проверка + редирект на login |
-| `logout()` | Очистка + редирект |
-| `apiFetch(url, options)` | fetch с `Authorization` header, 401 → logout |
-| `apiGet/Post/Patch/Delete(url, data?)` | Шорткаты |
-| `apiUpload(url, file)` | FormData upload |
+Если нужны кастомные хелперы в HTML — называть `apiPost`, `apiDelete` и т.д.
 
-### Страницы
+### hbm_tutor.html (ЛК репетитора)
 
-#### login.html
-- Форма входа (логин + пароль)
-- Форма смены пароля при `must_change_password`
-- Редирект по роли: tutor → `hbm_tutor.html`, student → `student_lk.html`, parent → `parent_lk.html`
+**Табы:** Главная | Расписание | Пользователи | Сообщения
 
-#### hbm_tutor.html (ЛК репетитора)
-- Grid карточек учеников с прогрессом и тарифом
-- Модалка добавления ученика (имя, класс, цель, тариф, формат)
-- Модалка 👥+ приглашения (создание аккаунтов student/parent)
-- Генерация временного пароля + копирование в буфер
+- Карточки учеников с прогрессом и тарифом
+- Расписание: drag-to-select, шторки, rowspan
+- Пользователи: привязка user↔student
+- Мессенджер: polling 5 сек
 
-#### student.html (профиль ученика)
-- Используется **и репетитором, и учеником** (флаг `isTutor = getRole() === 'tutor'`)
-- Roadmap: разделы с хронологической лентой
-- Конструктор элементов (Тема / ДЗ / Заметка)
-- ДЗ в два этапа: выдать (pending) → закрыть (done/total)
-- Перемещение элементов ↑↓
-- Вложения (PDF/PNG/GIF/TXT/XML/ZIP/DOC/DOCX, до 50 МБ)
-- ИДЗ (оценка 1-5) + Контрольная (зачёт/незачёт)
-- Шаблоны (ОГЭ / ЕГЭ / Олимпиады)
-- Кнопка «📐 Доска» → `board.html`
+### student_lk.html (ЛК ученика)
 
-#### student_lk.html (ЛК ученика)
-- Read-only версия профиля
-- Прогресс, текущий тариф, программа, вложения
-- Кнопка «📐 Доска» для совместной работы
+**Разделы:** Главная | Основные курсы | Расписание | Дополнительные | Контакты
 
-#### parent_lk.html (ЛК родителя)
-- Если > 1 ребёнок — список карточек → клик → профиль
-- Если 1 ребёнок — сразу его профиль
-- Read-only. Акцент на тарифе
+- Расписание: read-only, клик → доска, личные заметки
+- Курсы: StudentCourse → разделы → items с textarea для ответов на ДЗ
+- Контакты: перезагрузка при открытии
 
-### Стиль
+### parent_lk.html / profile.html
 
-- CSS-переменные, тёмно-зелёная тема (`#0f1a0f` фон, `#00ff88` акцент)
-- XSS-защита: функция `esc()` на всём пользовательском вводе
-- Дата в формате DD.MM
+- parent: список детей → профиль; мессенджер
+- profile: кнопка "Написать" → `?chat=uid&name=name`
+
+---
+
+## Расписание
+
+**Слоты:** 48 слотов × 30 мин. `slot_index = час * 2 + (мин==30 ? 1 : 0)`.
+
+Примеры: 13:00 → 26, 16:00 → 32, 17:30 → 35, 19:00 → 38, 20:00 → 40.
+
+**Диапазон по умолчанию:** 10:00–21:00 (`SCHED_VIS_START=20`, `SCHED_VIS_END=41`).
+
+**Добавление:**
+- Одиночный клик → модал, длительность 1ч по умолчанию
+- Drag через ячейки → длительность = число выбранных слотов
+- Клик по чипу занятия → `/board.html?id=SID`
+
+---
+
+## Мессенджер
+
+- Polling `GET /api/messages/{uid}` каждые 5 сек при открытом чате
+- `setInterval` стартует в `openChatWith()`, `clearInterval` при закрытии
+- Уведомления: `GET /api/notifications` (отдельный polling)
+
+---
+
+## Курсы и программа
+
+```
+StudentCourse ("ОГЭ Математика с Иваном")
+  └─ Section ("Алгебра")
+       └─ Item (topic / hw / note)
+            └─ Attachment
+```
+
+| Тип | Статусы | Ответ ученика |
+|-----|---------|---------------|
+| `topic` | none → progress → done | — |
+| `hw` | pending → closed (done/total) | `student_answer` textarea |
+| `note` | — | — |
+
+**Формула прогресса:**
+```
+score(section) = среднее(hw.done/hw.total, idz/5, control=='passed')
+progress = среднее(score по разделам) × 100%
+```
+
+**Формула тарифа:**
+```
+discount = floor(progress% × 0.3)
+rate = base_rate × (1 − discount/100)
+```
 
 ---
 
 ## Электронная доска
 
-### Обзор
+URL: `/board.html?id=STUDENT_ID`
 
-Real-time совместная доска на Canvas + WebSocket. Привязана к ученику (одна доска на ученика).
+**Топбар (52px):** HBM | Имя ученика | ↩ Undo | 🗑 Очистить | 🌙 Тема | ⊙ Сброс | ← Назад
 
 ### Инструменты
 
-| Инструмент | Клавиша | Описание |
-|------------|---------|----------|
-| 🖱 Курсор | `Esc` | Выделение, перемещение, редактирование объектов. Тяг по пустому месту — скролл доски. |
-| ✏ Перо | `P` | Свободное рисование |
-| ╱ Прямая | `L` | Рисование прямых линий. `Shift` — привязка к 45°. |
-| ✕ Ластик | `E` | Стирает целую линию/объект при касании |
-| T Текст | `T` | Добавление текста. B/I/U через панель свойств. |
+| Клавиша | Действие |
+|---------|----------|
+| V | Выделение (move/resize/rotate) |
+| P | Перо |
+| E | Ластик |
+| G | Геометрия (линия/прямоугольник/эллипс) |
+| T | Текст |
+| I | Изображение |
+| Ctrl+Z | Undo (локальный стек 50 шагов) |
+| Del | Удалить выделенное |
+| ESC | Сбросить выделение |
 
-### Действия
+### Система координат (v3.6)
 
-| Действие | Способ |
-|----------|--------|
-| Отмена (Undo) | `Ctrl+Z` — отменяет только **свои** действия |
-| Очистить доску | Кнопка 🗑 (только репетитор) |
-| Скролл/Pan | Тяг в режиме Курсор по пустому месту, или `Alt+Click` из любого инструмента, или средняя кнопка мыши |
-| Зум | Колёсико мыши |
-| Сброс камеры | Кнопка ⊞ |
-| Смена темы | Кнопка 🌓 (тёмная/светлая) |
+- Выделить 2 линии → ⊕ Создать СК
+- Настройка масштаба осей, ввод уравнений `y=f(x)` / `x=f(y)`
+- Перетаскивание оси одним кликом (наведи на конец → crosshair)
+- Копирование графика: 📋 → монолитный stroke
 
-### Панель свойств (режим Курсор)
-
-При выделении объекта справа появляется панель:
-- **Цвет** — color picker
-- **Толщина** — слайдер (для штрихов и прямых)
-- **Пунктир** — сплошная/пунктир (для прямых)
-- **B / I / U** — форматирование текста
-- **Редактировать текст** — кнопка для текстовых объектов
-- **Удалить** — удаление объекта
-
-### Редактирование прямых
-
-Выделенная прямая показывает **зелёные точки на концах**. Тянешь одну точку — вторая остаётся на месте.
-
-### WebSocket протокол
-
-| Сообщение | Направление | Описание |
-|-----------|-------------|----------|
-| `{type:"hello", user_id}` | Сервер → Клиент | ID текущего пользователя |
-| `{type:"load"}` | Клиент → Сервер | Запрос всех объектов |
-| `{type:"strokes", data:[]}` | Сервер → Клиент | Ответ с массивом объектов |
-| `{type:"stroke", data:{...}}` | Оба | Новый/обновлённый объект |
-| `{type:"erase_stroke", id}` | Оба | Удаление объекта |
-| `{type:"undo"}` | Клиент → Сервер | Отменить последний свой объект |
-| `{type:"clear"}` | Оба | Очистить доску (только tutor) |
-
-### Хранение
-
-Объекты доски хранятся как JSON в таблице `boards.strokes`. Каждый объект содержит:
-
-```json
-{
-  "id": "unique_id",
-  "type": "stroke|line|text",
-  "user_id": "author_user_id",
-  "color": "#ffffff",
-  "width": 2,
-  // stroke:
-  "points": [{"x":0,"y":0}, ...],
-  // line:
-  "x1": 0, "y1": 0, "x2": 100, "y2": 100, "dash": false,
-  // text:
-  "x": 0, "y": 0, "text": "Hello", "fontSize": 16,
-  "bold": false, "italic": false, "underline": false
-}
-```
-
----
-
-## Бизнес-логика
-
-### Программа обучения
-
-Иерархия: **Ученик → Разделы → Элементы ленты**
-
-Каждый раздел содержит:
-- Ленту элементов (темы, ДЗ, заметки)
-- Опционально: ИДЗ (оценка 1-5) и Контрольная (зачёт/незачёт)
-
-### Типы элементов
-
-| Тип | Описание | Статусы |
-|-----|----------|---------|
-| `topic` | Тема | none → progress → done (цикл) |
-| `hw` | Домашнее задание | pending (closed=false) → closed (done/total) |
-| `note` | Текстовая заметка | — |
-
-### Формула прогресса
+### WebSocket
 
 ```
-score(section) = среднее(
-  avg(hw.done/hw.total) для закрытых ДЗ,
-  idz / 5,
-  control === 'passed' ? 1 : 0
-)
-// Компоненты участвуют только если включены (idz_enabled, control_enabled)
-
-progress = среднее(score по всем разделам) × 100%
+hello / load / strokes / stroke / erase_stroke / undo / clear
 ```
-
-### Формула тарифа
-
-```
-discount = floor(progress% × 0.3)
-currentRate = baseRate × (1 − discount / 100)
-```
-
-Пример: прогресс 60% → скидка 18% → тариф 1500 × 0.82 = 1230 ₽/час
-
-### Шаблоны
-
-Три предустановленных шаблона программы:
-- **ОГЭ Математика** — Алгебра, Геометрия, Статистика, Задачи 2-й части
-- **ЕГЭ Математика** — Алгебра, Геометрия, Статистика, Профильные задачи
-- **Олимпиады** — Алгебра, Комбинаторика, Геометрия, Задачи по уровням
 
 ---
 
 ## Развёртывание
 
-### Подготовка к продакшену
-
-1. **JWT секрет** — вынести в переменную окружения:
-   ```python
-   # auth.py
-   SECRET_KEY = os.environ.get("HBM_JWT_SECRET", "fallback-dev-key")
-   ```
-
-2. **DATABASE_URL** — вынести в переменную окружения:
-   ```python
-   # database.py
-   DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:hbm2024@127.0.0.1:5432/hbm")
-   ```
-
-3. **CORS** — ограничить origins:
-   ```python
-   allow_origins=["https://your-domain.com"]
-   ```
-
-4. **Файлы** — перенести uploads в S3 или другое хранилище
-
-5. **HTTPS** — обязательно для WebSocket (`wss://`)
-
-### Запуск
-
 ```bash
-# Development
-uvicorn main:app --reload --port 8000
+# Переменные окружения (продакшен)
+HBM_JWT_SECRET=<32+ символа>
+DATABASE_URL=postgresql://user:pass@host:5432/hbm
 
-# Production
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
-# workers=1 потому что WebSocket state (board_connections) in-memory
+# Запуск (workers=1 — WebSocket state in-memory)
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-> **Важно**: `pip install 'uvicorn[standard]'` — без этого WebSocket не работает.
+**Зависимости:** `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `psycopg2-binary`, `pyjwt`, `bcrypt`, `python-multipart`
 
 ---
 
-## Разработка
-
-### Как добавить новый эндпоинт
-
-1. Определить Pydantic-схему в `schemas.py`
-2. Добавить роут в `main.py`
-3. Вызвать через `apiGet/apiPost` на фронте
-
-### Как добавить новую таблицу
-
-1. Создать SQLAlchemy модель в `models.py`
-2. Добавить импорт в `init_db.py`
-3. Запустить `python init_db.py` (или Alembic в будущем)
-4. Добавить Pydantic-схемы в `schemas.py`
-5. Добавить эндпоинты в `main.py`
-
-### Как добавить новую страницу
-
-1. Создать HTML в `static/`
-2. Добавить `<script src="api.js"></script>`
-3. Вызвать `requireAuth(['role'])` в начале скрипта
-4. Использовать `apiGet/apiPost` для обращения к API
-
-### Стиль кода
-
-- Комментарии на русском
-- ASCII-рамки в шапках файлов
-- CSS: переменные, тёмно-зелёная тема
-- JS: Vanilla, без зависимостей
-- Python: FastAPI conventions, Depends для DI
-
-### Пакеты
-
-```
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-pyjwt
-bcrypt
-python-multipart
-```
-
----
-
-## Лицензия
-
-Проприетарный проект. Все права защищены.
+*Проприетарный проект. Все права защищены.*

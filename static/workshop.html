@@ -1,0 +1,321 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HBM — Мастерская</title>
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950;
+  --red:#b91c1c;--blue:#1f6feb;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-logo{font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px}
+.topbar-logo svg{width:18px;height:18px;stroke:var(--green-t);stroke-width:2;fill:none}
+.topbar-r{display:flex;align-items:center;gap:10px}
+.topbar-name{color:var(--muted);font-size:.88em}
+.link-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85em;padding:4px 8px;border-radius:6px;text-decoration:none}
+.link-btn:hover{background:var(--surface-2);color:var(--text)}
+
+.wrap{max-width:900px;margin:0 auto;padding:28px 20px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-header h1{font-size:1.3em;font-weight:700}
+.page-header p{color:var(--muted);font-size:.88em;margin-top:2px}
+
+.boards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+
+.board-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .15s}
+.board-card:hover{border-color:var(--green-t)}
+.board-card-body{padding:18px 16px;cursor:pointer;min-height:100px;display:flex;flex-direction:column;gap:8px}
+.board-card-body:hover{background:var(--surface-2)}
+.board-card-title{font-weight:600;font-size:.95em}
+.board-card-meta{color:var(--muted);font-size:.78em}
+.board-card-actions{display:flex;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface-2)}
+
+.new-card{background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.new-card:hover{border-color:var(--green-t);background:var(--surface-2)}
+.new-card-icon{font-size:1.8em;margin-bottom:8px}
+.new-card-title{font-weight:600;font-size:.9em;color:var(--muted)}
+
+.btn{padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:.82em;font-weight:500}
+.btn-p{background:var(--green);color:#fff}.btn-p:hover{background:var(--green-h)}
+.btn-s{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}.btn-s:hover{border-color:var(--green-t)}
+.btn-d{background:none;color:var(--red);border:1px solid transparent}.btn-d:hover{border-color:var(--red)}
+.btn-icon{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.82em;padding:3px 8px;border-radius:5px}.btn-icon:hover{background:var(--border);color:var(--text)}
+
+.modal-bg{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:200}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:440px;max-width:94vw}
+.modal h2{font-size:1.05em;font-weight:600;margin-bottom:16px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-weight:500}
+input,select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.9em;outline:none;width:100%}
+input:focus{border-color:var(--blue)}
+
+.share-box{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:8px}
+.share-link{flex:1;font-size:.82em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.empty{text-align:center;color:var(--muted);padding:48px}
+
+/* Contacts mini-list for sharing */
+.contact-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer}
+.contact-item:hover{background:var(--surface-2)}
+.contact-avatar{width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85em;flex-shrink:0}
+.contact-name{font-size:.88em;font-weight:500}
+.contact-role{font-size:.75em;color:var(--muted)}
+</style></head><body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+    </svg>
+    HBM — Мастерская
+  </div>
+  <div class="topbar-r">
+    <span class="topbar-name" id="userName"></span>
+    <a class="link-btn" id="backLink" href="/hbm_tutor.html">← Назад</a>
+    <button class="link-btn" onclick="logout()">Выйти</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>🛠 Мастерская</h1>
+      <p>Личные доски — для свободной работы, не привязанной к курсу</p>
+    </div>
+    <button class="btn btn-p" onclick="openCreate()">+ Новая доска</button>
+  </div>
+  <div class="boards-grid" id="boardsGrid"></div>
+</div>
+
+<!-- Modal: Create board -->
+<div class="modal-bg" id="mCreate">
+  <div class="modal">
+    <h2>Новая доска</h2>
+    <label>Название</label>
+    <input id="newTitle" placeholder="Например: Черновик, Проект..." maxlength="200">
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('mCreate')">Отмена</button>
+      <button class="btn btn-p" onclick="createBoard()">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Rename board -->
+<div class="modal-bg" id="mRename">
+  <div class="modal">
+    <h2>Переименовать</h2>
+    <label>Название</label>
+    <input id="renameTitle" maxlength="200">
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('mRename')">Отмена</button>
+      <button class="btn btn-p" onclick="saveRename()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Share board -->
+<div class="modal-bg" id="mShare">
+  <div class="modal">
+    <h2>Поделиться доской</h2>
+    <div id="shareTokenSection">
+      <p style="font-size:.85em;color:var(--muted);margin-bottom:10px">Создайте ссылку, чтобы поделиться доской. Открыть смогут только пользователи с аккаунтом в HBM.</p>
+      <div id="shareLinkWrap" style="display:none">
+        <div class="share-box">
+          <span class="share-link" id="shareLink"></span>
+          <button class="btn btn-s" onclick="copyLink()" style="flex-shrink:0">Копировать</button>
+        </div>
+        <button class="btn btn-d" style="margin-top:8px;font-size:.78em" onclick="revokeLink()">Отозвать ссылку</button>
+      </div>
+      <div id="shareGenWrap">
+        <button class="btn btn-s" onclick="generateLink()">Создать ссылку</button>
+      </div>
+    </div>
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+      <p style="font-size:.82em;color:var(--muted);margin-bottom:8px">Или отправить напрямую контакту:</p>
+      <div id="shareContactsList" style="max-height:180px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('mShare')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script src="/api.js"></script>
+<script>
+if(!requireAuth(['owner','tutor','student','parent']))throw'';
+const uname=localStorage.getItem('name');
+document.getElementById('userName').textContent=uname;
+// Back link based on role
+const r=role();
+const back=r==='student'?'/student_lk.html':r==='parent'?'/parent_lk.html':'/hbm_tutor.html';
+document.getElementById('backLink').href=back;
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function openModal(id){document.getElementById(id).classList.add('show')}
+window.onclick=e=>{if(e.target.classList.contains('modal-bg'))e.target.classList.remove('show')}
+
+let boards=[], contacts=[], curBoardId=null;
+
+async function load(){
+  [boards,contacts]=await Promise.all([
+    get('/api/personal-boards').catch(()=>[]),
+    get('/api/contacts').catch(()=>[])]);
+  renderBoards()}
+
+function fmtDate(iso){
+  if(!iso) return '';
+  const d=new Date(iso), now=new Date();
+  const diff=(now-d)/1000;
+  if(diff<120) return 'только что';
+  if(diff<3600) return `${Math.floor(diff/60)} мин назад`;
+  if(diff<86400) return `${Math.floor(diff/3600)} ч назад`;
+  return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}
+
+function renderBoards(){
+  const g=document.getElementById('boardsGrid');
+  if(!boards.length){
+    g.innerHTML=`<div class="new-card" onclick="openCreate()"><div class="new-card-icon">🎨</div><div class="new-card-title">Создать первую доску</div></div>`;
+    return}
+  let h=boards.map(b=>`
+<div class="board-card" id="bc_${b.id}">
+  <div class="board-card-body" onclick="openBoard('${b.id}')">
+    <div class="board-card-title">${esc(b.title)}</div>
+    <div class="board-card-meta">Обновлено: ${fmtDate(b.updated_at)}</div>
+    ${b.share_token?'<div style="font-size:.75em;color:var(--green-t)">🔗 Есть ссылка</div>':''}
+  </div>
+  <div class="board-card-actions">
+    <button class="btn-icon" onclick="event.stopPropagation();openRename('${b.id}','${esc(b.title)}')">✏️ Rename</button>
+    <button class="btn-icon" onclick="event.stopPropagation();openShare('${b.id}')">🔗 Share</button>
+    <div style="flex:1"></div>
+    <button class="btn-icon" style="color:var(--red)" onclick="event.stopPropagation();deleteBoard('${b.id}','${esc(b.title)}')">🗑</button>
+  </div>
+</div>`).join('');
+  h+=`<div class="new-card" onclick="openCreate()"><div class="new-card-icon">＋</div><div class="new-card-title">Новая доска</div></div>`;
+  g.innerHTML=h}
+
+function openBoard(bid){
+  location.href='/board.html?personal='+bid}
+
+// ── CREATE ──────────────────────────────────────────────────────────────
+function openCreate(){
+  document.getElementById('newTitle').value='';
+  openModal('mCreate');
+  setTimeout(()=>document.getElementById('newTitle').focus(),100)}
+
+async function createBoard(){
+  const title=document.getElementById('newTitle').value.trim()||'Новая доска';
+  try{
+    const b=await post('/api/personal-boards',{title});
+    boards.unshift(b);closeModal('mCreate');renderBoards();
+    openBoard(b.id);
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+// ── RENAME ──────────────────────────────────────────────────────────────
+let renameId=null;
+function openRename(bid,title){
+  renameId=bid;
+  document.getElementById('renameTitle').value=title;
+  openModal('mRename');
+  setTimeout(()=>document.getElementById('renameTitle').focus(),100)}
+
+async function saveRename(){
+  if(!renameId) return;
+  const title=document.getElementById('renameTitle').value.trim();
+  if(!title) return;
+  try{
+    const b=await patch('/api/personal-boards/'+renameId,{title});
+    const idx=boards.findIndex(x=>x.id===renameId);
+    if(idx>=0) boards[idx]=b;
+    closeModal('mRename');renderBoards();
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+// ── DELETE ──────────────────────────────────────────────────────────────
+async function deleteBoard(bid,title){
+  if(!confirm(`Удалить доску «${title}»? Это действие нельзя отменить.`)) return;
+  try{
+    await del('/api/personal-boards/'+bid);
+    boards=boards.filter(b=>b.id!==bid);renderBoards();
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+// ── SHARE ──────────────────────────────────────────────────────────────
+function openShare(bid){
+  curBoardId=bid;
+  const b=boards.find(x=>x.id===bid);
+  if(!b) return;
+  const linkWrap=document.getElementById('shareLinkWrap');
+  const genWrap=document.getElementById('shareGenWrap');
+  if(b.share_token){
+    const url=location.origin+'/workshop.html?join='+b.share_token;
+    document.getElementById('shareLink').textContent=url;
+    linkWrap.style.display='block';genWrap.style.display='none';
+  }else{
+    linkWrap.style.display='none';genWrap.style.display='block';}
+  // Contacts list
+  const cl=document.getElementById('shareContactsList');
+  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
+  cl.innerHTML=contacts.map(c=>`<div class="contact-item" onclick="shareWithContact('${c.id}','${esc(c.name)}')">
+  <div class="contact-avatar">${(c.name||'?')[0].toUpperCase()}</div>
+  <div><div class="contact-name">${esc(c.name)}</div><div class="contact-role">${roleLabel[c.role]||c.role}</div></div>
+</div>`).join('')||'<p style="color:var(--muted);font-size:.82em;padding:8px">Нет контактов</p>';
+  openModal('mShare')}
+
+async function generateLink(){
+  if(!curBoardId) return;
+  try{
+    const b=await apiPost('/api/personal-boards/'+curBoardId+'/share',{});
+    const idx=boards.findIndex(x=>x.id===curBoardId);if(idx>=0) boards[idx]=b;
+    const url=location.origin+'/workshop.html?join='+b.share_token;
+    document.getElementById('shareLink').textContent=url;
+    document.getElementById('shareLinkWrap').style.display='block';
+    document.getElementById('shareGenWrap').style.display='none';
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+async function revokeLink(){
+  if(!curBoardId) return;
+  if(!confirm('Отозвать ссылку? Доступ по ней будет закрыт.')) return;
+  try{
+    const b=await apiDelete('/api/personal-boards/'+curBoardId+'/share');
+    const idx=boards.findIndex(x=>x.id===curBoardId);if(idx>=0) boards[idx]=b;
+    document.getElementById('shareLinkWrap').style.display='none';
+    document.getElementById('shareGenWrap').style.display='block';
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+function copyLink(){
+  const t=document.getElementById('shareLink').textContent;
+  navigator.clipboard.writeText(t).then(()=>alert('Ссылка скопирована!')).catch(()=>prompt('Скопируйте:',t))}
+
+async function shareWithContact(uid,name){
+  if(!curBoardId) return;
+  try{
+    await apiPost('/api/personal-boards/'+curBoardId+'/share-with/'+uid,{});
+    alert(`Доска открыта для ${name}`);
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+// ── JOIN BY TOKEN (from URL) ─────────────────────────────────────────
+async function checkJoin(){
+  const params=new URLSearchParams(location.search);
+  const token=params.get('join');
+  if(!token) return false;
+  try{
+    const b=await get('/api/personal-boards/by-token/'+token);
+    // Redirect to board
+    location.replace('/board.html?personal='+b.id);
+    return true;
+  }catch(e){
+    alert('Доска не найдена или ссылка устарела');
+    return false}}
+
+// ── HELPERS for api.js-style calls ────────────────────────────────────
+function apiPost(url,data){return fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('token')},body:JSON.stringify(data)}).then(async r=>{const j=await r.json();if(!r.ok)throw j;return j})}
+function apiDelete(url){return fetch(url,{method:'DELETE',headers:{'Authorization':'Bearer '+localStorage.getItem('token')}}).then(async r=>{const j=await r.json();if(!r.ok)throw j;return j})}
+
+(async()=>{
+  const joined=await checkJoin();
+  if(!joined) load();
+})();
+</script></body></html>

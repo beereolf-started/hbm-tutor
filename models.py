@@ -17,7 +17,7 @@ class ControlStatus(str, enum.Enum):
 class UserRole(str, enum.Enum):
     owner="owner"; tutor="tutor"; parent="parent"; student="student"
 class CourseAccess(str, enum.Enum):
-    public="public"; private="private"
+    public="public"; internal="internal"; private="private"
 
 def gen_id(): return uuid.uuid4().hex[:12]
 
@@ -37,6 +37,10 @@ class User(Base):
     password_hash=Column(String(200),nullable=False); role=Column(PgEnum(UserRole),nullable=False)
     name=Column(String(200),nullable=False); must_change_password=Column(Boolean,default=True)
     created_at=Column(DateTime(timezone=True),server_default=func.now())
+    last_seen=Column(DateTime(timezone=True),nullable=True)
+    about=Column(Text,nullable=True)
+    photo=Column(Text,nullable=True)
+    owner_notes=Column(Text,nullable=True)
     student_id=Column(String(12),ForeignKey("students.id",ondelete="SET NULL"),nullable=True)
     student_profile=relationship("Student",foreign_keys=[student_id])
     subject_id=Column(String(12),ForeignKey("subjects.id",ondelete="SET NULL"),nullable=True)
@@ -93,13 +97,26 @@ class Student(Base):
     created_at=Column(DateTime(timezone=True),server_default=func.now())
     subject=relationship("Subject"); creator=relationship("User",foreign_keys=[created_by])
     sections=relationship("Section",back_populates="student",cascade="all, delete-orphan",order_by="Section.position")
+    courses=relationship("StudentCourse",back_populates="student",cascade="all, delete-orphan",order_by="StudentCourse.created_at")
     parents=relationship("User",secondary=parent_student_link,backref="children_students")
     tutors=relationship("User",secondary=tutor_student_link,backref="assigned_students")
+
+class StudentCourse(Base):
+    __tablename__="student_courses"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    student_id=Column(String(12),ForeignKey("students.id",ondelete="CASCADE"),nullable=False)
+    tutor_id=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
+    title=Column(String(200),nullable=False)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    student=relationship("Student",back_populates="courses")
+    tutor=relationship("User",foreign_keys=[tutor_id])
+    sections=relationship("Section",back_populates="course",order_by="Section.position")
 
 class Section(Base):
     __tablename__="sections"
     id=Column(String(12),primary_key=True,default=gen_id)
     student_id=Column(String(12),ForeignKey("students.id",ondelete="CASCADE"),nullable=False)
+    course_id=Column(String(12),ForeignKey("student_courses.id",ondelete="SET NULL"),nullable=True)
     title=Column(String(300),nullable=False); position=Column(Integer,nullable=False,default=0)
     is_open=Column(Boolean,default=False); idz_enabled=Column(Boolean,default=True)
     control_enabled=Column(Boolean,default=True); idz=Column(Integer,default=0)
@@ -107,6 +124,7 @@ class Section(Base):
     locked=Column(Boolean,default=False,server_default='false')
     idz_text=Column(Text,nullable=True)
     student=relationship("Student",back_populates="sections")
+    course=relationship("StudentCourse",back_populates="sections")
     items=relationship("Item",back_populates="section",cascade="all, delete-orphan",order_by="Item.position")
 
 class Item(Base):
@@ -117,7 +135,7 @@ class Item(Base):
     name=Column(String(300)); status=Column(PgEnum(TopicStatus),default=TopicStatus.none)
     total=Column(Integer); done=Column(Integer); closed=Column(Boolean,default=False)
     date=Column(String(20)); closed_date=Column(String(20)); note=Column(Text); text=Column(Text)
-    grade=Column(Integer,nullable=True)
+    grade=Column(Integer,nullable=True); student_answer=Column(Text,nullable=True)
     section=relationship("Section",back_populates="items")
     attachments=relationship("Attachment",back_populates="item",cascade="all, delete-orphan")
     subblocks=relationship("ItemSubblock",back_populates="item",cascade="all,delete-orphan",order_by="ItemSubblock.position")
@@ -169,3 +187,58 @@ class Message(Base):
     is_read=Column(Boolean,default=False,server_default='false')
     from_user=relationship("User",foreign_keys=[from_id])
     to_user=relationship("User",foreign_keys=[to_id])
+
+class PersonalBoard(Base):
+    __tablename__="personal_boards"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    owner_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    title=Column(String(300),nullable=False,default="Новая доска")
+    strokes=Column(Text,default="[]")
+    share_token=Column(String(32),nullable=True,unique=True)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    updated_at=Column(DateTime(timezone=True),server_default=func.now(),onupdate=func.now())
+    owner=relationship("User",foreign_keys=[owner_id])
+
+student_platform_courses = Table("student_platform_courses", Base.metadata,
+    Column("student_id", String(12), ForeignKey("students.id", ondelete="CASCADE"), primary_key=True),
+    Column("course_id", String(12), ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True))
+
+personal_board_share = Table("personal_board_shares", Base.metadata,
+    Column("board_id", String(12), ForeignKey("personal_boards.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", String(12), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True))
+
+class Notification(Base):
+    __tablename__="notifications"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    user_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    text=Column(Text,nullable=False)
+    is_read=Column(Boolean,default=False,server_default='false')
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    link=Column(String(500),nullable=True)
+    notif_type=Column(String(50),nullable=True)
+    notif_user=relationship("User",foreign_keys=[user_id])
+
+class ChangeRequest(Base):
+    __tablename__="change_requests"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    user_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    req_type=Column(String(20),nullable=False)
+    new_value=Column(String(300),nullable=False)
+    status=Column(String(20),default='pending')
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    req_user=relationship("User",foreign_keys=[user_id])
+
+class ScheduleSlot(Base):
+    __tablename__="schedule_slots"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    tutor_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    student_id=Column(String(12),ForeignKey("students.id",ondelete="CASCADE"),nullable=True)
+    day_of_week=Column(Integer,nullable=False)   # 0=Пн … 6=Вс
+    slot_index=Column(Integer,nullable=False)    # 0=00:00 … 47=23:30
+    duration=Column(Integer,nullable=False,default=2) # в 30-мин слотах, 2=1ч
+    note=Column(String(300),nullable=True)
+    student_note=Column(String(500),nullable=True)
+    color=Column(String(20),nullable=True)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    tutor=relationship("User",foreign_keys=[tutor_id])
+    student=relationship("Student",foreign_keys=[student_id])

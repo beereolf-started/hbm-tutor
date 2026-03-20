@@ -19,6 +19,19 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:4px 8px;border-radius:6px;line-height:1}
 .notif-btn:hover{background:var(--surface-2)}
 .notif-badge{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:.6em;font-weight:700;padding:1px 4px;border-radius:10px;min-width:14px;text-align:center;display:none}
+.notif-panel{position:fixed;top:52px;right:12px;width:320px;max-height:440px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 30px #0008;z-index:200;display:none;flex-direction:column;overflow:hidden}
+.notif-panel.open{display:flex}
+.notif-panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:.88em;flex-shrink:0}
+.notif-panel-body{overflow-y:auto;flex:1}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--surface-2)}
+.notif-item.unread{background:#1a2a1a}
+.notif-item-text{font-size:.85em;line-height:1.4}
+.notif-item-time{font-size:.75em;color:var(--muted);margin-top:3px}
+.notif-msgs-row{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.85em;cursor:pointer}
+.notif-msgs-row:hover{background:var(--surface-2)}
+.notif-empty{padding:24px;text-align:center;color:var(--muted);font-size:.85em}
 
 .wrap{max-width:860px;margin:0 auto;padding:28px 20px}
 
@@ -91,6 +104,31 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .subblock.sb-media{border-left-color:#6e40c9}
 .subblock a{font-size:.9em;color:var(--green-t)}
 
+/* ── COURSE GROUP ── */
+.course-grp{margin-bottom:16px}
+.course-grp-hd{background:var(--surface);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.course-grp-title{font-size:.95em;font-weight:700}
+.course-grp-meta{color:var(--muted);font-size:.82em;margin-top:2px}
+.course-grp-body{border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;padding:8px 8px 4px}
+/* ── STUDENT ANSWER ── */
+.st-ans-wrap{margin:5px 0 2px 16px}
+.st-ans-area{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:.82em;resize:vertical;min-height:44px;font-family:inherit;outline:none}
+.st-ans-area:focus{border-color:var(--green-t)}
+.st-ans-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.st-ans-btn{padding:4px 10px;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.8em}
+.st-ans-sent{font-size:.78em;color:var(--green-t)}
+/* ── SCHEDULE ── */
+.sched-wrap{overflow-x:auto;margin-top:4px}
+.sched-tbl{border-collapse:collapse;width:100%;min-width:500px;font-size:.82em}
+.sched-tbl th,.sched-tbl td{border:1px solid var(--border);padding:2px 4px;vertical-align:top}
+.sched-tbl th{background:var(--surface-2);text-align:center;font-weight:600;font-size:.82em;padding:5px 4px}
+.sched-tbl .tc{color:var(--muted);font-size:.75em;text-align:right;padding:2px 5px;white-space:nowrap;min-width:38px}
+.sched-chip{border-radius:5px;padding:3px 6px;cursor:pointer;font-size:.82em;display:block;line-height:1.35;transition:opacity .15s}
+.sched-chip:hover{opacity:.8}
+.sched-chip b{font-weight:600;display:block;white-space:nowrap}
+.sched-note-area{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:5px 7px;color:var(--text);font-size:.8em;resize:none;height:40px;font-family:inherit;outline:none;margin-top:5px}
+.sched-note-area:focus{border-color:var(--green-t)}
+
 /* ── PLATFORM COURSES ── */
 .course-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
 .course-card:hover{border-color:var(--green-t)}
@@ -134,9 +172,21 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
   <div class="topbar-logo">📐 Мой кабинет</div>
   <div class="topbar-r">
     <span class="topbar-name" id="uname"></span>
-    <button class="notif-btn" onclick="toggleMessages()" title="Сообщения">🔔<span class="notif-badge" id="notifBadge"></span></button>
+    <a class="link-btn" href="/profile.html" title="Мой профиль">👤</a>
+    <button class="notif-btn" onclick="toggleNotifPanel()" title="Уведомления">🔔<span class="notif-badge" id="notifBadge"></span></button>
     <button class="link-btn" onclick="logout()">Выйти</button>
   </div>
+</div>
+
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-panel-head">
+    <span>🔔 Уведомления</span>
+    <div style="display:flex;gap:8px">
+      <button class="link-btn" style="font-size:.78em" onclick="markAllNotifsRead()">Прочитать все</button>
+      <button class="link-btn" style="font-size:.78em" onclick="closeNotifPanel()">✕</button>
+    </div>
+  </div>
+  <div class="notif-panel-body" id="notifPanelBody"><div class="notif-empty">Загрузка...</div></div>
 </div>
 
 <div class="wrap" id="main"></div>
@@ -161,14 +211,28 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 if(!requireAuth(['student']))throw'';
 document.getElementById('uname').textContent=localStorage.getItem('name');
 
-let curSection=null; // null=home, 'courses', 'extra', 'extra-detail', 'contacts'
-let student=null, contacts={tutors:[],parents:[]};
+let curSection=null; // null=home, 'courses', 'extra', 'extra-detail', 'contacts', 'schedule'
+let student=null, contacts={tutors:[],parents:[]}, apiContacts=[];
 let platformCourses=[], curPlatformCourse=null;
+let studentCourses=[], schedSlots=[];
+
+function onlineLabel(uid){
+  const c=apiContacts.find(x=>x.id===uid);
+  if(!c||!c.last_seen) return '<span style="color:var(--muted);font-size:.75em">не был в сети</span>';
+  const diff=Date.now()-new Date(c.last_seen).getTime(), mins=Math.floor(diff/60000);
+  if(mins<2) return '<span style="color:#3fb950;font-size:.75em">● онлайн</span>';
+  if(mins<60) return `<span style="color:var(--muted);font-size:.75em">был(а) ${mins} мин назад</span>`;
+  const hrs=Math.floor(mins/60);
+  if(hrs<24) return `<span style="color:var(--muted);font-size:.75em">был(а) ${hrs} ч назад</span>`;
+  return `<span style="color:var(--muted);font-size:.75em">был(а) ${Math.floor(hrs/24)} д назад</span>`}
 const openSecs=new Set(), openPcSecs=new Set();
 
 // ── NAV ──────────────────────────────────────────────────────────────────
 function goHome(){curSection=null;render()}
-function goSection(s){curSection=s;render()}
+function goSection(s){
+  curSection=s;
+  if(s==='contacts') get('/api/contacts').then(d=>{apiContacts=d;render()}).catch(()=>render());
+  else render();}
 
 function render(){
   const m=document.getElementById('main');
@@ -177,12 +241,13 @@ function render(){
   else if(curSection==='extra') renderExtra(m);
   else if(curSection==='extra-detail') renderExtraDetail(m);
   else if(curSection==='contacts') renderContacts(m);
+  else if(curSection==='schedule') renderSchedule(m);
 }
 
 // ── HOME ─────────────────────────────────────────────────────────────────
 function renderHome(m){
   if(!student){m.innerHTML='<div class="empty">Загрузка...</div>';return}
-  const secCount=student.sections.length;
+  const courseCount=studentCourses.length||student.sections.length;
   const tutorCount=contacts.tutors.length+contacts.parents.length;
   const pcCount=platformCourses.length;
   m.innerHTML=`<div style="margin-bottom:20px">
@@ -193,12 +258,18 @@ function renderHome(m){
   <div class="dash-card" onclick="goSection('courses')">
     <div class="dash-card-icon">📚</div>
     <h3>Основные курсы</h3>
-    <div class="dash-card-count">${secCount}</div>
-    <div class="dash-card-sub">разделов в программе</div>
+    <div class="dash-card-count">${courseCount}</div>
+    <div class="dash-card-sub">${studentCourses.length?'курсов в программе':'разделов в программе'}</div>
+  </div>
+  <div class="dash-card" onclick="goSection('schedule')">
+    <div class="dash-card-icon">📅</div>
+    <h3>Расписание</h3>
+    <div class="dash-card-count">${schedSlots.length}</div>
+    <div class="dash-card-sub">занятий в расписании</div>
   </div>
   <div class="dash-card" onclick="goSection('extra')">
     <div class="dash-card-icon">🎓</div>
-    <h3>Доп. курсы платформы</h3>
+    <h3>Дополнительные курсы</h3>
     <div class="dash-card-count">${pcCount}</div>
     <div class="dash-card-sub">доступных курсов</div>
   </div>
@@ -208,6 +279,12 @@ function renderHome(m){
     <div class="dash-card-count">${tutorCount}</div>
     <div class="dash-card-sub">преподавателей и родителей</div>
   </div>
+  <a class="dash-card" href="/workshop.html">
+    <div class="dash-card-icon">🛠</div>
+    <h3>Мастерская</h3>
+    <div class="dash-card-count" style="font-size:.9em;color:var(--muted)">→</div>
+    <div class="dash-card-sub">Мои личные доски</div>
+  </a>
 </div>`}
 
 // ── COURSES ──────────────────────────────────────────────────────────────
@@ -229,7 +306,6 @@ function renderCourses(m){
   if(!student){m.innerHTML='<div class="empty">Загрузка...</div>';return}
   const s=student, p=calcPrice(s);
   const gl=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
-  const tutorStr=contacts.tutors.map(t=>t.name+(t.subjects&&t.subjects.length?' ('+t.subjects.join(', ')+')':'')).join(', ');
 
   let h=`<div class="sec-header">
     <button class="back-btn" onclick="goHome()">← Главная</button>
@@ -241,7 +317,6 @@ function renderCourses(m){
         <div class="course-head-title">${esc(s.name)}</div>
         <div class="course-head-meta">
           ${s.grade} класс · <span class="goal goal-${s.goal}">${gl}</span> · ${s.format}
-          ${tutorStr?'· 👨‍🏫 '+tutorStr:''}
         </div>
       </div>
       <a href="/board.html?id=${s.id}" class="btn-board">🎨 Доска</a>
@@ -262,8 +337,26 @@ function renderCourses(m){
       </div>
     </div>
   </div>`;
-  if(!s.sections.length) h+='<div class="empty">Программа пока не назначена</div>';
-  else h+=s.sections.map(sec=>renderSec(sec)).join('');
+
+  if(studentCourses.length){
+    h+=studentCourses.map(c=>`<div class="course-grp">
+<div class="course-grp-hd">
+  <div>
+    <div class="course-grp-title">📖 ${esc(c.title)}</div>
+    ${c.tutor_name?`<div class="course-grp-meta">👨‍🏫 ${esc(c.tutor_name)}</div>`:''}
+  </div>
+</div>
+<div class="course-grp-body">${c.sections.length?c.sections.map(sec=>renderSec(sec)).join(''):'<div style="padding:10px 8px;color:var(--muted);font-size:.85em">Разделы не добавлены</div>'}
+</div></div>`).join('');
+  }
+
+  const orphans=s.sections.filter(sec=>!sec.course_id);
+  if(!studentCourses.length&&!orphans.length){
+    h+='<div class="empty">Программа пока не назначена</div>';
+  } else if(orphans.length){
+    if(studentCourses.length) h+=`<div style="color:var(--muted);font-size:.82em;font-weight:600;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.05em">Без курса</div>`;
+    h+=orphans.map(sec=>renderSec(sec)).join('');
+  }
   m.innerHTML=h}
 
 function gradeClass(g){return g===5?'grade-5':g===4?'grade-4':g===3?'grade-3':g===2?'grade-2':g===1?'grade-1':''}
@@ -296,12 +389,19 @@ function renderItem(it,sec){
     const g=it.grade||0, gcls=gradeClass(g);
     return`<div class="item"><span>${icon}</span><span style="flex:1">${esc(it.name||'ДЗ')}${it.total?`<span style="color:var(--muted);font-size:.82em"> (${it.total} зад.)</span>`:''}</span>
 ${it.text?`<span style="color:var(--muted);font-size:.78em;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.text)}</span>`:''}
-<select class="grade-sel ${gcls}" onchange="setGrade('${it.id}',+this.value)" ${locked?'disabled':''}>
+<select class="grade-sel ${gcls}" disabled>
   <option value="0" ${g===0?'selected':''}>— оценка</option>
   <option value="1" ${g===1?'selected':''}>1</option><option value="2" ${g===2?'selected':''}>2</option>
   <option value="3" ${g===3?'selected':''}>3</option><option value="4" ${g===4?'selected':''}>4</option>
   <option value="5" ${g===5?'selected':''}>5 ★</option>
-</select></div>${renderSubs(it)}`}
+</select></div>
+<div class="st-ans-wrap">
+  <textarea class="st-ans-area" id="ans_${it.id}" placeholder="Ваш ответ на задание...">${esc(it.student_answer||'')}</textarea>
+  <div class="st-ans-row">
+    <button class="st-ans-btn" onclick="submitAnswer('${it.id}')">Отправить</button>
+    ${it.student_answer?`<span class="st-ans-sent">✓ отправлено</span>`:''}
+  </div>
+</div>${renderSubs(it)}`}
   if(it.type==='topic'){
     const sc={none:'st-none',progress:'st-progress',done:'st-done'};
     return`<div class="item"><div class="status-dot ${sc[it.status]||'st-none'}"></div><span style="flex:1">${esc(it.name||'Тема')}</span>
@@ -335,33 +435,40 @@ ${sec.idz_text?`<span class="idz-desc">${esc(sec.idz_text)}</span>`:''}
 </select></div>`:''}\
 </div>`}
 
+function _allSecs(){return[...student.sections,...studentCourses.flatMap(c=>c.sections)]}
+
 function toggleSec(id){
   if(openSecs.has(id)) openSecs.delete(id); else openSecs.add(id);
   renderCourses(document.getElementById('main'));
-  const sec=student&&student.sections.find(s=>s.id===id);
+  const sec=_allSecs().find(s=>s.id===id);
   if(sec){sec.is_open=openSecs.has(id);patch('/api/sections/'+id,{is_open:sec.is_open}).catch(()=>{})}}
 
 async function setGrade(itemId,grade){
   try{await patch('/api/items/'+itemId,{grade});
-    student.sections.forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.grade=grade});
+    _allSecs().forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.grade=grade});
     renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
 async function setStatus(itemId,status){
   try{await patch('/api/items/'+itemId,{status});
-    student.sections.forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.status=status});
+    _allSecs().forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.status=status});
     renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
 async function setIdz(secId,val){
   try{await patch('/api/sections/'+secId,{idz:val});
-    const sec=student.sections.find(s=>s.id===secId);if(sec)sec.idz=val;
+    const sec=_allSecs().find(s=>s.id===secId);if(sec)sec.idz=val;
+    renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
+async function submitAnswer(itemId){
+  const ta=document.getElementById('ans_'+itemId);if(!ta) return;
+  try{await patch('/api/items/'+itemId,{student_answer:ta.value.trim()});
+    _allSecs().forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.student_answer=ta.value.trim()});
     renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
 
 // ── EXTRA COURSES ────────────────────────────────────────────────────────
 function renderExtra(m){
   let h=`<div class="sec-header">
     <button class="back-btn" onclick="goHome()">← Главная</button>
-    <span class="sec-title">🎓 Доп. курсы платформы</span>
+    <span class="sec-title">🎓 Дополнительные курсы</span>
   </div>`;
   if(!platformCourses.length){
-    h+='<div class="empty">Дополнительные материалы от преподавателя появятся здесь</div>';
+    h+='<div class="empty">Преподаватель ещё не добавил вам дополнительные курсы</div>';
     m.innerHTML=h; return}
   h+=platformCourses.map(c=>{
     const subj=c.subject_name||'';
@@ -408,6 +515,16 @@ function togglePcSec(id){
   renderExtraDetail(document.getElementById('main'))}
 
 // ── CONTACTS ─────────────────────────────────────────────────────────────
+function contactCard(uid,name,sub,btnFn){
+  return `<div class="contact-card">
+  <div class="contact-avatar">${(name||'?')[0].toUpperCase()}</div>
+  <div class="contact-info">
+    <div class="contact-name"><a href="/profile.html?uid=${uid}" style="color:inherit;text-decoration:none" onmouseover="this.style.color='var(--green-t)'" onmouseout="this.style.color='inherit'">${esc(name)}</a></div>
+    <div class="contact-sub" style="display:flex;gap:8px;align-items:center">${sub} ${onlineLabel(uid)}</div>
+  </div>
+  <button class="btn-msg" onclick="${btnFn}">💬 Написать</button>
+</div>`}
+
 function renderContacts(m){
   let h=`<div class="sec-header">
     <button class="back-btn" onclick="goHome()">← Главная</button>
@@ -417,24 +534,13 @@ function renderContacts(m){
     h+='<div class="empty">Контакты не назначены</div>';m.innerHTML=h;return}
   if(contacts.tutors.length){
     h+='<div style="color:var(--muted);font-size:.82em;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">👨‍🏫 Преподаватели</div>';
-    h+=contacts.tutors.map(t=>`<div class="contact-card">
-  <div class="contact-avatar">${(t.name||'?')[0].toUpperCase()}</div>
-  <div class="contact-info">
-    <div class="contact-name">${esc(t.name)}</div>
-    <div class="contact-sub">${t.subjects&&t.subjects.length?t.subjects.join(' · '):''}</div>
-  </div>
-  <button class="btn-msg" onclick="startChat('${t.id}','${esc(t.name)}')">💬 Написать</button>
-</div>`).join('')}
+    h+=contacts.tutors.map(t=>contactCard(t.id,t.name,
+      t.subjects&&t.subjects.length?t.subjects.join(' · '):'',
+      `startChat('${t.id}','${esc(t.name)}')`)).join('')}
   if(contacts.parents.length){
     h+=`<div style="color:var(--muted);font-size:.82em;font-weight:600;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.05em">👨‍👩‍👧 Родители</div>`;
-    h+=contacts.parents.map(p=>`<div class="contact-card">
-  <div class="contact-avatar">${(p.name||'?')[0].toUpperCase()}</div>
-  <div class="contact-info">
-    <div class="contact-name">${esc(p.name)}</div>
-    <div class="contact-sub">Родитель</div>
-  </div>
-  <button class="btn-msg" onclick="startChat('${p.id}','${esc(p.name)}')">💬 Написать</button>
-</div>`).join('')}
+    h+=contacts.parents.map(p=>contactCard(p.id,p.name,'Родитель',
+      `startChat('${p.id}','${esc(p.name)}')`)).join('')}
   m.innerHTML=h}
 
 // ── MESSAGING ────────────────────────────────────────────────────────────
@@ -493,11 +599,130 @@ async function sendMsg(){
   try{await post('/api/messages',{to_id:msgChatUid,text:inp.value.trim()});inp.value='';
     await refreshChat();}catch(e){alert(e.detail||'Ошибка')}}
 
+let notifPanelOpen=false;
+let lastNotifsData=null;
+function fmtNotifTime(iso){
+  if(!iso) return '';
+  const d=Date.now()-new Date(iso).getTime(),m=Math.floor(d/60000);
+  if(m<2) return 'только что';if(m<60) return m+' мин назад';
+  const h=Math.floor(m/60);if(h<24) return h+' ч назад';
+  return new Date(iso).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}
 async function pollNotifs(){
-  try{const r=await get('/api/notifications');const n=r.unread||0;
+  try{
+    const r=await get('/api/notifications');
+    lastNotifsData=r;
+    const n=r.unread||0;
     const b=document.getElementById('notifBadge');
-    if(b){b.textContent=n>9?'9+':n;b.style.display=n>0?'':'none'}}catch(e){}
+    if(b){b.textContent=n>99?'99+':n;b.style.display=n>0?'':'none'}
+    if(notifPanelOpen) renderNotifPanel(r);
+  }catch(e){}
   setTimeout(pollNotifs,30000)}
+function renderNotifPanel(r){
+  const body=document.getElementById('notifPanelBody');if(!body) return;
+  const msgs=r.unread_messages||0;
+  const notifs=r.notifications||[];
+  let h='';
+  if(msgs>0) h+=`<div class="notif-msgs-row" onclick="closeNotifPanel();toggleMessages()">
+    <span>💬 ${msgs} новых сообщений</span><span style="color:var(--green-t);font-size:.8em">Открыть →</span></div>`;
+  if(!notifs.length&&!msgs){h='<div class="notif-empty">Нет уведомлений</div>';}
+  else h+=notifs.map(n=>`<div class="notif-item${n.is_read?'':' unread'}" onclick="handleNotif('${n.id}','${n.link||''}')">
+    <div class="notif-item-text">${esc(n.text)}</div>
+    <div class="notif-item-time">${fmtNotifTime(n.created_at)}</div></div>`).join('');
+  body.innerHTML=h}
+function toggleNotifPanel(){
+  notifPanelOpen=!notifPanelOpen;
+  document.getElementById('notifPanel').classList.toggle('open',notifPanelOpen);
+  if(notifPanelOpen){if(lastNotifsData) renderNotifPanel(lastNotifsData);pollNotifs();}}
+function closeNotifPanel(){notifPanelOpen=false;document.getElementById('notifPanel').classList.remove('open')}
+async function handleNotif(id,link){
+  await post('/api/notifications/'+id+'/read',{}).catch(()=>{});
+  if(link) location.href=link;
+  pollNotifs();}
+async function markAllNotifsRead(){
+  await post('/api/notifications/read-all',{}).catch(()=>{});
+  pollNotifs();}
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('notifPanel');
+  const btn=e.target.closest('.notif-btn');
+  if(!btn&&panel&&!panel.contains(e.target)){closeNotifPanel();}});
+
+// ── SCHEDULE ─────────────────────────────────────────────────────────────
+const SCHED_DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const SCHED_COLORS={blue:'#1f6feb',red:'#b91c1c',purple:'#6e40c9',orange:'#d97706',teal:'#0e7490'};
+function slotToTime(idx){const h=Math.floor(idx/2),mn=idx%2?'30':'00';return`${String(h).padStart(2,'0')}:${mn}`}
+
+function renderSchedule(m){
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">📅 Расписание</span>
+  </div>`;
+  if(!schedSlots.length){h+='<div class="empty">Расписание ещё не назначено</div>';m.innerHTML=h;return}
+
+  // Group by day, find visible range
+  const byDay=Array.from({length:7},()=>[]);
+  schedSlots.forEach(s=>byDay[s.day_of_week].push(s));
+  let minSl=48,maxSl=0;
+  schedSlots.forEach(s=>{minSl=Math.min(minSl,s.slot_index);maxSl=Math.max(maxSl,s.slot_index+(s.duration||2)-1)});
+  minSl=Math.max(0,minSl-1); maxSl=Math.min(47,maxSl+1);
+  const activeDays=[];for(let d=0;d<7;d++) if(byDay[d].length) activeDays.push(d);
+
+  h+=`<div class="sched-wrap"><table class="sched-tbl"><thead><tr><th class="tc">Время</th>`;
+  h+=activeDays.map(d=>`<th>${SCHED_DAYS[d]}</th>`).join('');
+  h+=`</tr></thead><tbody>`;
+  const skipSet=new Set();
+  for(let si=minSl;si<=maxSl;si++){
+    h+=`<tr><td class="tc">${slotToTime(si)}</td>`;
+    for(const d of activeDays){
+      const key=`${d}_${si}`;
+      if(skipSet.has(key)){continue}
+      const slot=byDay[d].find(s=>s.slot_index===si);
+      if(slot){
+        const dur=slot.duration||2;
+        for(let dd=1;dd<dur;dd++) skipSet.add(`${d}_${si+dd}`);
+        const bg=SCHED_COLORS[slot.color]||'#1a7f37';
+        h+=`<td rowspan="${dur}" style="background:${bg}22;padding:3px">
+<div class="sched-chip" style="background:${bg};color:#fff" onclick="scrollToNote('${slot.id}')">
+  <b>${slotToTime(slot.slot_index)}–${slotToTime(slot.slot_index+dur)}</b>
+  ${slot.note?`<div style="font-size:.78em;opacity:.9">${esc(slot.note)}</div>`:''}
+</div>
+${slot.student_note?`<div style="font-size:.75em;color:var(--muted);padding:2px 2px 0;line-height:1.3">${esc(slot.student_note)}</div>`:''}
+</td>`;
+      } else {h+=`<td></td>`;}
+    }
+    h+=`</tr>`;
+  }
+  h+=`</tbody></table></div>`;
+
+  h+=`<div style="margin-top:20px"><div style="font-size:.82em;font-weight:600;margin-bottom:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Заметки к занятиям</div>`;
+  h+=schedSlots.map(s=>{
+    const dur=s.duration||2;
+    const bg=SCHED_COLORS[s.color]||'#1a7f37';
+    return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px" id="snwrap_${s.id}">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <div style="width:10px;height:10px;border-radius:50%;background:${bg};flex-shrink:0"></div>
+    <div style="font-size:.88em;font-weight:600">${SCHED_DAYS[s.day_of_week]} · ${slotToTime(s.slot_index)}–${slotToTime(s.slot_index+dur)}</div>
+    ${s.note?`<div style="color:var(--muted);font-size:.82em">${esc(s.note)}</div>`:''}
+  </div>
+  <textarea class="sched-note-area" id="snote_${s.id}" placeholder="Личная заметка к занятию...">${esc(s.student_note||'')}</textarea>
+  <div style="text-align:right;margin-top:4px">
+    <button class="st-ans-btn" onclick="saveSchedNote('${s.id}')">Сохранить</button>
+  </div>
+</div>`}).join('');
+  h+=`</div>`;
+  m.innerHTML=h}
+
+function scrollToNote(slotId){
+  const el=document.getElementById('snwrap_'+slotId);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'center'});}
+
+async function saveSchedNote(slotId){
+  const ta=document.getElementById('snote_'+slotId);if(!ta) return;
+  try{
+    await patch('/api/schedule/'+slotId+'/student-note',{student_note:ta.value.trim()});
+    const s=schedSlots.find(x=>x.id===slotId);if(s) s.student_note=ta.value.trim();
+    const btn=ta.nextElementSibling&&ta.nextElementSibling.querySelector('button');
+    if(btn){const orig=btn.textContent;btn.textContent='✓ Сохранено';setTimeout(()=>btn.textContent=orig,1500);}
+  }catch(e){alert(e.detail||'Ошибка')}}
 
 // ── LOAD ─────────────────────────────────────────────────────────────────
 async function load(){
@@ -505,12 +730,19 @@ async function load(){
   if(!list.length){
     document.getElementById('main').innerHTML='<div class="empty">Профиль не привязан к аккаунту</div>';return}
   const id=list[0].id;
-  [student,contacts,platformCourses]=await Promise.all([
+  [student,contacts,platformCourses,apiContacts,studentCourses,schedSlots]=await Promise.all([
     get('/api/students/'+id),
     get('/api/students/'+id+'/contacts').catch(()=>({tutors:[],parents:[]})),
-    get('/api/platform-courses').catch(()=>[])]);
+    get('/api/students/'+id+'/platform-courses').catch(()=>[]),
+    get('/api/contacts').catch(()=>[]),
+    get('/api/students/'+id+'/courses').catch(()=>[]),
+    get('/api/schedule/my').catch(()=>[])]);
   for(const sec of student.sections){if(sec.is_open) openSecs.add(sec.id)}
-  render()}
+  render();
+  // Handle ?chat=uid&name=name from profile page
+  const _qp=new URLSearchParams(location.search);
+  const _initChat=_qp.get('chat');
+  if(_initChat){history.replaceState(null,'',location.pathname);startChat(_initChat,_qp.get('name')||_initChat);}}
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 

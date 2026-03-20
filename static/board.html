@@ -18,6 +18,18 @@ body.light{
   --sep:#d0d7de;--hover:#f3f4f6;--accent:#1a7f37;--accent-hi:#116329;
   --accent-bg:rgba(26,127,55,.1);--input:#ffffff;--shadow:rgba(0,0,0,.12)}
 
+/* ─── Online avatars ─── */
+.peer-avatar{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:.75em;font-weight:700;color:#fff;cursor:pointer;border:2px solid transparent;
+  transition:border-color .15s,transform .1s;flex-shrink:0;user-select:none}
+.peer-avatar:hover{transform:scale(1.1)}
+.peer-avatar.following{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
+.peer-avatar-tooltip{
+  position:fixed;background:var(--bg-ui);border:1px solid var(--sep);
+  border-radius:6px;padding:4px 8px;font-size:.75em;color:var(--fg);
+  pointer-events:none;z-index:100;white-space:nowrap}
+
 /* ─── Top Bar ─── */
 #topbar{
   position:fixed;top:0;left:0;right:0;height:52px;z-index:30;
@@ -273,6 +285,7 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
     HBM
   </div>
   <div id="boardTitle">Доска</div>
+  <div id="onlinePanel" style="display:flex;align-items:center;gap:4px;margin-right:4px"></div>
   <div class="tb-r">
     <button class="hb" title="Отменить Ctrl+Z" onclick="doUndo()">↩</button>
     <button class="hb" id="btnClear" title="Очистить доску" onclick="doClear()">🗑</button>
@@ -376,22 +389,31 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 // ══════════════════════════════════════════════════════════
 // §0  BOOTSTRAP
 // ══════════════════════════════════════════════════════════
-const Q = new URLSearchParams(location.search), SID = Q.get('id');
-if (!SID) { location.href = '/hbm_tutor.html'; throw ''; }
+const Q = new URLSearchParams(location.search);
+const SID = Q.get('id');
+const PERSONAL_ID = Q.get('personal'); // personal board id
+const IS_PERSONAL = !!PERSONAL_ID;
+if (!SID && !PERSONAL_ID) { location.href = '/hbm_tutor.html'; throw ''; }
 const ROLE = role();
 document.getElementById('backLink').href =
+  IS_PERSONAL ? '/workshop.html' :
   ROLE === 'student' ? '/student_lk.html' :
   ROLE === 'parent'  ? '/parent_lk.html'  : '/student.html?id=' + SID;
 if (ROLE === 'student' || ROLE === 'parent')
   document.getElementById('btnClear').style.display = 'none';
 
-// Load student name for topbar
+// Load board name for topbar
 (async function(){
   try{
     const tok=localStorage.getItem('token');
     if(!tok) return;
-    const r=await fetch('/api/students/'+SID,{headers:{Authorization:'Bearer '+tok}});
-    if(r.ok){const s=await r.json();document.getElementById('boardTitle').textContent=s.name+' — Доска';}
+    if(IS_PERSONAL){
+      const r=await fetch('/api/personal-boards/'+PERSONAL_ID,{headers:{Authorization:'Bearer '+tok}});
+      if(r.ok){const b=await r.json();document.getElementById('boardTitle').textContent=b.title+' — Личная доска';}
+    }else{
+      const r=await fetch('/api/students/'+SID,{headers:{Authorization:'Bearer '+tok}});
+      if(r.ok){const s=await r.json();document.getElementById('boardTitle').textContent=s.name+' — Доска';}
+    }
   }catch(e){}
 })();
 
@@ -487,6 +509,37 @@ let geoPicking   = false;
 let all = [], myId = null;
 let cur = null;   // element currently being drawn/placed
 let cursorPos = null; // screen coords for pen/erase cursor ring
+
+// ── Presence / cursor sharing ──
+const peerCursors = {};   // uid -> {x, y, name, color, sx, sy}  (world coords x,y; screen sx,sy)
+const onlineUsers = {};   // uid -> name
+let followTarget = null;  // uid being followed, null = off
+let lastCursorSend = 0, lastViewSend = 0;
+const PEER_COLORS = ['#f87171','#fb923c','#facc15','#4ade80','#60a5fa','#a78bfa','#f472b6','#34d399'];
+function peerColor(uid) {
+  let h = 0; for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) & 0xfffff;
+  return PEER_COLORS[h % PEER_COLORS.length]; }
+
+function updateOnlinePanel() {
+  const panel = document.getElementById('onlinePanel');
+  if (!panel) return;
+  panel.innerHTML = Object.entries(onlineUsers).map(([uid, name]) => {
+    const color = peerColor(uid);
+    const isFollowing = followTarget === uid;
+    return `<div class="peer-avatar${isFollowing?' following':''}" style="background:${color}"
+      title="${name}${isFollowing?' (слежу)':''}"
+      onclick="toggleFollow('${uid}')">${name.trim()[0]||'?'}</div>`;
+  }).join('');
+}
+
+function toggleFollow(uid) {
+  followTarget = followTarget === uid ? null : uid;
+  updateOnlinePanel();
+  if (followTarget && peerCursors[followTarget]) {
+    const pc = peerCursors[followTarget];
+    if (pc.view) { vx=pc.view.vx; vy=pc.view.vy; vz=pc.view.vz; redraw(); }
+  }
+}
 
 function gid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 
@@ -2298,6 +2351,39 @@ function redraw() {
       updateCSPanels(_cla, _clb);
     }
   }
+  /* ── peer cursors ── */
+  for (const [uid, pc] of Object.entries(peerCursors)) {
+    if (!onlineUsers[uid]) continue;
+    const sp = ts(pc.x, pc.y);
+    const color = peerColor(uid);
+    const name = onlineUsers[uid] || uid;
+    ctx.save();
+    // Arrow cursor shape
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sp.x, sp.y);
+    ctx.lineTo(sp.x + 12, sp.y + 10);
+    ctx.lineTo(sp.x + 5,  sp.y + 10);
+    ctx.lineTo(sp.x + 5,  sp.y + 18);
+    ctx.lineTo(sp.x + 2,  sp.y + 18);
+    ctx.lineTo(sp.x + 2,  sp.y + 10);
+    ctx.lineTo(sp.x - 2,  sp.y + 10);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // Name label
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px system-ui';
+    const tw2 = ctx.measureText(name).width + 10;
+    ctx.beginPath();
+    ctx.roundRect(sp.x + 6, sp.y + 18, tw2, 18, 4);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(name, sp.x + 11, sp.y + 30);
+    ctx.restore();
+  }
+
   /* ── pen / eraser cursor ring ── */
   if (cursorPos && (tool === 'pen' || tool === 'erase')) {
     const r = tool === 'pen'
@@ -2761,7 +2847,19 @@ function onMove(e) {
   const p = gp(e), w = tw(p.x, p.y);
   if (tool === 'pen' || tool === 'erase') { cursorPos = p; if (!drawing && !panning) { redraw(); return; } }
 
-  if (panning && panSt) { vx += p.x - panSt.x; vy += p.y - panSt.y; panSt = p; redraw(); return; }
+  // Send cursor position (throttled, every 50ms)
+  const now = Date.now();
+  if (now - lastCursorSend > 50) {
+    lastCursorSend = now;
+    wsSend({ type: 'cursor', x: w.x, y: w.y });
+  }
+
+  if (panning && panSt) {
+    vx += p.x - panSt.x; vy += p.y - panSt.y; panSt = p;
+    // Send view when panning (throttled)
+    if (now - lastViewSend > 100) { lastViewSend = now; wsSend({ type: 'view', vx, vy, vz }); }
+    redraw(); return;
+  }
 
   if (tool === 'select') {
     if (rotating && rotateEl && rotateCenter) {
@@ -3036,6 +3134,7 @@ cv.addEventListener('wheel', e => {
     const p=gp(e), d=e.deltaY>0?0.9:1.1;
     const nz=Math.max(0.05,Math.min(20,vz*d));
     vx=p.x-(p.x-vx)*nz/vz; vy=p.y-(p.y-vy)*nz/vz; vz=nz; redraw();
+    const nowW=Date.now(); if(nowW-lastViewSend>150){lastViewSend=nowW;wsSend({type:'view',vx,vy,vz});}
   }
 }, { passive: false });
 
@@ -3155,13 +3254,42 @@ const tok   = localStorage.getItem('token');
 let ws = null, rc = 0;
 
 function connect() {
-  ws = new WebSocket(`${proto}//${location.host}/ws/board/${SID}?token=${tok}`);
+  const wsUrl = IS_PERSONAL
+    ? `${proto}//${location.host}/ws/personal-board/${PERSONAL_ID}?token=${tok}`
+    : `${proto}//${location.host}/ws/board/${SID}?token=${tok}`;
+  ws = new WebSocket(wsUrl);
   ws.onopen  = () => { document.getElementById('status').textContent = '✓'; rc = 0; ws.send(JSON.stringify({ type: 'load' })); };
   ws.onclose = () => { document.getElementById('status').textContent = '⚠'; setTimeout(() => { rc++; if (rc < 30) connect(); }, 1000 * Math.min(rc+1, 5)); };
   ws.onerror = () => ws.close();
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
-    if      (m.type === 'hello')        myId = m.user_id;
+    if      (m.type === 'hello') {
+      myId = m.user_id;
+      if (m.online) { m.online.forEach(u => { onlineUsers[u.uid] = u.name; }); updateOnlinePanel(); }
+    }
+    else if (m.type === 'user_join') {
+      if (m.uid && m.uid !== myId) { onlineUsers[m.uid] = m.name; updateOnlinePanel(); redraw(); }
+    }
+    else if (m.type === 'user_leave') {
+      delete onlineUsers[m.uid]; delete peerCursors[m.uid];
+      if (followTarget === m.uid) followTarget = null;
+      updateOnlinePanel(); redraw();
+    }
+    else if (m.type === 'cursor') {
+      if (m.uid && m.uid !== myId) {
+        if (!peerCursors[m.uid]) peerCursors[m.uid] = {};
+        peerCursors[m.uid].x = m.x; peerCursors[m.uid].y = m.y;
+        peerCursors[m.uid].name = m.name;
+        redraw();
+      }
+    }
+    else if (m.type === 'view') {
+      if (m.uid && m.uid !== myId) {
+        if (!peerCursors[m.uid]) peerCursors[m.uid] = {};
+        peerCursors[m.uid].view = { vx: m.vx, vy: m.vy, vz: m.vz };
+        if (followTarget === m.uid) { vx = m.vx; vy = m.vy; vz = m.vz; redraw(); }
+      }
+    }
     else if (m.type === 'strokes')      { all = m.data || []; redraw(); }
     else if (m.type === 'stroke')       { all.push(m.data); redraw(); }
     else if (m.type === 'clear')        { all = []; redraw(); }

@@ -32,6 +32,10 @@ def migrate(db):
         "INSERT INTO tutor_subjects (tutor_id, subject_id) SELECT id, subject_id FROM users WHERE role='tutor' AND subject_id IS NOT NULL ON CONFLICT DO NOTHING",
         # v2.5: messaging
         "CREATE TABLE IF NOT EXISTS messages (id varchar(12) PRIMARY KEY, from_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, to_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, text text NOT NULL, created_at timestamptz DEFAULT now(), is_read boolean NOT NULL DEFAULT false)",
+        # v3.8: schedule
+        "CREATE TABLE IF NOT EXISTS schedule_slots (id varchar(12) PRIMARY KEY, tutor_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, student_id varchar(12) REFERENCES students(id) ON DELETE CASCADE, day_of_week integer NOT NULL, slot_index integer NOT NULL, duration integer NOT NULL DEFAULT 2, note varchar(300), color varchar(20), created_at timestamptz DEFAULT now())",
+        # v3.9: duration field
+        "ALTER TABLE schedule_slots ADD COLUMN IF NOT EXISTS duration integer NOT NULL DEFAULT 2",
     ]
     for sql in steps:
         try:
