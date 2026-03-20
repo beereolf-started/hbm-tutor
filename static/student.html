@@ -1,123 +1,457 @@
 <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HBM — Ученик</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
-.top{background:#1e293b;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
-.top h1{font-size:1.1em}a{color:#60a5fa;text-decoration:none;font-size:.9em}a:hover{text-decoration:underline}
-.wrap{max-width:900px;margin:0 auto;padding:24px}
+:root{--bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;--text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950;--red:#b91c1c}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.top{background:var(--surface);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.top h1{font-size:1em;font-weight:700}a{color:var(--green-t);text-decoration:none;font-size:.9em}a:hover{text-decoration:underline}
+button.link{color:var(--muted);background:none;border:none;cursor:pointer;font-size:.88em;padding:4px 8px;border-radius:6px}
+button.link:hover{background:var(--surface-2);color:var(--text)}
+.wrap{max-width:960px;margin:0 auto;padding:24px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600}
-.btn-p{background:#3b82f6;color:#fff}.btn-p:hover{background:#2563eb}
-.btn-s{background:#334155;color:#e2e8f0}.btn-s:hover{background:#475569}
-.btn-d{background:#ef4444;color:#fff}.btn-d:hover{background:#dc2626}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600;transition:background .15s}
+.btn-p{background:var(--green);color:#fff}.btn-p:hover{background:var(--green-h)}
+.btn-s{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}.btn-s:hover{border-color:var(--green-t)}
+.btn-d{background:var(--red);color:#fff}.btn-d:hover{background:#c0392b}
 .btn-sm{padding:4px 10px;font-size:.8em}
-.meta{color:#94a3b8;font-size:.85em}
-input,select{padding:8px 12px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;font-size:.9em;outline:none}
-input:focus,select:focus{border-color:#3b82f6}
-.info{background:#1e293b;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #334155}
-.sec{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:10px;overflow:hidden}
-.sec-head{padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
-.sec-head:hover{background:#334155}
-.sec-head h3{font-size:.95em;display:flex;align-items:center;gap:8px}
-.sec-body{padding:0 16px 12px;display:none}
-.sec.open .sec-body{display:block}.sec.open .arrow{transform:rotate(90deg)}
-.arrow{transition:transform .2s;color:#64748b}
-.badges span{font-size:.7em;padding:2px 6px;border-radius:3px;margin-left:4px}
-.b-idz{background:#7c3aed33;color:#a78bfa}.b-ctrl{background:#3b82f633;color:#60a5fa}
-.b-pass{background:#10b98133;color:#34d399}.b-fail{background:#ef444433;color:#f87171}
-.item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:6px;margin-bottom:4px;background:#0f172a}
-.status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.st-none{background:#64748b}.st-progress{background:#f59e0b}.st-done{background:#10b981}
-.item-name{flex:1;font-size:.9em}.item-closed{opacity:.5;text-decoration:line-through}
-.hw-bar{height:6px;background:#334155;border-radius:3px;flex:1;max-width:100px}
-.hw-fill{height:100%;background:#10b981;border-radius:3px}
-.modal-bg{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:100}
+.meta{color:var(--muted);font-size:.85em}
+input,select,textarea{padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.9em;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--green-t)}
+textarea{resize:vertical}
+
+/* Pricing block */
+.price-block{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.price-cur{font-size:1.4em;font-weight:700;color:var(--green-t)}
+.price-base{font-size:.85em;color:var(--muted);text-decoration:line-through}
+.price-disc{font-size:.85em;color:#fbbf24}
+.price-prog{height:6px;background:var(--surface-2);border-radius:3px;flex:1;min-width:100px;max-width:200px}
+.price-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-t));border-radius:3px;transition:width .4s}
+
+/* Info bar */
+.info{background:var(--surface);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.goal{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.75em;font-weight:600}
+.goal-ege{background:#2d1f5e;color:#a78bfa}.goal-olymp{background:#3a2a00;color:#fbbf24}.goal-base{background:#0d2e1e;color:#34d399}
+
+/* Sections */
+.sec{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s}
+.sec.locked{border-color:#1a5e32}
+.sec-head{padding:11px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.sec-head:hover{background:var(--surface-2)}
+.sec-head h3{font-size:.93em;font-weight:600;flex:1}
+.sec-body{padding:12px 14px;display:none}
+.sec.open .sec-body{display:block}
+.arrow{transition:transform .2s;color:var(--muted);font-size:.8em}
+.sec.open .arrow{transform:rotate(90deg)}
+.lock-badge{font-size:.72em;padding:2px 7px;border-radius:20px;background:#0d2e1e;color:var(--green-t);border:1px solid #1a5e32}
+.sec-score{font-size:.8em;color:#fbbf24;font-weight:600}
+
+/* Items */
+.item-row{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;background:var(--surface-2);border-radius:6px;margin-bottom:4px;border:1px solid transparent}
+.item-row:hover{border-color:var(--border)}
+.item-icon{font-size:.9em;padding-top:2px;flex-shrink:0;width:22px;text-align:center}
+.item-content{flex:1;min-width:0}
+.item-name{font-size:.9em;color:var(--text);margin-bottom:2px}
+.item-sub{font-size:.8em;color:var(--muted);margin-top:2px}
+.grade-sel{padding:3px 7px;font-size:.82em;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
+.grade-5{border-color:var(--green-t)!important;color:var(--green-t)!important}
+.grade-4{border-color:#84cc16!important;color:#bef264!important}
+.grade-3{border-color:#eab308!important;color:#fde047!important}
+.grade-2{border-color:#f97316!important;color:#fdba74!important}
+.grade-1{border-color:#ef4444!important;color:#fca5a5!important}
+.grade-0{border-color:var(--border)!important;color:var(--muted)!important}
+.status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.st-none{background:#1c5e30}.st-progress{background:#f59e0b}.st-done{background:#10b981}
+.ctrl-sel{padding:3px 8px;font-size:.82em;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:5px;cursor:pointer}
+.ctrl-pass{border-color:var(--green-t)!important;color:var(--green-t)!important}
+.ctrl-fail{border-color:#ef4444!important;color:#f87171!important}
+.ctrl-none{border-color:var(--border)!important;color:var(--muted)!important}
+
+/* Bottom panels */
+.bottom-panels{border-top:1px solid var(--border);padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.panel{background:var(--surface-2);border-radius:8px;padding:10px 12px}
+.panel-label{font-size:.85em;font-weight:600;color:#a78bfa}
+.panel-label.ctrl{color:var(--green-t)}
+.toggle{display:flex;align-items:center;gap:6px;font-size:.85em;color:var(--muted);cursor:pointer}
+.toggle input[type=checkbox]{width:15px;height:15px;accent-color:var(--green-t);cursor:pointer}
+
+/* Sub-blocks */
+.subblocks{margin-top:3px;margin-left:30px}
+.subblock{padding:4px 8px;background:var(--bg);border-radius:4px;margin-bottom:2px;border-left:2px solid var(--border);font-size:.82em;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+.subblock.sb-media{border-left-color:#6e40c9}
+.subblock a{font-size:.9em;color:var(--green-t)}
+.add-sub{display:flex;gap:4px;margin-top:4px;margin-left:30px}
+.add-sub .btn{padding:2px 9px;font-size:.78em}
+.add-sub label.btn{cursor:pointer}
+
+/* Add item row */
+.add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.add-row select,.add-row input{padding:4px 8px;font-size:.82em}
+.add-row input{flex:1;min-width:100px}
+.add-row .btn{padding:4px 10px;font-size:.8em}
+
+/* Modals */
+.modal-bg{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:100}
 .modal-bg.show{display:flex}
-.modal{background:#1e293b;border-radius:12px;padding:24px;width:460px;max-width:90vw;max-height:80vh;overflow-y:auto}
-.modal h2{font-size:1.1em;margin-bottom:16px}
-.modal label{display:block;color:#94a3b8;font-size:.85em;margin:8px 0 4px}
-.modal input,.modal select{width:100%}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:460px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:1.1em;margin-bottom:16px;font-weight:600}
+.modal label{display:block;color:var(--muted);font-size:.85em;margin:8px 0 4px}
+.modal input,.modal select,.modal textarea{width:100%;margin-bottom:4px}
 </style></head><body>
-<div class="top"><h1 id="pn">📐 Ученик</h1><div class="row" style="margin:0"><a href="#" id="bL">Доска</a><a href="/hbm_tutor.html">← Панель</a></div></div>
+
+<div class="top">
+  <h1 id="pn">📐 Ученик</h1>
+  <div class="row" style="margin:0;gap:12px">
+    <a href="#" id="bL" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.85em;text-decoration:none;transition:border-color .15s" onmouseover="this.style.borderColor='var(--green-t)'" onmouseout="this.style.borderColor='var(--border)'">🎨 Доска</a>
+    <a href="/hbm_tutor.html">← Панель</a>
+  </div>
+</div>
+
 <div class="wrap">
-<div class="info" id="si"></div>
-<div class="row">
-<button class="btn btn-p" onclick="openM('mSec')">+ Раздел</button>
-<button class="btn btn-s" onclick="openM('mApply')">📋 Курс</button>
-<button class="btn btn-s" onclick="openM('mTpl')">📦 Шаблон</button>
+  <div id="priceBlock" class="price-block" style="display:none"></div>
+  <div class="info" id="si"></div>
+  <div class="row">
+    <button class="btn btn-p" onclick="openM('mSec')">+ Раздел</button>
+    <button class="btn btn-s" onclick="openApply()">📋 Применить курс</button>
+    <button class="btn btn-s" onclick="openM('mTpl')">📦 Шаблон</button>
+    <button class="btn btn-s" onclick="openSaveAs()">💾 Сохранить как курс</button>
+  </div>
+  <div id="secs"></div>
 </div>
-<div id="secs"></div>
-</div>
+
+<!-- Modal: New Section -->
 <div class="modal-bg" id="mSec"><div class="modal"><h2>Новый раздел</h2>
 <label>Название</label><input id="secT">
-<div class="row" style="margin-top:8px"><label><input type="checkbox" id="secI" checked> ИДЗ</label><label><input type="checkbox" id="secC" checked> Контр.</label></div>
-<div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn btn-s" onclick="closeM('mSec')">Отмена</button><button class="btn btn-p" onclick="saveSec()">Создать</button></div></div></div>
-<div class="modal-bg" id="mItem"><div class="modal"><h2>Добавить</h2>
-<label>Тип</label><select id="iT" onchange="document.getElementById('hwF').style.display=this.value==='hw'?'':'none'"><option value="topic">Тема</option><option value="hw">ДЗ</option><option value="note">Заметка</option></select>
-<label>Название</label><input id="iN">
-<div id="hwF" style="display:none"><label>Всего заданий</label><input id="iTot" type="number" value="10"></div>
-<div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn btn-s" onclick="closeM('mItem')">Отмена</button><button class="btn btn-p" onclick="saveItem()">Добавить</button></div></div></div>
+<div class="row" style="margin-top:8px">
+  <label class="toggle"><input type="checkbox" id="secI" checked> ИДЗ</label>
+  <label class="toggle" style="margin-left:12px"><input type="checkbox" id="secC" checked> Контр.</label>
+</div>
+<div class="row" style="margin-top:16px;justify-content:flex-end">
+  <button class="btn btn-s" onclick="closeM('mSec')">Отмена</button>
+  <button class="btn btn-p" onclick="saveSec()">Создать</button>
+</div></div></div>
+
+<!-- Modal: Apply Course -->
 <div class="modal-bg" id="mApply"><div class="modal"><h2>Применить курс</h2>
-<p class="meta" style="margin-bottom:12px">⚠️ Заменит программу!</p>
-<select id="aC"></select>
-<div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn btn-s" onclick="closeM('mApply')">Отмена</button><button class="btn btn-p" onclick="doApply()">Применить</button></div></div></div>
-<div class="modal-bg" id="mTpl"><div class="modal"><h2>Шаблон</h2>
-<p class="meta" style="margin-bottom:12px">⚠️ Заменит программу!</p>
-<div class="row"><button class="btn btn-s" onclick="doTpl('oge')">ОГЭ</button><button class="btn btn-s" onclick="doTpl('ege')">ЕГЭ</button><button class="btn btn-s" onclick="doTpl('olymp')">Олимпиады</button></div></div></div>
+<p class="meta" style="margin-bottom:12px">⚠️ Заменит программу ученика!</p>
+<select id="aC" style="width:100%"></select>
+<div class="row" style="margin-top:16px;justify-content:flex-end">
+  <button class="btn btn-s" onclick="closeM('mApply')">Отмена</button>
+  <button class="btn btn-p" onclick="doApply()">Применить</button>
+</div></div></div>
+
+<!-- Modal: Template -->
+<div class="modal-bg" id="mTpl"><div class="modal"><h2>Шаблон программы</h2>
+<p class="meta" style="margin-bottom:12px">⚠️ Заменит программу ученика!</p>
+<div class="row">
+  <button class="btn btn-s" onclick="doTpl('oge')">ОГЭ</button>
+  <button class="btn btn-s" onclick="doTpl('ege')">ЕГЭ</button>
+  <button class="btn btn-s" onclick="doTpl('olymp')">Олимпиады</button>
+</div></div></div>
+
+<!-- Modal: Save as Course -->
+<div class="modal-bg" id="mSaveCourse"><div class="modal"><h2>Сохранить программу как курс</h2>
+<label>Предмет</label><select id="scSubj"></select>
+<label>Название курса</label><input id="scTitle">
+<label>Доступ</label><select id="scAccess"><option value="public">Публичный</option><option value="private">Приватный</option></select>
+<label>Заменить существующий (опционально)</label><select id="scReplace"><option value="">— создать новый —</option></select>
+<div class="row" style="margin-top:16px;justify-content:flex-end">
+  <button class="btn btn-s" onclick="closeM('mSaveCourse')">Отмена</button>
+  <button class="btn btn-p" onclick="doSaveAsCourse()">Сохранить</button>
+</div></div></div>
+
 <script src="/api.js"></script>
 <script>
 if(!requireAuth(['owner','tutor']))throw'';
 const SID=new URLSearchParams(location.search).get('id');
 if(!SID){location.href='/hbm_tutor.html';throw''}
 document.getElementById('bL').href='/board.html?id='+SID;
-let S=null,cSec=null;
+let S=null,subjects=[],courses=[];
+const openSecs=new Set();
+
+// ─── PRICING ─────────────────────────────────────────────────────────────
+function calcPrice(st){
+  const n=st.sections.length;
+  if(!n)return{base:st.base_rate,discount:0,current:st.base_rate,pct:0};
+  const share=st.base_rate*0.30/n;
+  let disc=0;
+  for(const sec of st.sections){
+    const hw=sec.items.filter(i=>i.type==='hw');
+    if(hw.length>0&&hw.every(i=>(i.grade||0)===5)) disc+=share/3;
+    if(sec.control==='passed') disc+=share/3;
+    if(sec.idz_enabled&&(sec.idz||0)===5) disc+=share/3;
+  }
+  const d=Math.round(disc);
+  return{base:st.base_rate,discount:d,current:st.base_rate-d,pct:Math.round(d/st.base_rate*100)};
+}
+
+function renderPriceBlock(st){
+  const p=calcPrice(st);
+  const el=document.getElementById('priceBlock');
+  el.style.display='flex';
+  el.innerHTML=`<div>
+    <div class="price-cur">${p.current} ₽ / ч</div>
+    <div class="price-base">${p.base} ₽</div>
+  </div>
+  <div style="text-align:center">
+    <div class="price-disc">−${p.discount} ₽ (−${p.pct}%)</div>
+    <div class="meta">скидка за прогресс (макс −30%)</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end">
+    <div class="meta">${p.pct}%</div>
+    <div class="price-prog" style="flex:1"><div class="price-prog-fill" style="width:${p.pct*100/30}%"></div></div>
+    <div class="meta">30%</div>
+  </div>`}
+
+// ─── MAIN RENDER ──────────────────────────────────────────────────────────
 async function ld(){
-    try{S=await get('/api/students/'+SID)}catch(e){alert('Не найден');location.href='/hbm_tutor.html';return}
-    document.getElementById('pn').textContent='📐 '+S.name;
-    const g={ege:'ЕГЭ',olymp:'Олимп',base:'База'};
-    document.getElementById('si').innerHTML=`<div class="row" style="justify-content:space-between"><div><strong>${S.name}</strong> · ${S.grade}кл · ${g[S.goal]||S.goal} · ${S.format} · ${S.base_rate}₽</div><button class="btn btn-d btn-sm" onclick="delS()">Удалить</button></div>`;
-    rSecs();ldC()}
+  try{S=await get('/api/students/'+SID)}catch(e){alert('Не найден');location.href='/hbm_tutor.html';return}
+  subjects=await get('/api/subjects').catch(()=>[]);
+  document.getElementById('pn').textContent='📐 '+S.name;
+  const g={ege:'ЕГЭ',olymp:'Олимп',base:'База'};
+  const subj=subjects.find(s=>s.id===S.subject_id);
+  document.getElementById('si').innerHTML=`
+    <div><strong>${S.name}</strong> · ${S.grade} кл · <span class="goal goal-${S.goal}">${g[S.goal]||S.goal}</span> · ${S.format} ${subj?'· '+subj.icon+' '+subj.name:''}</div>
+    <div class="row" style="margin:0;gap:6px">
+      <button class="btn btn-s btn-sm" onclick="openEditSt()">✏️</button>
+      <button class="btn btn-d btn-sm" onclick="delS()">Удалить</button>
+    </div>`;
+  renderPriceBlock(S);
+  rSecs()}
+
 function rSecs(){
-    const el=document.getElementById('secs');
-    if(!S.sections.length){el.innerHTML='<div style="text-align:center;color:#64748b;padding:40px">Пусто — примените курс или шаблон</div>';return}
-    el.innerHTML=S.sections.map(s=>{
-        const ct=s.control==='passed'?'<span class="b-pass">✓</span>':s.control==='failed'?'<span class="b-fail">✗</span>':'';
-        return`<div class="sec" id="s_${s.id}"><div class="sec-head" onclick="tog('${s.id}')">
-<h3><span class="arrow">▶</span>${s.title}<span class="badges">${s.idz_enabled?`<span class="b-idz">ИДЗ ${s.idz||0}</span>`:''}${s.control_enabled?`<span class="b-ctrl">К</span>`:''} ${ct}</span></h3>
-<button class="btn btn-d btn-sm" onclick="event.stopPropagation();dSec('${s.id}')">✕</button></div>
-<div class="sec-body">${s.items.map(rIt).join('')}
-<div class="row" style="margin-top:8px"><button class="btn btn-s btn-sm" onclick="cSec='${s.id}';openM('mItem')">+ Элемент</button>
-${s.idz_enabled?`<span class="meta">ИДЗ:</span><input type="number" value="${s.idz||0}" min="0" style="width:60px" onchange="uSec('${s.id}',{idz:+this.value})">`:''}
-${s.control_enabled?`<select onchange="uSec('${s.id}',{control:this.value})" style="font-size:.8em"><option value="none"${s.control==='none'?' selected':''}>—</option><option value="passed"${s.control==='passed'?' selected':''}>Сдано</option><option value="failed"${s.control==='failed'?' selected':''}>Не сдано</option></select>`:''}
-</div></div></div>`}).join('')}
-function rIt(i){
-    const cl=i.closed?'item-closed':'';
-    if(i.type==='topic'){const sc={none:'st-none',progress:'st-progress',done:'st-done'};
-        return`<div class="item ${cl}"><span class="status-dot ${sc[i.status]||'st-none'}"></span><span class="item-name">${i.name||''}</span>
-<select onchange="uIt('${i.id}',{status:this.value})" style="font-size:.8em;padding:2px"><option value="none"${i.status==='none'?' selected':''}>—</option><option value="progress"${i.status==='progress'?' selected':''}>▶</option><option value="done"${i.status==='done'?' selected':''}>✓</option></select>
-<button class="btn btn-d btn-sm" onclick="dIt('${i.id}')">✕</button></div>`}
-    if(i.type==='hw'){const d=i.done||0,t=i.total||0,p=t?Math.round(d/t*100):0;
-        return`<div class="item ${cl}"><span style="font-size:.8em">📋</span><span class="item-name">${i.name||'ДЗ'}</span>
-<div class="hw-bar"><div class="hw-fill" style="width:${p}%"></div></div><span class="meta">${d}/${t}</span>
-<input type="number" value="${d}" min="0" style="width:50px;padding:2px;font-size:.8em" onchange="uIt('${i.id}',{done:+this.value})"></div>`}
-    return`<div class="item ${cl}"><span style="font-size:.8em">📝</span><span class="item-name">${i.name||i.text||''}</span><button class="btn btn-d btn-sm" onclick="dIt('${i.id}')">✕</button></div>`}
-function tog(id){document.getElementById('s_'+id).classList.toggle('open')}
+  const el=document.getElementById('secs');
+  if(!S.sections.length){el.innerHTML='<div style="text-align:center;color:#7aaa8a;padding:40px">Пусто — примените курс, шаблон или добавьте раздел</div>';return}
+  el.innerHTML=S.sections.map(sec=>renderSection(sec)).join('')}
+
+function renderSection(sec){
+  const isLocked=sec.locked;
+  const p=calcPrice(S);
+  // Per-section score indicator
+  const hw=sec.items.filter(i=>i.type==='hw');
+  const hwDone=hw.length>0&&hw.every(i=>(i.grade||0)===5);
+  const ctrlDone=sec.control==='passed';
+  const idzDone=sec.idz_enabled&&(sec.idz||0)===5;
+  const parts=[hwDone&&hw.length>0?'ДЗ':'',ctrlDone?'К':'',idzDone?'ИДЗ':''].filter(Boolean);
+  const scoreStr=parts.length?`✓ ${parts.join(', ')}`:'';
+
+  return`<div class="sec${isLocked?' locked':''}${openSecs.has(sec.id)?' open':''}" id="s_${sec.id}">
+<div class="sec-head" onclick="tog('${sec.id}')">
+  <span class="arrow">▶</span>
+  <h3>${sec.title}</h3>
+  ${isLocked?`<span class="lock-badge">🔒 Закрыт</span>`:''}
+  ${scoreStr?`<span class="sec-score">${scoreStr}</span>`:''}
+  ${!isLocked?`<button class="btn btn-d btn-sm" onclick="event.stopPropagation();dSec('${sec.id}')">✕</button>`:''}
+</div>
+<div class="sec-body">
+  ${sec.items.map(it=>renderItem(it,sec)).join('')}
+  ${!isLocked?`<div class="add-row">
+    <select id="nt_${sec.id}">
+      <option value="topic">📌 Тема</option>
+      <option value="hw">📋 ДЗ</option>
+      <option value="media">🗂 Медиа</option>
+    </select>
+    <input id="nn_${sec.id}" placeholder="Название" onkeydown="if(event.key==='Enter')addItem('${sec.id}')">
+    <input id="ntot_${sec.id}" type="number" placeholder="Задач" min="1" style="width:80px;display:none">
+    <select id="nsel_${sec.id}" onchange="onNTypeChange('${sec.id}')"></select>
+    <button class="btn btn-s btn-sm" onclick="addItem('${sec.id}')">+ Добавить</button>
+  </div>`:''}
+  ${renderBottomPanels(sec,isLocked)}
+</div>
+</div>`}
+
+function onNTypeChange(secId){
+  // actually called on select change for type
+}
+
+function renderSubs(it,locked){
+  const sbs=(it.subblocks||[]).map(sb=>{
+    if(sb.type==='media'){
+      const url=sb.file_path?'/'+sb.file_path.replace(/\\/g,'/'):null;
+      return`<div class="subblock sb-media">${url?`<a href="${url}" target="_blank">📎 ${esc(sb.name||'файл')}</a>`:'<span class="meta">медиа</span>'}${!locked?` <button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em" onclick="delItSub('${sb.id}')">✕</button>`:''}</div>`}
+    return`<div class="subblock">${esc(sb.content||'')}${!locked?` <button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em" onclick="delItSub('${sb.id}')">✕</button>`:''}</div>`
+  }).join('');
+  const addBtns=!locked?`<div class="add-sub">
+    <button class="btn btn-s" onclick="addItSub('${it.id}')">+ Текст</button>
+    <label class="btn btn-s">+ Медиа<input type="file" style="display:none" onchange="addItSubMedia('${it.id}',this)"></label>
+  </div>`:''
+  return(sbs||addBtns)?`<div class="subblocks">${sbs}</div>${addBtns}`:'';}
+
+function renderItem(it,sec){
+  const locked=sec.locked;
+  const icon={topic:'📌',hw:'📋',media:'🗂',note:'📝',control:'📝',idz:'🔬'}[it.type]||'▪';
+  if(it.type==='topic'){
+    return`<div class="item-row">
+<span class="item-icon">${icon}</span>
+<div class="item-content"><div class="item-name">${esc(it.name||'Тема')}</div></div>
+<select class="grade-sel st-${it.status||'none'}" onchange="uIt('${it.id}',{status:this.value})" style="padding:3px 7px;font-size:.82em" ${locked?'disabled':''}>
+  <option value="none" ${it.status==='none'?'selected':''}>—</option>
+  <option value="progress" ${it.status==='progress'?'selected':''}>▶ В работе</option>
+  <option value="done" ${it.status==='done'?'selected':''}>✓ Готово</option>
+</select>
+${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</button>`:''}
+</div>${renderSubs(it,locked)}`}
+
+  if(it.type==='hw'){
+    const g=it.grade||0;
+    const gcls=g===5?'grade-5':g===4?'grade-4':g===3?'grade-3':g===2?'grade-2':g===1?'grade-1':'grade-0';
+    return`<div class="item-row">
+<span class="item-icon">${icon}</span>
+<div class="item-content">
+  <div class="item-name">${esc(it.name||'ДЗ')}${it.total?` <span class="meta">(${it.total} зад.)</span>`:''}</div>
+  ${it.text?`<div class="item-sub">${esc(it.text)}</div>`:''}
+</div>
+<select class="grade-sel ${gcls}" onchange="uIt('${it.id}',{grade:+this.value})" ${locked?'disabled':''}>
+  <option value="0" ${g===0?'selected':''}>— оценка</option>
+  <option value="1" ${g===1?'selected':''}>1</option>
+  <option value="2" ${g===2?'selected':''}>2</option>
+  <option value="3" ${g===3?'selected':''}>3</option>
+  <option value="4" ${g===4?'selected':''}>4</option>
+  <option value="5" ${g===5?'selected':''}>5</option>
+</select>
+${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</button>`:''}
+</div>${renderSubs(it,locked)}`}
+
+  if(it.type==='media'){
+    const att=it.attachments&&it.attachments[0];
+    return`<div class="item-row">
+<span class="item-icon">${icon}</span>
+<div class="item-content">
+  <div class="item-name">${esc(it.name||'Файл')}</div>
+  ${att?`<div class="item-sub"><a href="/uploads/${att.file_path?att.file_path.replace(/\\/g,'/').split('/').pop():att.id}" target="_blank">📎 ${esc(att.name)}</a></div>`:
+    !locked?`<div style="margin-top:4px"><label style="cursor:pointer;font-size:.78em;color:#a78bfa">📎 Прикрепить файл<input type="file" style="display:none" onchange="uploadMedia('${it.id}',this)"></label></div>`:''}
+</div>
+${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</button>`:''}
+</div>${renderSubs(it,locked)}`}
+
+  // generic / note
+  return`<div class="item-row">
+<span class="item-icon">${icon}</span>
+<div class="item-content"><div class="item-name">${esc(it.name||it.text||it.type)}</div></div>
+${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</button>`:''}
+</div>${renderSubs(it,locked)}`}
+
+function renderBottomPanels(sec,locked){
+  const idzG=sec.idz||0;
+  const idzCls=idzG===5?'grade-5':idzG>=3?'grade-3':idzG>0?'grade-1':'grade-0';
+  return`<div class="bottom-panels">
+${sec.control_enabled?`<div class="panel">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+  <span class="panel-label ctrl">Контрольная</span>
+  <select class="ctrl-sel ${sec.control==='passed'?'ctrl-pass':sec.control==='failed'?'ctrl-fail':'ctrl-none'}"
+    onchange="uSec('${sec.id}',{control:this.value})" ${locked?'disabled':''}>
+    <option value="none" ${sec.control==='none'||!sec.control?'selected':''}>— не сдана</option>
+    <option value="passed" ${sec.control==='passed'?'selected':''}>✓ Сдана</option>
+    <option value="failed" ${sec.control==='failed'?'selected':''}>✗ Не сдана</option>
+  </select>
+  ${sec.control==='passed'?`<span style="font-size:.8em;color:#4ade80">🔒 Раздел будет закрыт</span>`:''}
+</div>
+</div>`:''}
+${sec.idz_enabled?`<div class="panel">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+  <span class="panel-label">ИДЗ</span>
+  ${sec.idz_text?`<span class="meta">${esc(sec.idz_text)}</span>`:''}
+  <select class="grade-sel ${idzCls}" onchange="uSec('${sec.id}',{idz:+this.value})" ${locked?'disabled':''}>
+    <option value="0" ${idzG===0?'selected':''}>— оценка</option>
+    <option value="1" ${idzG===1?'selected':''}>1</option>
+    <option value="2" ${idzG===2?'selected':''}>2</option>
+    <option value="3" ${idzG===3?'selected':''}>3</option>
+    <option value="4" ${idzG===4?'selected':''}>4</option>
+    <option value="5" ${idzG===5?'selected':''}>5</option>
+  </select>
+  ${sec.idz_text?`<textarea rows="2" style="width:100%;font-size:.8em;margin-top:6px" placeholder="Описание ИДЗ..." onblur="uSec('${sec.id}',{idz_text:this.value})">${esc(sec.idz_text)}</textarea>`:''}
+</div>
+</div>`:''}
+</div>`}
+
+function tog(id){
+  if(openSecs.has(id)) openSecs.delete(id); else openSecs.add(id);
+  const el=document.getElementById('s_'+id);
+  if(el) el.classList.toggle('open',openSecs.has(id))}
+
+// ─── SECTION TYPE TOGGLE IN ADD-ROW ──────────────────────────────────────
+document.addEventListener('change',e=>{
+  const m=e.target.id&&e.target.id.match(/^nt_(.+)$/);
+  if(m){
+    const secId=m[1];
+    const t=e.target.value;
+    const totEl=document.getElementById('ntot_'+secId);
+    if(totEl) totEl.style.display=t==='hw'?'':'none'}});
+
+// ─── API ACTIONS ──────────────────────────────────────────────────────────
+async function uSec(id,d){
+  try{await patch('/api/sections/'+id,d);await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function uIt(id,d){
+  try{await patch('/api/items/'+id,d);await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function addItem(secId){
+  const t=document.getElementById('nt_'+secId).value;
+  const n=document.getElementById('nn_'+secId).value.trim();
+  const totEl=document.getElementById('ntot_'+secId);
+  const tot=totEl&&t==='hw'?+totEl.value||null:null;
+  if(!n){alert('Введите название');return}
+  try{
+    await post(`/api/sections/${secId}/items`,{type:t,name:n,total:tot});
+    document.getElementById('nn_'+secId).value='';
+    if(totEl)totEl.value='';
+    await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function dIt(id){try{await del('/api/items/'+id);await ld()}catch(e){alert(e.detail||'Ошибка')}}
+async function dSec(id){if(confirm('Удалить раздел?')){await del('/api/sections/'+id);await ld()}}
+
+async function uploadMedia(itemId,inp){
+  const f=inp.files[0];if(!f)return;
+  try{await upload('/api/items/'+itemId+'/attachments',f);await ld()}catch(e){alert(e.detail||'Ошибка загрузки')}}
+
+async function addItSub(iid){
+  try{await post('/api/items/'+iid+'/subblocks',{content:''});await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function addItSubMedia(iid,inp){
+  const f=inp.files[0];if(!f)return;
+  try{await upload('/api/items/'+iid+'/subblocks/media',f);await ld()}catch(e){alert('Ошибка загрузки')}}
+
+async function delItSub(sbid){
+  try{await del('/api/item-subblocks/'+sbid);await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function saveSec(){
+  const t=document.getElementById('secT').value;if(!t)return;
+  try{await post(`/api/students/${SID}/sections`,{title:t,idz_enabled:document.getElementById('secI').checked,control_enabled:document.getElementById('secC').checked});
+    closeM('mSec');document.getElementById('secT').value='';await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function openApply(){
+  courses=await get('/api/courses').catch(()=>[]);
+  document.getElementById('aC').innerHTML=courses.length?courses.map(c=>`<option value="${c.id}">${c.title}</option>`):'<option>Нет курсов</option>';
+  openM('mApply')}
+
+async function doApply(){
+  const c=document.getElementById('aC').value;if(!c||!confirm('Заменить программу?'))return;
+  try{await post(`/api/students/${SID}/apply-course/${c}`);closeM('mApply');await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function doTpl(k){if(!confirm('Заменить программу?'))return;
+  try{await post(`/api/students/${SID}/apply-template/${k}`);closeM('mTpl');await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function openSaveAs(){
+  courses=await get('/api/courses').catch(()=>[]);
+  const subjSel=document.getElementById('scSubj');
+  subjSel.innerHTML=subjects.map(s=>`<option value="${s.id}">${s.icon} ${s.name}</option>`).join('');
+  if(S.subject_id) subjSel.value=S.subject_id;
+  document.getElementById('scTitle').value=S.name+' — программа';
+  const rep=document.getElementById('scReplace');
+  rep.innerHTML='<option value="">— создать новый —</option>'+courses.map(c=>`<option value="${c.id}">${c.title}</option>`).join('');
+  openM('mSaveCourse')}
+
+async function doSaveAsCourse(){
+  const d={subject_id:document.getElementById('scSubj').value,title:document.getElementById('scTitle').value,
+    access:document.getElementById('scAccess').value,replace_id:document.getElementById('scReplace').value||null};
+  if(!d.title){alert('Введите название');return}
+  try{await post(`/api/students/${SID}/save-as-course`,d);closeM('mSaveCourse');alert('Курс сохранён!')}catch(e){alert(e.detail||'Ошибка')}}
+
+async function delS(){if(confirm('Удалить ученика и все данные?')){await del('/api/students/'+SID);location.href='/hbm_tutor.html'}}
+
+function openEditSt(){/* TODO: edit student info */}
 function openM(id){document.getElementById(id).classList.add('show')}
 function closeM(id){document.getElementById(id).classList.remove('show')}
-async function uSec(id,d){try{await patch('/api/sections/'+id,d);await ld()}catch(e){alert(e.detail||'Err')}}
-async function uIt(id,d){try{await patch('/api/items/'+id,d);await ld()}catch(e){alert(e.detail||'Err')}}
-async function saveSec(){const t=document.getElementById('secT').value;if(!t)return;
-    try{await post(`/api/students/${SID}/sections`,{title:t,idz_enabled:document.getElementById('secI').checked,control_enabled:document.getElementById('secC').checked});closeM('mSec');document.getElementById('secT').value='';await ld()}catch(e){alert(e.detail||'Err')}}
-async function saveItem(){const t=document.getElementById('iT').value,n=document.getElementById('iN').value,d={type:t,name:n};
-    if(t==='hw'){d.total=+document.getElementById('iTot').value;d.done=0}
-    try{await post(`/api/sections/${cSec}/items`,d);closeM('mItem');document.getElementById('iN').value='';await ld()}catch(e){alert(e.detail||'Err')}}
-async function dSec(id){if(confirm('Удалить?')){await del('/api/sections/'+id);await ld()}}
-async function dIt(id){try{await del('/api/items/'+id);await ld()}catch(e){alert(e.detail||'Err')}}
-async function delS(){if(confirm('Удалить ученика?')){await del('/api/students/'+SID);location.href='/hbm_tutor.html'}}
-async function ldC(){const cs=await get('/api/courses').catch(()=>[]);
-    document.getElementById('aC').innerHTML=cs.length?cs.map(c=>`<option value="${c.id}">${c.title}</option>`).join(''):'<option>Нет курсов</option>'}
-async function doApply(){const c=document.getElementById('aC').value;if(!c||!confirm('Заменить?'))return;
-    try{await post(`/api/students/${SID}/apply-course/${c}`);closeM('mApply');await ld()}catch(e){alert(e.detail||'Err')}}
-async function doTpl(k){if(!confirm('Заменить?'))return;try{await post(`/api/students/${SID}/apply-template/${k}`);closeM('mTpl');await ld()}catch(e){alert(e.detail||'Err')}}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
 ld();
 </script></body></html>

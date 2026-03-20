@@ -9,7 +9,7 @@ class GoalType(str, enum.Enum):
 class FormatType(str, enum.Enum):
     online="online"; offline="offline"
 class ItemType(str, enum.Enum):
-    topic="topic"; hw="hw"; note="note"
+    topic="topic"; hw="hw"; note="note"; media="media"; control="control"; idz="idz"
 class TopicStatus(str, enum.Enum):
     none="none"; progress="progress"; done="done"
 class ControlStatus(str, enum.Enum):
@@ -27,6 +27,9 @@ parent_student_link = Table("parent_student_link", Base.metadata,
 tutor_student_link = Table("tutor_student_link", Base.metadata,
     Column("tutor_id", String(12), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("student_id", String(12), ForeignKey("students.id", ondelete="CASCADE"), primary_key=True))
+tutor_subject_link = Table("tutor_subjects", Base.metadata,
+    Column("tutor_id", String(12), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("subject_id", String(12), ForeignKey("subjects.id", ondelete="CASCADE"), primary_key=True))
 
 class User(Base):
     __tablename__="users"
@@ -65,6 +68,7 @@ class CourseSection(Base):
     course_id=Column(String(12),ForeignKey("courses.id",ondelete="CASCADE"),nullable=False)
     title=Column(String(300),nullable=False); position=Column(Integer,nullable=False,default=0)
     idz_enabled=Column(Boolean,default=True); control_enabled=Column(Boolean,default=True)
+    idz_text=Column(Text,nullable=True)
     course=relationship("Course",back_populates="sections")
     items=relationship("CourseSectionItem",back_populates="section",cascade="all, delete-orphan",order_by="CourseSectionItem.position")
 
@@ -72,9 +76,12 @@ class CourseSectionItem(Base):
     __tablename__="course_section_items"
     id=Column(String(12),primary_key=True,default=gen_id)
     section_id=Column(String(12),ForeignKey("course_sections.id",ondelete="CASCADE"),nullable=False)
-    type=Column(PgEnum(ItemType),nullable=False,default=ItemType.topic)
-    position=Column(Integer,nullable=False,default=0); name=Column(String(300),nullable=False)
+    type=Column(String(50),nullable=False,default="topic")
+    position=Column(Integer,nullable=False,default=0); name=Column(String(300),nullable=False,default="")
+    total=Column(Integer,nullable=True); text=Column(Text,nullable=True)
+    file_path=Column(String(1000),nullable=True); mime=Column(String(200),nullable=True); size=Column(Integer,nullable=True)
     section=relationship("CourseSection",back_populates="items")
+    subblocks=relationship("CourseItemSubblock",back_populates="item",cascade="all,delete-orphan",order_by="CourseItemSubblock.position")
 
 class Student(Base):
     __tablename__="students"
@@ -97,6 +104,8 @@ class Section(Base):
     is_open=Column(Boolean,default=False); idz_enabled=Column(Boolean,default=True)
     control_enabled=Column(Boolean,default=True); idz=Column(Integer,default=0)
     control=Column(PgEnum(ControlStatus),default=ControlStatus.none)
+    locked=Column(Boolean,default=False,server_default='false')
+    idz_text=Column(Text,nullable=True)
     student=relationship("Student",back_populates="sections")
     items=relationship("Item",back_populates="section",cascade="all, delete-orphan",order_by="Item.position")
 
@@ -108,8 +117,10 @@ class Item(Base):
     name=Column(String(300)); status=Column(PgEnum(TopicStatus),default=TopicStatus.none)
     total=Column(Integer); done=Column(Integer); closed=Column(Boolean,default=False)
     date=Column(String(20)); closed_date=Column(String(20)); note=Column(Text); text=Column(Text)
+    grade=Column(Integer,nullable=True)
     section=relationship("Section",back_populates="items")
     attachments=relationship("Attachment",back_populates="item",cascade="all, delete-orphan")
+    subblocks=relationship("ItemSubblock",back_populates="item",cascade="all,delete-orphan",order_by="ItemSubblock.position")
 
 class Attachment(Base):
     __tablename__="attachments"
@@ -119,6 +130,26 @@ class Attachment(Base):
     size=Column(Integer,nullable=False); file_path=Column(String(1000))
     item=relationship("Item",back_populates="attachments")
 
+class CourseItemSubblock(Base):
+    __tablename__="course_item_subblocks"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    item_id=Column(String(12),ForeignKey("course_section_items.id",ondelete="CASCADE"),nullable=False)
+    type=Column(String(10),nullable=False,default="text")
+    content=Column(Text,nullable=True); name=Column(String(300),nullable=True)
+    position=Column(Integer,nullable=False,default=0)
+    file_path=Column(String(1000),nullable=True); mime=Column(String(200),nullable=True); size=Column(Integer,nullable=True)
+    item=relationship("CourseSectionItem",back_populates="subblocks")
+
+class ItemSubblock(Base):
+    __tablename__="item_subblocks"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    item_id=Column(String(12),ForeignKey("items.id",ondelete="CASCADE"),nullable=False)
+    type=Column(String(10),nullable=False,default="text")
+    content=Column(Text,nullable=True); name=Column(String(300),nullable=True)
+    position=Column(Integer,nullable=False,default=0)
+    file_path=Column(String(1000),nullable=True); mime=Column(String(200),nullable=True); size=Column(Integer,nullable=True)
+    item=relationship("Item",back_populates="subblocks")
+
 class Board(Base):
     __tablename__="boards"
     id=Column(String(12),primary_key=True,default=gen_id)
@@ -127,3 +158,14 @@ class Board(Base):
     created_at=Column(DateTime(timezone=True),server_default=func.now())
     updated_at=Column(DateTime(timezone=True),server_default=func.now(),onupdate=func.now())
     student=relationship("Student",backref="board")
+
+class Message(Base):
+    __tablename__="messages"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    from_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    to_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    text=Column(Text,nullable=False)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    is_read=Column(Boolean,default=False,server_default='false')
+    from_user=relationship("User",foreign_keys=[from_id])
+    to_user=relationship("User",foreign_keys=[to_id])
