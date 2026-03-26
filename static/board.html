@@ -30,13 +30,22 @@ body.light{
   border-radius:6px;padding:4px 8px;font-size:.75em;color:var(--fg);
   pointer-events:none;z-index:100;white-space:nowrap}
 
+/* ─── Follow mode indicator (topbar) ─── */
+#followInd{
+  display:none;align-items:center;gap:5px;cursor:pointer;
+  background:rgba(251,146,60,.15);border:1px solid rgba(251,146,60,.5);
+  border-radius:7px;padding:3px 9px;font-size:.78em;color:#fb923c;white-space:nowrap;
+  transition:background .15s;user-select:none}
+#followInd:hover{background:rgba(251,146,60,.28)}
+#followInd.vis{display:flex}
+
 /* ─── Top Bar ─── */
 #topbar{
   position:fixed;top:0;left:0;right:0;height:52px;z-index:30;
   background:var(--bg-ui);border-bottom:1px solid var(--sep);
   display:flex;align-items:center;gap:12px;padding:0 16px 0 68px}
 #topbar .tb-logo{font-weight:700;font-size:1em;color:var(--fg);display:flex;align-items:center;gap:6px}
-#topbar .tb-logo svg{width:20px;height:20px;fill:var(--accent)}
+#topbar .tb-logo svg{width:20px;height:20px;fill:none;stroke:var(--accent)}
 #boardTitle{flex:1;font-size:.9em;color:var(--fg-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #topbar .tb-r{display:flex;align-items:center;gap:8px}
 #backLink{
@@ -154,8 +163,77 @@ canvas{position:fixed;top:52px;left:56px}
 #selBar h5{font-size:.72em;opacity:.5;white-space:nowrap}
 
 /* ─── Status / Tip ─── */
-#status{position:fixed;bottom:8px;right:12px;font-size:.7em;opacity:.4;z-index:10}
+#status{position:fixed;bottom:8px;right:12px;font-size:.75em;z-index:10;display:none}
 #tip{position:fixed;bottom:8px;left:64px;font-size:.7em;opacity:.28;z-index:10;pointer-events:none}
+#zoomInd{position:fixed;bottom:8px;right:90px;font-size:.7em;opacity:.45;z-index:10;pointer-events:none;font-variant-numeric:tabular-nums}
+
+/* ─── Draggable panel handle (selBar + csSetPanel) ─── */
+.panel-handle{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  padding:0 0 6px 0;cursor:move;touch-action:none;flex-shrink:0;position:relative}
+.panel-grip{
+  width:36px;height:4px;border-radius:2px;background:var(--sep);
+  position:absolute;left:50%;transform:translateX(-50%);top:2px}
+.panel-close{
+  margin-left:auto;width:24px;height:24px;border:none;cursor:pointer;
+  background:transparent;color:var(--fg-dim);font-size:1.1em;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:5px;line-height:1}
+.panel-close:hover{background:var(--hover);color:var(--fg)}
+/* keep old IDs working */
+#selBarHandle{cursor:move}
+#selBarGrip,#selBarClose{}
+
+/* ─── Mobile layout ─── */
+#tbMore{display:none}
+#tbMoreMenu{
+  position:fixed;top:52px;right:6px;z-index:40;
+  background:var(--bg-ui);border:1px solid var(--sep);border-radius:10px;
+  padding:6px;display:none;flex-direction:column;gap:4px;
+  box-shadow:0 4px 16px var(--shadow)}
+#tbMoreMenu.open{display:flex}
+#tbMoreMenu .hb{width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em}
+
+/* ─── Mobile tab bar ─── */
+#mobTabs{
+  position:fixed;bottom:0;left:0;right:0;z-index:28;
+  background:var(--bg-ui);border-top:1px solid var(--sep);
+  border-radius:14px 14px 0 0;
+  padding:7px 12px 10px;
+  display:none;flex-direction:column;gap:6px}
+#mobTabs.vis{display:flex}
+.mob-tab-row{display:flex;gap:6px;align-items:center}
+.mob-tab{
+  flex:1;padding:6px 4px;border:1px solid var(--sep);border-radius:8px;
+  background:transparent;color:var(--fg-dim);font-size:.83em;cursor:pointer;
+  transition:background .15s,color .15s}
+.mob-tab.act{background:var(--accent);color:#fff;border-color:var(--accent)}
+#mobCollapseBtn{
+  width:28px;height:28px;border:none;border-radius:6px;
+  background:transparent;color:var(--fg-dim);cursor:pointer;font-size:1.1em;
+  display:flex;align-items:center;justify-content:center}
+#mobCollapseBtn:hover{background:var(--hover)}
+
+@media(max-width:600px){
+  #topbar{padding:0 6px 0 62px;gap:4px}
+  #topbar .tb-logo-text{display:none}
+  #boardTitle{display:none}
+  #onlinePanel{display:none!important}
+  .hb-secondary{display:none!important}
+  #tbMore{display:flex}
+  #backLinkMob{display:flex!important}
+  /* Panels become bottom sheets; bottom is set by JS (updateMobTabs) */
+  #selBar.open,#csSetPanel.open{
+    left:0!important;right:0!important;top:auto!important;
+    border-radius:0!important;padding:8px 12px 8px!important;
+    flex-direction:column!important;max-height:50vh;overflow-y:auto;
+    width:100%!important;transition:transform .22s ease,opacity .22s;
+    will-change:transform}
+  #selBar.mob-hide,#csSetPanel.mob-hide{
+    transform:translateX(110%);pointer-events:none;opacity:0}
+  .panel-handle{display:none!important}
+  #tip{display:none}
+}
 
 /* ─── Geo Picker ─── */
 #geoPicker{
@@ -176,6 +254,52 @@ canvas{position:fixed;top:52px;left:56px}
   background:var(--bg);border:1px solid var(--sep);
   border-radius:4px;padding:1px 5px}
 .gp-item.act .gp-key{opacity:.7;background:rgba(255,255,255,.15);border-color:transparent}
+
+/* ─── Code widget (inline on-board) ─── */
+.cwo .CodeMirror{height:100%;font-size:inherit;background:#0d1117;border-bottom:1px solid #30363d}
+.cwo .CodeMirror-scroll{box-sizing:border-box;padding:4px 0}
+.cwo{
+  position:fixed;z-index:6;pointer-events:none;
+  display:flex;flex-direction:column;box-sizing:border-box;
+  background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden;
+  box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.cwo.sel{border-color:#3fb950;border-width:2px}
+.cwo-hdr{
+  pointer-events:auto;cursor:move;user-select:none;
+  background:#161b22;border-bottom:1px solid #30363d;
+  display:flex;align-items:center;gap:6px;padding:0 8px;
+  flex-shrink:0;height:30px}
+.cwo-title{font-weight:600;color:#e6edf3;flex:1;font-size:.82em}
+.cwo-lang{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:1px 6px;font-size:.76em;cursor:pointer;flex:1}
+.cwo-lang:focus{outline:none;border-color:#3fb950}
+.cwo-run{
+  pointer-events:auto;background:#238636;color:#fff;border:none;
+  border-radius:5px;padding:2px 9px;cursor:pointer;font-weight:600;font-size:.78em;flex-shrink:0}
+.cwo-run:hover{background:#2ea043}
+.cwo-run:disabled{opacity:.5;cursor:default}
+.cwo-ta{
+  pointer-events:auto;flex:1;min-height:0;overflow:hidden;
+  display:flex;flex-direction:column}
+.cwo-out-hdr{
+  padding:2px 9px;font-size:.68em;letter-spacing:.07em;
+  text-transform:uppercase;color:#484f58;font-weight:600;flex-shrink:0}
+.cwo-out{
+  flex:1;font-family:'Courier New',Consolas,monospace;
+  padding:3px 9px 6px;white-space:pre-wrap;overflow-y:auto;
+  color:#e6edf3;line-height:1.45;min-height:0}
+.cwo-out.ok{color:#7ee787}
+.cwo-out.err{color:#f87171}
+/* 8-direction resize handles for code widget */
+.cwo-rh{position:absolute;pointer-events:auto;opacity:0;transition:opacity .15s;z-index:2}
+.cwo:hover .cwo-rh,.cwo.sel .cwo-rh{opacity:1}
+.cwo-rh.n {top:0;left:12px;right:12px;height:5px;cursor:n-resize;background:linear-gradient(to bottom,#3fb950 0%,transparent 100%)}
+.cwo-rh.s {bottom:0;left:12px;right:12px;height:5px;cursor:s-resize;background:linear-gradient(to top,#3fb950 0%,transparent 100%)}
+.cwo-rh.e {top:12px;right:0;bottom:12px;width:5px;cursor:e-resize;background:linear-gradient(to left,#3fb950 0%,transparent 100%)}
+.cwo-rh.w {top:12px;left:0;bottom:12px;width:5px;cursor:w-resize;background:linear-gradient(to right,#3fb950 0%,transparent 100%)}
+.cwo-rh.ne{top:0;right:0;width:12px;height:12px;cursor:ne-resize}
+.cwo-rh.nw{top:0;left:0;width:12px;height:12px;cursor:nw-resize}
+.cwo-rh.se{bottom:0;right:0;width:14px;height:14px;cursor:se-resize;background:linear-gradient(135deg,transparent 40%,#3fb950 40%);border-radius:0 0 7px 0}
+.cwo-rh.sw{bottom:0;left:0;width:14px;height:14px;cursor:sw-resize;background:linear-gradient(225deg,transparent 40%,#3fb950 40%);border-radius:0 0 0 7px}
 
 /* ─── Rich-text overlay ─── */
 .rto{
@@ -263,7 +387,12 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
   flex:1;min-width:90px;padding:4px 8px;border-radius:6px;
   border:1px solid var(--sep);background:var(--input);
   color:var(--fg);font-size:.8em;font-family:monospace;
-  transition:border-color .15s}
+  transition:border-color .15s;-webkit-text-size-adjust:100%;touch-action:manipulation}
+@media(max-width:600px){
+  .csg-add{flex-direction:column;align-items:stretch}
+  .csg-add input[type=text]{min-width:100%;font-size:16px;width:100%;box-sizing:border-box}
+  .csg-add .cs-btn{align-self:flex-end;margin-top:-2px}
+}
 .csg-add input[type=text]:focus{outline:none;border-color:var(--accent)}
 .cs-btn{
   padding:3px 9px;border:1px solid var(--accent);border-radius:6px;
@@ -273,26 +402,73 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 .cs-btn.active{background:var(--accent);color:#fff}
 </style>
 
+<link rel="stylesheet" href="/cm/codemirror.min.css">
+<script src="/cm/codemirror.min.js"></script>
+<script src="/cm/mode/python/python.min.js"></script>
+<script src="/cm/mode/javascript/javascript.min.js"></script>
+<script src="/cm/addon/edit/closebrackets.min.js"></script>
+<script src="/cm/addon/edit/matchbrackets.min.js"></script>
+<style>
+.CodeMirror{background:#0d1117;color:#c9d1d9;font-family:'Courier New',Consolas,monospace;border:none;height:auto}
+.CodeMirror-cursor{border-left-color:#c9d1d9}
+.CodeMirror-selected,.CodeMirror-focused .CodeMirror-selected{background:#264f78}
+.CodeMirror-gutters{background:#161b22;border-right:1px solid #30363d}
+.CodeMirror-linenumber{color:#484f58}
+/* Syntax highlight — GitHub Dark */
+.cm-keyword{color:#a78bfa}
+.cm-def{color:#22d3ee}
+.cm-variable-2{color:#22d3ee}
+.cm-string,.cm-string-2{color:#a5d6ff}
+.cm-number{color:#79c0ff}
+.cm-comment{color:#8b949e;font-style:italic}
+.cm-operator{color:#ff7b72}
+.cm-builtin{color:#ffa657}
+.cm-variable{color:#e6edf3}
+.cm-atom{color:#79c0ff}
+.cm-property{color:#22d3ee}
+.cm-qualifier{color:#ffa657}
+.cm-tag{color:#7ee787}
+.cm-attribute{color:#a78bfa}
+.cm-keyword{color:#a78bfa}
+.cm-def{color:#22d3ee}
+.cm-string,.cm-string-2{color:#a5d6ff}
+.cm-number{color:#79c0ff}
+.cm-comment{color:#8b949e;font-style:italic}
+.cm-operator{color:#ff7b72}
+.cm-builtin{color:#ffa657}
+.cm-variable{color:#e6edf3}
+</style>
 </head>
 <body class="dark">
 
 <!-- ─── Top Bar ─── -->
 <div id="topbar">
   <div class="tb-logo">
-    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-    </svg>
-    HBM
+    <svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg>
+    <span class="tb-logo-text">HBM</span>
   </div>
   <div id="boardTitle">Доска</div>
   <div id="onlinePanel" style="display:flex;align-items:center;gap:4px;margin-right:4px"></div>
+  <div id="followInd" title="Режим слежки активен — нажмите Esc или кликните, чтобы выйти"
+       onclick="stopFollow()">👁 <span id="followName"></span> <span style="opacity:.6;font-size:.9em">× Esc</span></div>
   <div class="tb-r">
     <button class="hb" title="Отменить Ctrl+Z" onclick="doUndo()">↩</button>
-    <button class="hb" id="btnClear" title="Очистить доску" onclick="doClear()">🗑</button>
-    <button class="hb" id="bTheme" title="Тема" onclick="toggleTheme()">🌙</button>
-    <button class="hb" title="Сбросить вид" onclick="resetView()">⊙</button>
-    <a id="backLink" href="/hbm_tutor.html">← Назад</a>
+    <button class="hb" title="Повторить Ctrl+Shift+Z" onclick="doRedo()">↪</button>
+    <button class="hb hb-secondary" id="btnClear" title="Очистить доску" onclick="doClear()">🗑</button>
+    <button class="hb hb-secondary" id="bTheme" title="Тема" onclick="toggleTheme()">🌙</button>
+    <button class="hb hb-secondary" title="Сбросить вид" onclick="resetView()">⊙</button>
+    <a id="backLink" class="hb-secondary" href="/hbm_tutor.html" style="font-size:.82em;text-decoration:none;color:var(--accent);background:var(--bg-ui);border:1px solid var(--sep);border-radius:8px;padding:6px 12px;white-space:nowrap">← Назад</a>
+    <button class="hb" id="tbMore" title="Ещё" onclick="toggleTbMore()">⋯</button>
+    <a id="backLinkMob" href="/hbm_tutor.html" style="display:none;font-size:.82em;text-decoration:none;color:var(--accent);background:var(--bg-ui);border:1px solid var(--sep);border-radius:8px;padding:5px 10px;white-space:nowrap">←</a>
   </div>
+</div>
+
+<!-- ─── Mobile overflow menu ─── -->
+<div id="tbMoreMenu">
+  <button class="hb" style="width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em" onclick="doClear();toggleTbMore()">🗑 Очистить</button>
+  <button class="hb" style="width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em" id="bThemeMob" onclick="toggleTheme()">🌙 Тема</button>
+  <button class="hb" style="width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em" onclick="resetView();toggleTbMore()">⊙ Сбросить вид</button>
+  <a href="/hbm_tutor.html" style="font-size:.85em;text-decoration:none;color:var(--accent);padding:6px 12px">← Назад</a>
 </div>
 
 <!-- ─── Sidebar ─── -->
@@ -317,7 +493,7 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
       </button>
       <div class="sm" id="smDraw">
         <button class="ssb" id="sPen"   title="Перо (P)"   onclick="setTool('pen')">🖊️</button>
-        <button class="ssb" id="sErase" title="Ластик (E)" onclick="setTool('erase')">🧹</button>
+        <button class="ssb" id="sErase" title="Ластик (E)" onclick="setTool('erase')"><svg width="18" height="14" viewBox="0 0 18 14" fill="none"><rect x="0.5" y="3.5" width="10" height="10" rx="1.5" fill="#c9d1d9" stroke="#8b949e"/><rect x="0.5" y="3.5" width="4" height="10" rx="1.5" fill="#f87171" stroke="#8b949e"/><line x1="11" y1="13.5" x2="17.5" y2="13.5" stroke="#8b949e" stroke-width="1.2" stroke-linecap="round"/></svg></button>
       </div>
     </div>
 
@@ -332,9 +508,10 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
         <span class="bdg" id="geoBdg">—</span>
       </button>
       <div class="sm" id="smGeo">
-        <button class="ssb" id="sLine"    title="Линия"           onclick="setTool('geo_line')">╱</button>
-        <button class="ssb" id="sRect"    title="Прямоугольник"   onclick="setTool('geo_rect')">▭</button>
-        <button class="ssb" id="sEllipse" title="Эллипс"          onclick="setTool('geo_ellipse')">⬭</button>
+        <button class="ssb" id="sLine"    title="Линия"              onclick="setTool('geo_line')">╱</button>
+        <button class="ssb" id="sTri"     title="Треугольник (T)"    onclick="setTool('geo_triangle')">△</button>
+        <button class="ssb" id="sPara"    title="Параллелограмм (P)" onclick="setTool('geo_parallelogram')">▱</button>
+        <button class="ssb" id="sEllipse" title="Эллипс (C)"         onclick="setTool('geo_ellipse')">⬭</button>
       </div>
     </div>
 
@@ -345,6 +522,10 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
     <!-- Media -->
     <button class="sb" id="btnMedia" title="Вставить изображение (I)" onclick="openMediaPicker()"
             style="font-size:1.2em">🖼️</button>
+
+    <!-- Code -->
+    <button class="sb" id="btnCode" title="Python-блок (K)" onclick="setTool('code')"
+            style="font-size:.82em;font-weight:700;letter-spacing:-.02em">&lt;/&gt;</button>
 
   </div>
   <div id="sb-bot"></div>
@@ -362,12 +543,22 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 <!-- ─── CS Graph Panel ─── -->
 <div id="csGraphPanel"></div>
 
+<!-- ─── Mobile tab bar (shown only on mobile when panel(s) open) ─── -->
+<div id="mobTabs">
+  <div class="mob-tab-row">
+    <button class="mob-tab act" id="mobTabSel" onclick="showMobTab('sel')">✏️ Свойства</button>
+    <button class="mob-tab" id="mobTabCS"  onclick="showMobTab('cs')">⊕ СК</button>
+    <button id="mobCollapseBtn" onclick="toggleMobCollapse()" title="Свернуть">▾</button>
+  </div>
+</div>
+
 <!-- ─── Geo Picker ─── -->
 <div id="geoPicker">
   <div class="gp-hdr">Примитив</div>
   <div class="gp-item" data-idx="0">╱ Линия <span class="gp-key">L</span></div>
-  <div class="gp-item" data-idx="1">▭ Прямоугольник <span class="gp-key">R</span></div>
-  <div class="gp-item" data-idx="2">⬭ Эллипс / круг <span class="gp-key">C</span></div>
+  <div class="gp-item" data-idx="1">△ Треугольник <span class="gp-key">T</span></div>
+  <div class="gp-item" data-idx="2">▱ Параллелограмм <span class="gp-key">P</span></div>
+  <div class="gp-item" data-idx="3">⬭ Эллипс / круг <span class="gp-key">C</span></div>
 </div>
 
 <!-- ─── Inline text editor ─── -->
@@ -379,10 +570,12 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 <!-- ─── Media file input ─── -->
 <input type="file" id="mediaInput" accept="image/*" style="display:none">
 
+
 <!-- ─── Canvas ─── -->
 <canvas id="c"></canvas>
 <div id="status">Подключение...</div>
-<div id="tip">ПКМ/Space=навигация · Колесо=зум · Del=удалить · Ctrl+Z=отмена · Ctrl+C/X/V=копировать · Shift+перо=прямая · G=геометрия · I=картинка · R+←→=поворот · ESC=сброс</div>
+<div id="zoomInd">100%</div>
+<div id="tip">ПКМ/Space=навигация · Колесо=зум · Del=удалить · Ctrl+Z=отмена · Ctrl+Shift+Z=повтор · Ctrl+C/X/V=копировать · Shift+перо=прямая · G=геометрия · I=картинка · R+←→=поворот · ESC=сброс</div>
 
 <script src="/api.js"></script>
 <script>
@@ -432,6 +625,95 @@ function toggleTheme() {
   localStorage.setItem('board_theme', dark ? 'dark' : 'light');
   applyTheme();
 }
+/* ─── Mobile bottom sheet tab bar ─── */
+let _mobTab = 'sel', _mobCollapsed = false;
+
+function updateMobTabs() {
+  if (window.innerWidth > 600) return;
+  const selBar  = document.getElementById('selBar');
+  const csPanel = document.getElementById('csSetPanel');
+  const tabs    = document.getElementById('mobTabs');
+  const selOpen = selBar.classList.contains('open');
+  const csOpen  = csPanel.classList.contains('open');
+
+  if (!selOpen && !csOpen) {
+    tabs.classList.remove('vis');
+    selBar.style.bottom = ''; csPanel.style.bottom = '';
+    selBar.classList.remove('mob-hide'); csPanel.classList.remove('mob-hide');
+    return;
+  }
+  tabs.classList.add('vis');
+
+  const tSelBtn = document.getElementById('mobTabSel');
+  const tCSBtn  = document.getElementById('mobTabCS');
+  tSelBtn.style.display = selOpen ? '' : 'none';
+  tCSBtn.style.display  = csOpen  ? '' : 'none';
+
+  /* Auto-switch if current tab's panel is no longer open */
+  if (_mobTab === 'sel' && !selOpen) _mobTab = 'cs';
+  if (_mobTab === 'cs'  && !csOpen)  _mobTab = 'sel';
+  tSelBtn.classList.toggle('act', _mobTab === 'sel');
+  tCSBtn.classList.toggle('act',  _mobTab === 'cs');
+
+  const tabH = tabs.offsetHeight || 52;
+  selBar.style.bottom  = tabH + 'px';
+  csPanel.style.bottom = tabH + 'px';
+
+  const btn = document.getElementById('mobCollapseBtn');
+  if (_mobCollapsed) {
+    selBar.classList.add('mob-hide');  csPanel.classList.add('mob-hide');
+    btn.textContent = '▲';
+  } else {
+    btn.textContent = '▾';
+    if (_mobTab === 'sel') {
+      selBar.classList.remove('mob-hide'); csPanel.classList.add('mob-hide');
+    } else {
+      csPanel.classList.remove('mob-hide'); selBar.classList.add('mob-hide');
+    }
+  }
+}
+
+function showMobTab(tab) { _mobTab = tab; _mobCollapsed = false; updateMobTabs(); }
+function toggleMobCollapse() { _mobCollapsed = !_mobCollapsed; updateMobTabs(); }
+
+function toggleTbMore() {
+  const m = document.getElementById('tbMoreMenu');
+  m.classList.toggle('open');
+  if (m.classList.contains('open')) {
+    setTimeout(() => document.addEventListener('click', function _c(){ m.classList.remove('open'); document.removeEventListener('click',_c); }, { once: true }), 0);
+  }
+}
+
+/* ─── Draggable floating panel (desktop mouse drag + mobile swipe-down to close) ─── */
+function initPanelDrag(handle, panel, onClose) {
+  let ox=0, oy=0, _drag=false;
+  const isMob = () => window.innerWidth <= 600;
+  handle.addEventListener('mousedown', e => {
+    if (isMob() || e.button !== 0) return;
+    e.preventDefault(); _drag = true;
+    const r = panel.getBoundingClientRect();
+    ox = e.clientX - r.left; oy = e.clientY - r.top;
+    document.addEventListener('mousemove', onM);
+    document.addEventListener('mouseup', onU, {once:true});
+  });
+  function onM(e) {
+    if (!_drag) return;
+    const nx = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
+    const ny = Math.max(52,Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
+    panel.style.left = nx+'px'; panel.style.top = ny+'px';
+    panel.style.right = 'auto'; panel.style.bottom = 'auto';
+  }
+  function onU() { _drag = false; document.removeEventListener('mousemove', onM); }
+  /* Mobile: swipe down on handle → close */
+  let _ty = 0;
+  handle.addEventListener('touchstart', e => { if (!isMob()) return; _ty = e.touches[0].clientY; }, {passive:true});
+  handle.addEventListener('touchend', e => {
+    if (!isMob()) return;
+    if (e.changedTouches[0].clientY - _ty > 50) { _mobCollapsed = true; updateMobTabs(); }
+  }, {passive:true});
+}
+/* alias for backward-compat */
+function initSelBarDrag(handle, bar) { initPanelDrag(handle, bar, () => clearSel()); }
 
 // ══════════════════════════════════════════════════════════
 // §2  CANVAS
@@ -473,8 +755,9 @@ const rtoMap = new Map(); // id → div
 // ══════════════════════════════════════════════════════════
 let tool = 'select';
 
-/* Undo stack (client-side) */
+/* Undo / Redo stacks (client-side) */
 const undoStack = [];
+const redoStack = [];
 const MAX_UNDO  = 50;
 
 /* Hover highlight (from element list) */
@@ -489,19 +772,35 @@ let penColor = COLORS[0], penSize = 3;
 
 // Geometry settings
 let geoColor = COLORS[2], geoSize = 2, geoDash = false, geoArrow = 'none'; // arrow: 'none'|'end'|'start'|'both'
+let geoFill = null, geoFillOpacity = 0.35; // fill: null=none, else hex color
 
 // Text settings
 let textColor = COLORS[0], textFontSize = 18;
 let textBold = false, textItalic = false, textUnderline = false;
 let textBoxW = 240;
+let textFont = 'system-ui,sans-serif';
+const TEXT_FONTS = [
+  ['system-ui,sans-serif',         'Системный'],
+  ['Arial,sans-serif',             'Arial'],
+  ['Georgia,serif',                'Serif'],
+  ["'Courier New',monospace",      'Моно'],
+  ["'Comic Sans MS',cursive",      'Рукопись'],
+];
 
 // Clipboard
 let clipboard = [];
 
 // Geo picker
-const GEO_TOOLS  = ['geo_line', 'geo_rect', 'geo_ellipse'];
-let geoPickIdx   = 0;   // 0=line 1=rect 2=ellipse
+const GEO_TOOLS  = ['geo_line', 'geo_triangle', 'geo_parallelogram', 'geo_ellipse'];
+let geoPickIdx   = 0;   // 0=line 1=triangle 2=parallelogram 3=ellipse
 let geoPicking   = false;
+/* Per-vertex snap state for triangles: key=`${id}_${handle}` → 'equil'|'iso'|'right'|null */
+const vertexSnapState = new Map();
+let paraSnapRect = false; // parallelogram currently rectangle-snapped
+
+// Code element widgets (inline DOM overlays, one per code element)
+const codeOverlayMap = new Map();
+const codeEditorMap = new Map(); // id → CodeMirror instance
 
 // ══════════════════════════════════════════════════════════
 // §6  ELEMENT STORE
@@ -527,9 +826,17 @@ function updateOnlinePanel() {
     const color = peerColor(uid);
     const isFollowing = followTarget === uid;
     return `<div class="peer-avatar${isFollowing?' following':''}" style="background:${color}"
-      title="${name}${isFollowing?' (слежу)':''}"
+      title="${name}${isFollowing?' — нажмите ещё раз чтобы перестать следить':' — нажмите чтобы следить за экраном'}"
       onclick="toggleFollow('${uid}')">${name.trim()[0]||'?'}</div>`;
   }).join('');
+  updateFollowInd();
+}
+
+function stopFollow() {
+  if (!followTarget) return;
+  followTarget = null;
+  updateOnlinePanel();
+  redraw();
 }
 
 function toggleFollow(uid) {
@@ -538,6 +845,18 @@ function toggleFollow(uid) {
   if (followTarget && peerCursors[followTarget]) {
     const pc = peerCursors[followTarget];
     if (pc.view) { vx=pc.view.vx; vy=pc.view.vy; vz=pc.view.vz; redraw(); }
+  }
+}
+
+function updateFollowInd() {
+  const ind  = document.getElementById('followInd');
+  const name = document.getElementById('followName');
+  if (!ind) return;
+  if (followTarget && onlineUsers[followTarget]) {
+    name.textContent = onlineUsers[followTarget];
+    ind.classList.add('vis');
+  } else {
+    ind.classList.remove('vis');
   }
 }
 
@@ -565,6 +884,7 @@ let rotateEl  = null;        // element being rotated
 let rotateCenter = null;     // screen-coord center at rotation start
 let rotateStartAngle = 0;    // angle offset at rotation start
 let rKeyDown  = false;       // R key held for rotation hotkeys
+let imgLockAspect = false;  // lock image aspect ratio while resizing
 
 function clearSel() { selected.clear(); selBox = null; lineLockedHandles.clear(); sbSnapHA='p1'; sbSnapHB='p1'; sbRotCenter='p1'; sbLineOrder=0; hoverHighlightId=null; selListOpen=false; updateSelBar(); redraw(); }
 
@@ -574,8 +894,10 @@ function snapPositions() {
   for (const id of selected) {
     const el = all.find(e => e.id === id); if (!el) continue;
     if      (el.type === 'stroke')   dragSnap[id] = el.pts.map(p => ({ ...p }));
-    else if (el.type === 'shape')   dragSnap[id] = { x1:el.x1, y1:el.y1, x2:el.x2, y2:el.y2 };
-    else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') dragSnap[id] = { x:el.x, y:el.y };
+    else if (el.type === 'shape' && el.shape === 'triangle')
+      dragSnap[id] = { x1:el.x1, y1:el.y1, x2:el.x2, y2:el.y2, x3:el.x3, y3:el.y3 };
+    else if (el.type === 'shape')   dragSnap[id] = { x1:el.x1, y1:el.y1, x2:el.x2, y2:el.y2, x3:el.x3, y3:el.y3, ro:el.ro?{...el.ro}:null };
+    else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext' || el.type === 'code') dragSnap[id] = { x:el.x, y:el.y };
   }
 }
 
@@ -585,8 +907,13 @@ function applyDrag(dwx, dwy) {
   for (const id of selected) {
     const el = all.find(e => e.id === id); if (!el || !dragSnap[id]) continue;
     if      (el.type === 'stroke')   el.pts = dragSnap[id].map(p => ({ x: p.x + dwx, y: p.y + dwy }));
-    else if (el.type === 'shape')   { el.x1 = dragSnap[id].x1+dwx; el.y1 = dragSnap[id].y1+dwy; el.x2 = dragSnap[id].x2+dwx; el.y2 = dragSnap[id].y2+dwy; }
-    else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') { el.x = dragSnap[id].x+dwx; el.y = dragSnap[id].y+dwy; }
+    else if (el.type === 'shape') {
+      el.x1 = dragSnap[id].x1+dwx; el.y1 = dragSnap[id].y1+dwy;
+      el.x2 = dragSnap[id].x2+dwx; el.y2 = dragSnap[id].y2+dwy;
+      if (el.shape === 'triangle' || el.shape === 'parallelogram') { el.x3 = dragSnap[id].x3+dwx; el.y3 = dragSnap[id].y3+dwy; }
+      if (el.ro && dragSnap[id].ro) el.ro = { x: dragSnap[id].ro.x+dwx, y: dragSnap[id].ro.y+dwy };
+    }
+    else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext' || el.type === 'code') { el.x = dragSnap[id].x+dwx; el.y = dragSnap[id].y+dwy; }
   }
 }
 
@@ -594,6 +921,8 @@ function applyDrag(dwx, dwy) {
 function commitDrag() {
   for (const id of selected) {
     const el = all.find(e => e.id === id); if (!el) continue;
+    /* code widgets: update-in-place to avoid destroying the DOM overlay */
+    if (el.type === 'code') { wsSend({ type: 'stroke_update', data: { ...el } }); continue; }
     wsSend({ type: 'erase_stroke', id: el.id });
     wsSend({ type: 'stroke', data: el });
   }
@@ -624,28 +953,31 @@ function setTool(t) {
   /* Sidebar button states */
   document.querySelectorAll('.sb').forEach(b => b.classList.remove('act'));
   const mainMap = { select:'btnSel', pen:'btnDraw', erase:'btnDraw',
-                    geo_line:'btnGeo', geo_rect:'btnGeo', geo_ellipse:'btnGeo', text:'btnText' };
+                    geo_line:'btnGeo', geo_triangle:'btnGeo', geo_parallelogram:'btnGeo',
+                    geo_ellipse:'btnGeo', text:'btnText', code:'btnCode' };
   document.getElementById(mainMap[t])?.classList.add('act');
 
   /* Sub-tool button states */
   document.querySelectorAll('.ssb').forEach(b => b.classList.remove('act'));
-  const subMap = { pen:'sPen', erase:'sErase', geo_line:'sLine', geo_rect:'sRect', geo_ellipse:'sEllipse' };
+  const subMap = { pen:'sPen', erase:'sErase', geo_line:'sLine',
+                   geo_triangle:'sTri', geo_parallelogram:'sPara', geo_ellipse:'sEllipse' };
   if (subMap[t]) document.getElementById(subMap[t])?.classList.add('act');
 
   /* Badges */
-  const drawBadges = { pen:'✏', erase:'🧹' };
+  const drawBadges = { pen:'✏', erase:'⌫' };
   if (drawBadges[t]) document.getElementById('drawBdg').textContent = drawBadges[t];
-  const geoBadges  = { geo_line:'—', geo_rect:'▭', geo_ellipse:'⬭' };
+  const geoBadges  = { geo_line:'—', geo_triangle:'△', geo_parallelogram:'▱', geo_ellipse:'⬭' };
   if (geoBadges[t])  document.getElementById('geoBdg').textContent  = geoBadges[t];
 
   /* Cursor */
   const cursors = { select:'default', pen:'none', erase:'none',
-                    geo_line:'crosshair', geo_rect:'crosshair', geo_ellipse:'crosshair', text:'text' };
+                    geo_line:'crosshair', geo_triangle:'crosshair',
+                    geo_parallelogram:'crosshair', geo_ellipse:'crosshair', text:'text', code:'crosshair' };
   cv.style.cursor = cursors[t] || 'default';
 
   /* Panels */
   if (t === 'select') { closeSP(); updateSelBar(); }
-  else                { renderSP(); document.getElementById('selBar').classList.remove('open'); }
+  else                { renderSP(); document.getElementById('selBar').classList.remove('open'); updateMobTabs(); }
 
   redraw();
 }
@@ -698,7 +1030,7 @@ function cloneEl(el, dx = 0, dy = 0) {
   c.id = gid();
   if (c.type === 'stroke')  c.pts = c.pts.map(p => p.x == null ? { x: null, y: null } : { x: p.x+dx, y: p.y+dy });
   else if (c.type === 'shape') { c.x1+=dx; c.y1+=dy; c.x2+=dx; c.y2+=dy; }
-  else if (c.type === 'text' || c.type === 'image' || c.type === 'richtext') { c.x+=dx; c.y+=dy; }
+  else if (c.type === 'text' || c.type === 'image' || c.type === 'richtext' || c.type === 'code') { c.x+=dx; c.y+=dy; }
   return c;
 }
 
@@ -714,7 +1046,14 @@ function doCut() {
   if (!selected.size) return;
   addToUndo();
   doCopy();
-  for (const id of selected) { all = all.filter(e => e.id !== id); wsSend({ type: 'erase_stroke', id }); }
+  for (const id of selected) {
+    const _el = all.find(e => e.id === id);
+    if (_el && _el.csPartner && !selected.has(_el.csPartner)) {
+      const _p = all.find(e => e.id === _el.csPartner);
+      if (_p) { _p.csPartner=null; _p.csScale=null; _p.csTickStep=null; wsSend({type:'stroke_update',data:{..._p}}); }
+    }
+    all = all.filter(e => e.id !== id); wsSend({ type: 'erase_stroke', id });
+  }
   clearSel(); redraw();
 }
 
@@ -739,6 +1078,7 @@ function doPaste() {
    bloating the undo stack with megabytes per level. */
 function addToUndo() {
   if (undoStack.length >= MAX_UNDO) undoStack.shift();
+  redoStack.length = 0; // new action clears redo history
   undoStack.push(all.map(el => {
     const copy = JSON.parse(JSON.stringify(el));
     if (el.type === 'image' && el.src) {
@@ -751,6 +1091,12 @@ function addToUndo() {
 
 function doUndo() {
   if (!undoStack.length) return;
+  /* Save current state for redo */
+  redoStack.push(all.map(el => {
+    const copy = JSON.parse(JSON.stringify(el));
+    if (el.type === 'image' && el.src) { imgSrcStore.set(el.id, el.src); delete copy.src; }
+    return copy;
+  }));
   const prev = undoStack.pop();
   /* Restore image srcs from store */
   for (const el of prev) {
@@ -781,6 +1127,42 @@ function doUndo() {
     }
   }
   all = prev;
+  clearSel();
+  redraw();
+}
+
+function doRedo() {
+  if (!redoStack.length) return;
+  /* Save current state back to undoStack */
+  undoStack.push(all.map(el => {
+    const copy = JSON.parse(JSON.stringify(el));
+    if (el.type === 'image' && el.src) { imgSrcStore.set(el.id, el.src); delete copy.src; }
+    return copy;
+  }));
+  const next = redoStack.pop();
+  /* Restore image srcs */
+  for (const el of next) {
+    if (el.type === 'image' && !el.src) { const src = imgSrcStore.get(el.id); if (src) el.src = src; }
+  }
+  const nextIds = new Set(next.map(e => e.id));
+  const curIds  = new Set(all.map(e => e.id));
+  for (const el of next) {
+    if (!curIds.has(el.id)) wsSend({ type: 'stroke', data: el });
+  }
+  for (const el of all) {
+    if (!nextIds.has(el.id)) wsSend({ type: 'erase_stroke', id: el.id });
+  }
+  for (const el of next) {
+    if (curIds.has(el.id)) {
+      const cur = all.find(e => e.id === el.id);
+      const nextJ = JSON.stringify(el), curJ = cur ? JSON.stringify(cur) : '';
+      if (nextJ !== curJ) {
+        wsSend({ type: 'erase_stroke', id: el.id });
+        setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
+      }
+    }
+  }
+  all = next;
   clearSel();
   redraw();
 }
@@ -856,8 +1238,8 @@ function renderSP() {
   }
 
   /* ── Geometry ── */
-  else if (tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') {
-    const names = { geo_line:'Линия', geo_rect:'Прямоугольник', geo_ellipse:'Эллипс' };
+  else if (tool === 'geo_line' || tool === 'geo_triangle' || tool === 'geo_parallelogram' || tool === 'geo_ellipse') {
+    const names = { geo_line:'Линия', geo_triangle:'Треугольник', geo_parallelogram:'Параллелограмм', geo_ellipse:'Эллипс' };
     $(`<h4>${names[tool]}</h4><div class="sp-row"><label>Цвет</label></div>`);
     sp.appendChild(mkColorRow(geoColor, c => { geoColor = c; }));
     $(`<div class="sp-row"><label>Толщина</label>
@@ -874,6 +1256,26 @@ function renderSP() {
     };
     sp.querySelector('#tSol').onclick = () => { geoDash = false; renderSP(); };
     sp.querySelector('#tDsh').onclick = () => { geoDash = true;  renderSP(); };
+    /* Fill — only for closed shapes */
+    if (tool !== 'geo_line') {
+      $(`<div class="sp-row"><label>Заливка</label>
+          <div class="tog-row">
+            <button class="tog${!geoFill?' act':''}"  id="tFillNo">нет</button>
+            <button class="tog${geoFill?' act':''}"   id="tFillYes">цвет</button>
+          </div></div>`);
+      if (geoFill) {
+        sp.appendChild(mkColorRow(geoFill, c => { geoFill = c; renderSP(); }));
+        $(`<div class="sp-row"><label>Прозрач.</label>
+            <input type="range" id="spFO" min="5" max="100" value="${Math.round(geoFillOpacity*100)}">
+            <span id="spFOV" style="font-size:.8em;opacity:.65;min-width:28px">${Math.round(geoFillOpacity*100)}%</span></div>`);
+        sp.querySelector('#spFO').oninput = e => {
+          geoFillOpacity = +e.target.value / 100;
+          document.getElementById('spFOV').textContent = e.target.value + '%';
+        };
+      }
+      sp.querySelector('#tFillNo').onclick  = () => { geoFill = null; renderSP(); };
+      sp.querySelector('#tFillYes').onclick = () => { if (!geoFill) geoFill = geoColor; renderSP(); };
+    }
     /* Arrow selector — only for lines */
     if (tool === 'geo_line') {
       $(`<div class="sp-row"><label>Стрелки</label>
@@ -890,12 +1292,21 @@ function renderSP() {
     }
   }
 
+  /* ── Code ── */
+  else if (tool === 'code') {
+    $('<h4>Python-блок</h4><p style="font-size:.78em;color:var(--fg-dim);line-height:1.4">Кликните на доске чтобы разместить блок кода. Двойной клик на блоке — редактировать.</p>');
+  }
+
   /* ── Text ── */
   else if (tool === 'text') {
     $('<h4>Текст</h4><div class="sp-row"><label>Цвет</label></div>');
     sp.appendChild(mkColorRow(textColor, c => { textColor = c; updateTedStyle(); }));
+    const fontOpts = TEXT_FONTS.map(([v,l]) =>
+      `<option value="${v}"${v===textFont?' selected':''}>${l}</option>`).join('');
     $(`<div class="sp-row"><label>Размер</label>
         <input type="number" id="spFS" min="8" max="120" value="${textFontSize}"></div>
+       <div class="sp-row"><label>Шрифт</label>
+        <select id="spFont" style="flex:1;max-width:110px;background:var(--input);color:var(--fg);border:1px solid var(--sep);border-radius:5px;padding:2px 4px;font-size:.78em">${fontOpts}</select></div>
        <div class="sp-row"><label>Стиль</label>
         <div class="tog-row">
           <button class="tog${textBold?      ' act':''}" id="tB"><b>B</b></button>
@@ -905,6 +1316,7 @@ function renderSP() {
        <div class="sp-row"><label>Ширина</label>
         <input type="number" id="spTW" min="50" max="2000" value="${textBoxW}"></div>`);
     sp.querySelector('#spFS').oninput = e => { textFontSize = +e.target.value || 18; updateTedStyle(); };
+    sp.querySelector('#spFont').onchange = e => { textFont = e.target.value; updateTedStyle(); };
     sp.querySelector('#spTW').oninput = e => { textBoxW = +e.target.value || 240; };
     sp.querySelector('#tB').onclick = () => { textBold      = !textBold;      renderSP(); updateTedStyle(); };
     sp.querySelector('#tI').onclick = () => { textItalic    = !textItalic;    renderSP(); updateTedStyle(); };
@@ -977,6 +1389,23 @@ function rotateElementAround(el, cx, cy, da) {
   });
   if (el.type === 'shape' && el.shape === 'line') {
     rotateLineAround(el, cx, cy, da);                  // uses existing helper
+  } else if (el.type === 'shape' && el.shape === 'triangle') {
+    /* Rotate each vertex directly; accumulate visual rotation around fixed el.ro */
+    const bb = elemBBox(el);
+    if (!el.ro) el.ro = { x: bb.x+bb.w/2, y: bb.y+bb.h/2 }; // init once
+    const nc = rot2(el.ro.x, el.ro.y);
+    const dx = nc.x-el.ro.x, dy = nc.y-el.ro.y;
+    el.x1+=dx; el.y1+=dy; el.x2+=dx; el.y2+=dy; el.x3+=dx; el.y3+=dy;
+    el.ro = { x: nc.x, y: nc.y };
+    el.rotation = (el.rotation||0) + da;
+  } else if (el.type === 'shape' && el.shape === 'parallelogram') {
+    const bb = elemBBox(el);
+    if (!el.ro) el.ro = { x: bb.x+bb.w/2, y: bb.y+bb.h/2 };
+    const nc = rot2(el.ro.x, el.ro.y);
+    const dx = nc.x-el.ro.x, dy = nc.y-el.ro.y;
+    el.x1+=dx; el.y1+=dy; el.x2+=dx; el.y2+=dy; el.x3+=dx; el.y3+=dy;
+    el.ro = { x: nc.x, y: nc.y };
+    el.rotation = (el.rotation||0) + da;
   } else if (el.type === 'shape') {
     const bb = elemBBox(el);
     const nc = rot2(bb.x + bb.w/2, bb.y + bb.h/2);
@@ -1063,22 +1492,17 @@ function makeCS(la, lb) {
       el.csScale = Math.max(1, hl / 10);           // default: range of 10 units
     });
   }
-  /* Sync */
-  [la, lb].forEach(el => {
-    wsSend({ type:'erase_stroke', id:el.id });
-    setTimeout(() => wsSend({ type:'stroke', data:el }), 40);
-  });
+  /* Sync via stroke_update (upsert — no data loss if WS is slow) */
+  [la, lb].forEach(el => wsSend({ type:'stroke_update', data:{...el} }));
 }
 
 /* Dissolve CS link between two lines */
 function dissolveCS(la, lb) {
   addToUndo();
-  delete la.csPartner; delete la.csScale; delete la.csTickStep; delete la.csGraphs;
-  delete lb.csPartner; delete lb.csScale; delete lb.csTickStep;
-  [la, lb].forEach(el => {
-    wsSend({ type:'erase_stroke', id:el.id });
-    setTimeout(() => wsSend({ type:'stroke', data:el }), 40);
-  });
+  /* Nullify rather than delete so stroke_update can propagate the cleared state */
+  la.csPartner=null; la.csScale=null; la.csTickStep=null; la.csGraphs=null;
+  lb.csPartner=null; lb.csScale=null; lb.csTickStep=null;
+  [la, lb].forEach(el => wsSend({ type:'stroke_update', data:{...el} }));
 }
 
 /* Safe math expression evaluator: supports x,y, ^, sqrt, sin, cos, tan, abs, exp, ln, log, pi, e */
@@ -1168,7 +1592,9 @@ function csParallelogramAt(wx, wy) {
 function updateCSPanels(la, lb) {
   const panel = document.getElementById('csSetPanel');
 
-  if (!la || !lb) { panel.classList.remove('open'); csPanelLaId = null; csPanelLbId = null; return; }
+  if (!la || !lb) { panel.classList.remove('open'); csPanelLaId = null; csPanelLbId = null; updateMobTabs(); return; }
+  /* Auto-switch to CS tab on mobile so formula input is immediately visible */
+  if (window.innerWidth <= 600) { _mobTab = 'cs'; _mobCollapsed = false; }
 
   /* Store IDs for persistence so panel can be restored after WS round-trips */
   csPanelLaId = la.id; csPanelLbId = lb.id;
@@ -1182,17 +1608,30 @@ function updateCSPanels(la, lb) {
   const inView = O && csIntersectionInView(O);
   const GRAPH_COLORS = ['#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#22c55e'];
 
-  /* ── Position below selBar ── */
+  /* ── Position: desktop only (mobile handled by updateMobTabs) ── */
   const positionPanel = () => {
+    if (window.innerWidth <= 600) { updateMobTabs(); return; }
     const sbr = document.getElementById('selBar').getBoundingClientRect();
-    panel.style.top  = (sbr.bottom + 6) + 'px';
-    panel.style.left = Math.max(340, sbr.left) + 'px';
+    const left = Math.min(Math.max(sbr.left, 60), window.innerWidth - 330);
+    panel.style.top    = (sbr.bottom > 60 ? sbr.bottom + 6 : 60) + 'px';
+    panel.style.left   = left + 'px';
+    panel.style.right  = 'auto'; panel.style.bottom = 'auto';
   };
   requestAnimationFrame(positionPanel);
 
   /* ─── Build content ─── */
   panel.innerHTML = '';
   panel.classList.add('open');
+
+  /* ── Drag handle + close button ── */
+  const _ph = document.createElement('div'); _ph.className = 'panel-handle';
+  const _pg = document.createElement('div'); _pg.className = 'panel-grip';
+  const _pc = document.createElement('button'); _pc.className = 'panel-close';
+  _pc.title = 'Закрыть'; _pc.textContent = '×';
+  _pc.onclick = () => updateCSPanels(null, null);
+  _ph.appendChild(_pg); _ph.appendChild(_pc);
+  panel.appendChild(_ph);
+  initPanelDrag(_ph, panel, () => updateCSPanels(null, null));
 
   const colorA = la.color || '#22c55e', colorB = lb.color || '#10b981';
 
@@ -1299,6 +1738,54 @@ function updateCSPanels(la, lb) {
     tickRow.append(tickLabel, tickInp, tickUnit);
     block.appendChild(tickRow);
 
+    /* ── Viewport center row (смещение начала координат) ── */
+    const offKey = idx === 0 ? 'csOriginA' : 'csOriginB';
+    const offRow = document.createElement('div'); offRow.className = 'cs-row';
+    const offInp = document.createElement('input');
+    offInp.type='number'; offInp.step='any';
+    offInp.style.cssText='width:58px;padding:3px 5px;border-radius:6px;border:1px solid var(--sep);background:var(--input);color:var(--fg);font-size:.82em;transition:border-color .15s;text-align:center';
+    offInp.onfocus = () => offInp.style.borderColor='var(--accent)';
+    offInp.onblur  = () => offInp.style.borderColor='var(--sep)';
+    const curOff = getLa()[offKey] || 0;
+    offInp.value = parseFloat(curOff.toPrecision(6));
+    offInp.title = 'Значение оси в точке пересечения (сдвиг области просмотра)';
+    const applyOff = (val) => {
+      if (!isNaN(val)) {
+        const liveEl = getLa();
+        liveEl[offKey] = val;
+        redraw();
+        wsSend({ type:'erase_stroke', id:liveEl.id });
+        setTimeout(() => wsSend({ type:'stroke', data:liveEl }), 40);
+      }
+    };
+    offInp.oninput  = () => { const v = parseFloat(offInp.value); if (!isNaN(v)) { getLa()[offKey] = v; redraw(); } };
+    offInp.onchange = () => applyOff(parseFloat(offInp.value));
+    const mkOffBtn = (dir) => {
+      const btn = document.createElement('button');
+      btn.className = 'cs-btn'; btn.textContent = dir > 0 ? '→' : '←';
+      btn.title = dir > 0 ? 'Сдвинуть вперёд на шаг' : 'Сдвинуть назад на шаг';
+      btn.style.cssText = 'padding:1px 6px;font-size:.88em;min-width:24px';
+      btn.onclick = () => {
+        const step = (axEl.csTickStep || 1);
+        const nv = (getLa()[offKey] || 0) + dir * step;
+        getLa()[offKey] = nv;
+        offInp.value = parseFloat(nv.toPrecision(6));
+        redraw();
+        wsSend({ type:'erase_stroke', id:getLa().id });
+        setTimeout(() => wsSend({ type:'stroke', data:getLa() }), 40);
+      };
+      return btn;
+    };
+    const offBtnReset = document.createElement('button');
+    offBtnReset.className = 'cs-btn'; offBtnReset.textContent = '0';
+    offBtnReset.title = 'Сбросить смещение'; offBtnReset.style.cssText = 'padding:1px 5px;font-size:.82em;min-width:22px';
+    offBtnReset.onclick = () => { getLa()[offKey] = 0; offInp.value = '0'; redraw();
+      wsSend({ type:'erase_stroke', id:getLa().id }); setTimeout(() => wsSend({ type:'stroke', data:getLa() }), 40); };
+    const offLabel = document.createElement('label'); offLabel.textContent = 'Центр';
+    const offUnit  = document.createElement('span');  offUnit.className='cs-unit'; offUnit.textContent='ед';
+    offRow.append(offLabel, mkOffBtn(-1), offInp, mkOffBtn(1), offBtnReset, offUnit);
+    block.appendChild(offRow);
+
     panel.appendChild(block);
   });
 
@@ -1346,7 +1833,7 @@ function updateCSPanels(la, lb) {
     const gIdx = i; // capture index for live-lookup
     const liveG = () => { const _la=getLa(); return (_la.csGraphs && _la.csGraphs[gIdx]) || g; };
     cpk.oninput=()=>{ const lg=liveG(); lg.color=g.color=cpk.value; dot.style.background=lg.color; redraw(); };
-    cpk.onchange=()=>{ const _la=getLa(); wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40); };
+    cpk.onchange=()=>{ const _la=getLa(); wsSend({type:'stroke_update',data:{..._la}}); };
 
     const eq=document.createElement('span'); eq.className='csg-eq';
     eq.textContent=g.eq; eq.title='Нажмите для редактирования';
@@ -1357,15 +1844,14 @@ function updateCSPanels(la, lb) {
         const lg=liveG(); const p=parseEqn(nw.trim());
         lg.eq=g.eq=nw.trim(); if(p){ lg.mode=g.mode=p.mode; }
         const _la=getLa(),_lb=getLb();
-        redraw(); wsSend({type:'erase_stroke',id:_la.id});
-        setTimeout(()=>wsSend({type:'stroke',data:_la}),40); updateCSPanels(_la,_lb); }
+        redraw(); wsSend({type:'stroke_update',data:{..._la}}); updateCSPanels(_la,_lb); }
     };
 
     const rm=document.createElement('button'); rm.className='csg-rm'; rm.textContent='×'; rm.title='Удалить';
     rm.onclick=()=>{
       const _la=getLa(),_lb=getLb();
       if (_la.csGraphs) _la.csGraphs.splice(gIdx,1); redraw();
-      wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+      wsSend({type:'stroke_update',data:{..._la}});
       updateCSPanels(_la,_lb); };
 
     item.append(dot,cpk,eq,rm); panel.appendChild(item);
@@ -1382,7 +1868,7 @@ function updateCSPanels(la, lb) {
       btn.onclick=()=>{
         g.dash=val; redraw();
         const _la=getLa(),_lb=getLb();
-        wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+        wsSend({type:'stroke_update',data:{..._la}});
         updateCSPanels(_la,_lb); };
       ctrl.appendChild(btn);
     });
@@ -1396,7 +1882,7 @@ function updateCSPanels(la, lb) {
       btn.onclick=()=>{
         g.width=val; redraw();
         const _la=getLa(),_lb=getLb();
-        wsSend({type:'erase_stroke',id:_la.id}); setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+        wsSend({type:'stroke_update',data:{..._la}});
         updateCSPanels(_la,_lb); };
       ctrl.appendChild(btn);
     });
@@ -1434,8 +1920,7 @@ function updateCSPanels(la, lb) {
     const _la=getLa(), _lb=getLb();
     if(!_la.csGraphs) _la.csGraphs=[];
     _la.csGraphs.push({eq:raw,mode:parsed.mode,color:nextColor,dash:'solid',width:2});
-    redraw(); wsSend({type:'erase_stroke',id:_la.id});
-    setTimeout(()=>wsSend({type:'stroke',data:_la}),40);
+    redraw(); wsSend({type:'stroke_update',data:{..._la}});
     eqInp.value=''; updateCSPanels(_la,_lb); };
   eqInp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addBtn.click();}});
 
@@ -1451,13 +1936,25 @@ function updateSelBar() {
   const bar = document.getElementById('selBar');
   bar.innerHTML = '';
   updateCSPanels(null, null);   // reset CS panels; will re-open below if 2 CS lines selected
-  if (!selected.size || tool !== 'select') { bar.classList.remove('open'); return; }
+  if (!selected.size || tool !== 'select') { bar.classList.remove('open'); updateMobTabs(); return; }
 
   const selEls  = all.filter(e => selected.has(e.id));
   const editable = selEls.filter(e => e.type === 'stroke' || e.type === 'shape');
-  if (!selEls.length) { bar.classList.remove('open'); return; }
+  if (!selEls.length) { bar.classList.remove('open'); updateMobTabs(); return; }
 
   bar.classList.add('open');
+
+  /* ── Drag handle + close button ── */
+  const handle = document.createElement('div');
+  handle.id = 'selBarHandle';
+  handle.style.position = 'relative';
+  const grip = document.createElement('div'); grip.id = 'selBarGrip';
+  const closeBtn = document.createElement('button'); closeBtn.id = 'selBarClose';
+  closeBtn.title = 'Закрыть'; closeBtn.textContent = '×';
+  closeBtn.onclick = () => clearSel();
+  handle.appendChild(grip); handle.appendChild(closeBtn);
+  bar.appendChild(handle);
+  initSelBarDrag(handle, bar);
 
   /* ── Header: count + list toggle ── */
   const hRow = document.createElement('div');
@@ -1474,6 +1971,70 @@ function updateSelBar() {
   listToggle.onclick = () => { selListOpen = !selListOpen; updateSelBar(); };
   hRow.appendChild(listToggle);
   bar.appendChild(hRow);
+
+  /* ── Text element controls ── */
+  const textEls = selEls.filter(e => e.type === 'text');
+  if (textEls.length) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'width:1px;align-self:stretch;background:var(--sep);margin:0 2px';
+    bar.appendChild(sep);
+
+    /* Color */
+    bar.appendChild(mkColorRow(textEls[0].color || getColors()[0], c => {
+      addToUndo();
+      textEls.forEach(el => el.color = c);
+      redraw();
+      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+    }));
+
+    /* Font size */
+    const fsRow = document.createElement('div'); fsRow.className = 'sp-row';
+    fsRow.innerHTML = `<label style="min-width:0">Размер</label>
+      <input type="number" id="sbTFs" min="8" max="200" value="${textEls[0].fontSize||18}" style="width:54px">`;
+    let fsUndo = false;
+    fsRow.querySelector('#sbTFs').addEventListener('focus', () => { addToUndo(); fsUndo = true; });
+    fsRow.querySelector('#sbTFs').oninput = e => {
+      const v = +e.target.value || 18;
+      textEls.forEach(el => el.fontSize = v); redraw();
+    };
+    fsRow.querySelector('#sbTFs').onchange = () => {
+      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+    };
+    bar.appendChild(fsRow);
+
+    /* Font family */
+    const fv = textEls[0].font || 'system-ui,sans-serif';
+    const fontRow = document.createElement('div'); fontRow.className = 'sp-row';
+    fontRow.innerHTML = `<label style="min-width:0">Шрифт</label>
+      <select id="sbTFont" style="flex:1;min-width:80px;max-width:110px;background:var(--input);color:var(--fg);border:1px solid var(--sep);border-radius:5px;padding:2px 4px;font-size:.78em">
+        ${TEXT_FONTS.map(([v,l]) => `<option value="${v}"${v===fv?' selected':''}>${l}</option>`).join('')}
+      </select>`;
+    fontRow.querySelector('#sbTFont').onchange = e => {
+      addToUndo();
+      textEls.forEach(el => el.font = e.target.value); redraw();
+      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+    };
+    bar.appendChild(fontRow);
+
+    /* B / I / U */
+    const styRow = document.createElement('div'); styRow.className = 'sp-row';
+    styRow.innerHTML = `<div class="tog-row">
+      <button class="tog${textEls[0].bold?' act':''}" id="sbTB"><b>B</b></button>
+      <button class="tog${textEls[0].italic?' act':''}" id="sbTI"><i>I</i></button>
+      <button class="tog${textEls[0].underline?' act':''}" id="sbTU"><u>U</u></button>
+    </div>`;
+    const togTxt = (prop, btn) => {
+      addToUndo();
+      const nv = !textEls[0][prop];
+      textEls.forEach(el => el[prop] = nv);
+      btn.classList.toggle('act', nv); redraw();
+      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+    };
+    styRow.querySelector('#sbTB').onclick = e => togTxt('bold',      e.currentTarget);
+    styRow.querySelector('#sbTI').onclick = e => togTxt('italic',    e.currentTarget);
+    styRow.querySelector('#sbTU').onclick = e => togTxt('underline', e.currentTarget);
+    bar.appendChild(styRow);
+  }
 
   if (editable.length) {
     /* Color row */
@@ -1536,6 +2097,49 @@ function updateSelBar() {
       arRow.querySelector('#sbArS').onclick = () => setArrow('start');
       arRow.querySelector('#sbArB').onclick = () => setArrow('both');
       bar.appendChild(arRow);
+    }
+
+    /* Fill — for closed shapes (triangle, parallelogram, ellipse) */
+    const fillEls = selEls.filter(e => e.type==='shape' && e.shape!=='line');
+    if (fillEls.length) {
+      const hasFill = !!fillEls[0].fill;
+      const fillRow = document.createElement('div'); fillRow.className = 'sp-row';
+      fillRow.innerHTML = `<label style="min-width:0">Заливка</label>
+        <div class="tog-row">
+          <button class="tog${!hasFill?' act':''}" id="sbFillNo">нет</button>
+          <button class="tog${hasFill?' act':''}"  id="sbFillYes">цвет</button>
+        </div>`;
+      const setFill = (v) => {
+        addToUndo();
+        fillEls.forEach(el => { el.fill = v || null; });
+        redraw();
+        fillEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+        updateSelBar();
+      };
+      fillRow.querySelector('#sbFillNo').onclick  = () => setFill(null);
+      fillRow.querySelector('#sbFillYes').onclick = () => setFill(fillEls[0].fill || fillEls[0].color || '#3fb950');
+      bar.appendChild(fillRow);
+      if (hasFill) {
+        bar.appendChild(mkColorRow(fillEls[0].fill, c => {
+          addToUndo();
+          fillEls.forEach(el => el.fill = c); redraw();
+          fillEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+        }));
+        const foRow = document.createElement('div'); foRow.className = 'sp-row';
+        const foV = Math.round((fillEls[0].fillOpacity??0.35)*100);
+        foRow.innerHTML = `<label style="min-width:0">Прозрач. <span id="sbFOV" style="font-size:.8em;opacity:.65">${foV}%</span></label>
+          <input type="range" id="sbFO" min="5" max="100" value="${foV}" style="width:90px">`;
+        foRow.querySelector('#sbFO').addEventListener('mousedown', () => addToUndo());
+        foRow.querySelector('#sbFO').oninput = e => {
+          const v = +e.target.value / 100;
+          document.getElementById('sbFOV').textContent = e.target.value + '%';
+          fillEls.forEach(el => el.fillOpacity = v); redraw();
+        };
+        foRow.querySelector('#sbFO').onchange = () => {
+          fillEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+        };
+        bar.appendChild(foRow);
+      }
     }
 
     /* Two-line positioning — shows when exactly 2 lines are selected */
@@ -1651,12 +2255,38 @@ function updateSelBar() {
     }
   }
 
+  /* Aspect ratio lock — shown when at least one image is selected */
+  const imgEls = selEls.filter(e => e.type === 'image');
+  if (imgEls.length) {
+    const sep2 = document.createElement('div');
+    sep2.style.cssText = 'width:1px;align-self:stretch;background:var(--sep);margin:0 2px';
+    bar.appendChild(sep2);
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'tog' + (imgLockAspect ? ' act' : '');
+    lockBtn.title = 'Заблокировать пропорции при масштабировании';
+    lockBtn.textContent = imgLockAspect ? '⛓' : '⛓';
+    lockBtn.style.cssText = 'min-width:30px;padding:0 6px';
+    lockBtn.onclick = () => { imgLockAspect = !imgLockAspect; updateSelBar(); };
+    bar.appendChild(lockBtn);
+    const lockLbl = document.createElement('span');
+    lockLbl.style.cssText = 'font-size:.75em;opacity:.6;white-space:nowrap';
+    lockLbl.textContent = imgLockAspect ? '1:1' : '1:1?';
+    bar.appendChild(lockLbl);
+  }
+
   /* Delete button */
   const del = document.createElement('button');
   del.className = 'tog'; del.textContent = '🗑 Удалить';
   del.onclick = () => {
     addToUndo();
-    for (const id of selected) { all = all.filter(el => el.id !== id); wsSend({ type: 'erase_stroke', id }); }
+    for (const id of selected) {
+      const _el = all.find(e => e.id === id);
+      if (_el && _el.csPartner && !selected.has(_el.csPartner)) {
+        const _p = all.find(e => e.id === _el.csPartner);
+        if (_p) { _p.csPartner=null; _p.csScale=null; _p.csTickStep=null; wsSend({type:'stroke_update',data:{..._p}}); }
+      }
+      all = all.filter(el => el.id !== id); wsSend({ type: 'erase_stroke', id });
+    }
     clearSel(); redraw();
   };
   bar.appendChild(del);
@@ -1669,7 +2299,10 @@ function updateSelBar() {
     if (el.type === 'image')    return '🖼';
     if (el.type === 'richtext') return '📄';
     if (el.type === 'text')     return 'T';
-    if (el.type === 'shape')    return el.shape === 'line' ? '╱' : el.shape === 'rect' ? '▭' : '⬭';
+    if (el.type === 'shape') {
+      const ic = { line:'╱', triangle:'△', parallelogram:'▱', ellipse:'⬭' };
+      return ic[el.shape] || '◻';
+    }
     return '?';
   };
   selEls.forEach(el => {
@@ -1691,6 +2324,7 @@ function updateSelBar() {
     listDiv.appendChild(row);
   });
   bar.appendChild(listDiv);
+  requestAnimationFrame(updateMobTabs);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1728,12 +2362,56 @@ function drawStroke(s) {
   ctx.stroke(); ctx.restore();
 }
 
+function hexFill(hex, a) {
+  if (!hex) return null;
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a??0.35})`;
+}
+
+/* Rounded-rect path helper */
+function rrPath(x, y, w, h, r) {
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath();
+}
+
+/* drawCode: lightweight canvas placeholder (real widget is a DOM overlay via codeOverlayMap).
+   Only visible during initial drag-to-place (before overlay is created). */
+function drawCode(el) {
+  if (codeOverlayMap.has(el.id)) return; // overlay handles rendering
+  const sp = ts(el.x, el.y);
+  const sw = (el.w || 400) * vz, sh = (el.h || 260) * vz;
+  ctx.save();
+  ctx.fillStyle = '#0d1117';
+  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(sp.x, sp.y, sw, sh, 8 * vz); ctx.fill(); ctx.stroke();
+  const hh = Math.min(30, sh);
+  ctx.fillStyle = '#161b22';
+  ctx.fillRect(sp.x + 1, sp.y + 1, sw - 2, hh - 1);
+  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(sp.x, sp.y + hh); ctx.lineTo(sp.x + sw, sp.y + hh); ctx.stroke();
+  ctx.fillStyle = '#e6edf3';
+  ctx.font = `600 ${Math.max(8, Math.round(10 * vz))}px system-ui`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('🐍 Python', sp.x + 8 * vz, sp.y + hh / 2);
+  ctx.restore();
+}
+
 function drawShape(s) {
   const s1 = ts(s.x1, s.y1), s2 = ts(s.x2, s.y2);
   ctx.save();
   if (s.rotation) {
     const bb = elemBBox(s);
-    if (bb) { const c=ts(bb.x+bb.w/2,bb.y+bb.h/2); ctx.translate(c.x,c.y); ctx.rotate(s.rotation); ctx.translate(-c.x,-c.y); }
+    if (bb) {
+      const rx = s.ro ? s.ro.x : bb.x+bb.w/2, ry = s.ro ? s.ro.y : bb.y+bb.h/2;
+      const c = ts(rx, ry);
+      ctx.translate(c.x,c.y); ctx.rotate(s.rotation); ctx.translate(-c.x,-c.y);
+    }
   }
   ctx.strokeStyle = s.color || '#22c55e'; ctx.lineWidth = (s.size || 2) * vz; ctx.lineCap = 'round';
   if (s.dash) ctx.setLineDash([(s.size||2) * 5 * vz, (s.size||2) * 3 * vz]);
@@ -1758,11 +2436,29 @@ function drawShape(s) {
       if (s.arrow === 'start' || s.arrow === 'both') ah(s1.x, s1.y, s2.x, s2.y);
     }
   }
-  else if (s.shape === 'rect')    { ctx.strokeRect(s1.x, s1.y, s2.x - s1.x, s2.y - s1.y); }
   else if (s.shape === 'ellipse') {
     const cx = (s1.x+s2.x)/2, cy = (s1.y+s2.y)/2;
     const rx = Math.abs(s2.x-s1.x)/2, ry = Math.abs(s2.y-s1.y)/2;
-    ctx.ellipse(cx, cy, Math.max(rx,1), Math.max(ry,1), 0, 0, Math.PI*2); ctx.stroke();
+    ctx.ellipse(cx, cy, Math.max(rx,1), Math.max(ry,1), 0, 0, Math.PI*2);
+    if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
+    ctx.stroke();
+  }
+  else if (s.shape === 'triangle') {
+    const p1 = ts(s.x1, s.y1), p2 = ts(s.x2, s.y2), p3 = ts(s.x3, s.y3);
+    ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
+    ctx.closePath();
+    if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
+    ctx.stroke();
+  }
+  else if (s.shape === 'parallelogram') {
+    /* A=(x1,y1) B=(x2,y2) C=(x3,y3) D=A+C-B. Migrate old ox-format on the fly. */
+    if (s.x3 === undefined) { s.x3=s.x2+(s.ox||0); s.y3=s.y1; const ty=s.y2; s.y1=ty; s.y2=ty; delete s.ox; }
+    const A=ts(s.x1,s.y1), B=ts(s.x2,s.y2), C=ts(s.x3,s.y3);
+    const D=ts(s.x1+s.x3-s.x2, s.y1+s.y3-s.y2);
+    ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.lineTo(C.x,C.y);
+    ctx.lineTo(D.x,D.y); ctx.closePath();
+    if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -1798,7 +2494,7 @@ function drawText(t) {
   const fs = (t.fontSize || 18) * vz;
   ctx.save();
   if (t.rotation) { const cx=sp.x+sw/2,cy=sp.y+sh/2; ctx.translate(cx,cy); ctx.rotate(t.rotation); ctx.translate(-cx,-cy); }
-  ctx.font = `${t.italic?'italic ':''}${t.bold?'bold ':''}${fs}px system-ui,sans-serif`;
+  ctx.font = `${t.italic?'italic ':''}${t.bold?'bold ':''}${fs}px ${t.font||'system-ui,sans-serif'}`;
   ctx.fillStyle = t.color || '#e2e8f0';
   /* Clip to text box */
   ctx.beginPath(); ctx.rect(sp.x, sp.y, sw, sh); ctx.clip();
@@ -1851,6 +2547,36 @@ function drawSelHighlight(el) {
       ctx.strokeStyle = lkPm ? '#fff' : '#22c55e'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.rect(-5,-5,10,10); ctx.fill(); ctx.stroke();
       ctx.restore();
+    } else if (el.type === 'shape' && el.shape === 'triangle') {
+      /* Vertex handles — circles, color-coded by snap type */
+      const snapColors = { equil:'#facc15', iso:'#60a5fa', right:'#f87171' };
+      for (const [vx,vy,hname] of [[el.x1,el.y1,'tv1'],[el.x2,el.y2,'tv2'],[el.x3,el.y3,'tv3']]) {
+        const hsp = ts(vx, vy);
+        const snap = vertexSnapState.get(`${el.id}_${hname}`);
+        ctx.fillStyle = snap ? snapColors[snap] : '#fff';
+        ctx.strokeStyle = snap ? '#fff' : '#22c55e'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(hsp.x, hsp.y, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      }
+    } else if (el.type === 'shape' && el.shape === 'parallelogram') {
+      /* Edge-midpoint handles — diamonds */
+      const dx=el.x3-el.x2, dy=el.y3-el.y2;
+      const Dx=el.x1+dx, Dy=el.y1+dy;
+      const midPts = [
+        ts((el.x1+el.x2)/2,   (el.y1+el.y2)/2),   // p_ab
+        ts((el.x2+el.x3)/2,   (el.y2+el.y3)/2),   // p_bc
+        ts((el.x3+Dx)/2,       (el.y3+Dy)/2),       // p_cd
+        ts((Dx+el.x1)/2,       (Dy+el.y1)/2),       // p_da
+      ];
+      const _AB={x:el.x2-el.x1,y:el.y2-el.y1}, _BC={x:el.x3-el.x2,y:el.y3-el.y2};
+      const _la2=_AB.x*_AB.x+_AB.y*_AB.y, _lb2=_BC.x*_BC.x+_BC.y*_BC.y;
+      const isRect = paraSnapRect || (_la2>0&&_lb2>0&&Math.abs(_AB.x*_BC.x+_AB.y*_BC.y)/Math.sqrt(_la2*_lb2)<0.05);
+      ctx.fillStyle = isRect ? '#facc15' : '#fff';
+      ctx.strokeStyle = isRect ? '#fff' : '#22c55e'; ctx.lineWidth = 1.5;
+      for (const hsp of midPts) {
+        ctx.save(); ctx.translate(hsp.x, hsp.y); ctx.rotate(Math.PI/4);
+        ctx.beginPath(); ctx.rect(-5,-5,10,10); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
     } else {
       for (const pos of Object.values(getHandles(bb))) {
         const hsp = ts(pos.x, pos.y);
@@ -1858,8 +2584,8 @@ function drawSelHighlight(el) {
         ctx.beginPath(); ctx.rect(hsp.x-5, hsp.y-5, 10, 10); ctx.fill(); ctx.stroke();
       }
     }
-    /* rotation handle — only for single selection */
-    if (!csPairSel) {
+    /* rotation handle — only for single selection (not for code widgets) */
+    if (!csPairSel && el.type !== 'code') {
       const rhx = sp.x - 5 + (bb.w * vz + 10) / 2;
       const rhy = sp.y - 5 - 26;
       ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1; ctx.setLineDash([3,2]);
@@ -1913,7 +2639,8 @@ function readableColor(c) {
 
 /* Draw tick marks and numeric labels on one CS axis line.
    csTickStep: CS units per tick (default 1); csScale: world px per CS unit. */
-function drawCSTicks(el, origin, color) {
+function drawCSTicks(el, origin, color, offset) {
+  const offV   = offset || 0;
   const scale  = el.csScale    || 50;  // world px per CS unit
   const tStep  = el.csTickStep != null ? el.csTickStep : 1;  // CS units per tick
   const tickPx = scale * tStep;        // world px per tick
@@ -1936,10 +2663,11 @@ function drawCSTicks(el, origin, color) {
   ctx.fillStyle   = color;
 
   for (let k = -nNeg; k <= nPos; k++) {
-    if (k === 0) continue;
-    const csVal = k * tStep;                          // actual CS value at this tick
-    const wx = origin.x + csVal * scale * dir.x;
-    const wy = origin.y + csVal * scale * dir.y;
+    if (k === 0 && Math.abs(offV) < 1e-9) continue;   // hide tick at physical O only when no offset
+    const worldVal = k * tStep;                         // physical distance from O (world CS)
+    const csVal    = offV + worldVal;                   // displayed mathematical label
+    const wx = origin.x + worldVal * scale * dir.x;    // world position (physical tick)
+    const wy = origin.y + worldVal * scale * dir.y;
     const sp  = ts(wx, wy);
     const tp1 = ts(wx + px*tickLen, wy + py*tickLen);
     const tp2 = ts(wx - px*tickLen, wy - py*tickLen);
@@ -2013,7 +2741,8 @@ function marchingSquares(fn, ra, rb, toWorld, GRID) {
 }
 
 /* Plot one graph equation in CS space, clipped to the parallelogram */
-function drawCSGraph(O, uA, uB, scaleA, scaleB, graph) {
+function drawCSGraph(O, uA, uB, scaleA, scaleB, graph, offA, offB) {
+  const ao = offA || 0, bo = offB || 0;
   const parsed = parseEqn(graph.eq);
   if (!parsed) return;
   const color = graph.color || '#ef4444';
@@ -2026,12 +2755,14 @@ function drawCSGraph(O, uA, uB, scaleA, scaleB, graph) {
   const rangeB = lenB / scaleB;
   const nA = { x:uA.x/lenA, y:uA.y/lenA };
   const nB = { x:uB.x/lenB, y:uB.y/lenB };
+  /* toWorld maps DISPLAY coordinates (a_disp, b_disp) → world.
+     Display origin is at physical O; disp(a) = math(a) - ao */
   const toWorld = (a, b) => ({
     x: O.x + a*scaleA*nA.x + b*scaleB*nB.x,
     y: O.y + a*scaleA*nA.y + b*scaleB*nB.y
   });
 
-  /* clip region: full 4-quadrant parallelogram */
+  /* clip region: full 4-quadrant parallelogram (always physical O) */
   ctx.save();
   const negA={x:-uA.x,y:-uA.y}, negB={x:-uB.x,y:-uB.y};
   const c1=ts(O.x+uA.x+uB.x,  O.y+uA.y+uB.y);
@@ -2054,22 +2785,29 @@ function drawCSGraph(O, uA, uB, scaleA, scaleB, graph) {
   const { mode } = parsed;
 
   if (mode==='implicit') {
-    /* ── marching squares for F(x,y)=G(x,y) ── */
-    const fn = (a, b) => mathEval(parsed.lhs, a, b) - mathEval(parsed.rhs, a, b);
+    /* ── marching squares: evaluate F(a+ao, b+bo) - G(a+ao, b+bo) = 0 ── */
+    const fn = (a, b) => mathEval(parsed.lhs, a+ao, b+bo) - mathEval(parsed.rhs, a+ao, b+bo);
     const GRID = Math.min(120, Math.max(60, Math.round(Math.max(rangeA,rangeB)*4)));
     marchingSquares(fn, rangeA, rangeB, toWorld, GRID);
   } else {
-    /* ── parametric plot for y=f(x) or x=f(y) ── */
+    /* ── parametric plot: sweep display coords, evaluate at shifted CS values ── */
     const STEPS = 600;
     const independent = (mode==='yfx') ? rangeA : rangeB;
     const step = 2*independent/STEPS;
     let penDown = false;
     ctx.beginPath();
     for (let i = 0; i <= STEPS; i++) {
-      const v = -independent + i*step;
+      const v = -independent + i*step;   // display coord in [-range, +range]
       let a, b;
-      if (mode==='yfx') { a=v; b=mathEval(parsed.rhs,a,0); }
-      else               { b=v; a=mathEval(parsed.rhs,0,b); }
+      if (mode==='yfx') {
+        a = v;
+        const x_cs = a + ao;              // mathematical x
+        b = mathEval(parsed.rhs, x_cs, 0) - bo; // display b = f(x_cs) - bo
+      } else {
+        b = v;
+        const y_cs = b + bo;              // mathematical y
+        a = mathEval(parsed.rhs, 0, y_cs) - ao; // display a = g(y_cs) - ao
+      }
       if (!isFinite(a)||!isFinite(b)||Math.abs(b)>rangeB*50||Math.abs(a)>rangeA*50) {
         penDown=false; continue;
       }
@@ -2103,6 +2841,8 @@ function drawAllCS() {
     const colorB = readableColor(lb.color || '#10b981');
     const scaleA = la.csScale || 50;
     const scaleB = lb.csScale || 50;
+    const offA   = la.csOriginA || 0;   // CS value at physical O along axis A
+    const offB   = la.csOriginB || 0;   // CS value at physical O along axis B
 
     const dirA = csPositiveDir(la), dirB = csPositiveDir(lb);
 
@@ -2130,17 +2870,35 @@ function drawAllCS() {
     ctx.setLineDash([]);
     ctx.restore();
 
-    /* ── Origin dot ── */
-    const Os = ts(O.x, O.y);
-    ctx.save();
-    ctx.beginPath(); ctx.arc(Os.x, Os.y, Math.max(3, 4*vz), 0, Math.PI*2);
-    ctx.fillStyle = '#22c55e'; ctx.fill();
-    ctx.strokeStyle = dark?'#060e07':'#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.restore();
+    /* ── Origin dot (clamped to parallelogram boundary when offset) ── */
+    {
+      const halfA_cs = Math.hypot(uApos.x, uApos.y) / scaleA;
+      const halfB_cs = Math.hypot(uBpos.x, uBpos.y) / scaleB;
+      /* mathematical origin sits at display coords (-offA, -offB) */
+      const dot_a = Math.max(-halfA_cs, Math.min(halfA_cs, -offA));
+      const dot_b = Math.max(-halfB_cs, Math.min(halfB_cs, -offB));
+      const clamped = dot_a !== -offA || dot_b !== -offB;
+      const O_dot = {
+        x: O.x + dot_a * scaleA * dirA.x + dot_b * scaleB * dirB.x,
+        y: O.y + dot_a * scaleA * dirA.y + dot_b * scaleB * dirB.y
+      };
+      const Ods = ts(O_dot.x, O_dot.y);
+      ctx.save();
+      ctx.beginPath(); ctx.arc(Ods.x, Ods.y, Math.max(3, 4*vz), 0, Math.PI*2);
+      ctx.fillStyle = clamped ? '#f59e0b' : '#22c55e'; ctx.fill();
+      ctx.strokeStyle = dark?'#060e07':'#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      /* small arrow hint when clamped off-screen */
+      if (clamped) {
+        ctx.font = `${Math.max(9, Math.round(11*vz))}px system-ui`;
+        ctx.fillStyle = '#f59e0b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('0', Ods.x, Ods.y);
+      }
+      ctx.restore();
+    }
 
     /* ── Tick marks ── */
-    drawCSTicks(la, O, colorA);
-    drawCSTicks(lb, O, colorB);
+    drawCSTicks(la, O, colorA, offA);
+    drawCSTicks(lb, O, colorB, offB);
 
     /* ── Endpoint drag handles (small diamonds, always shown when not selected) ── */
     const _csPairSel = selected.size === 2 && selected.has(la.id) && selected.has(lb.id);
@@ -2168,7 +2926,7 @@ function drawAllCS() {
                          lb.arrow && lb.arrow !== 'none';
     if (hasDirection && csIntersectionInView(O) && la.csGraphs) {
       for (const graph of la.csGraphs) {
-        drawCSGraph(O, uApos, uBpos, scaleA, scaleB, graph);
+        drawCSGraph(O, uApos, uBpos, scaleA, scaleB, graph, offA, offB);
       }
     }
   }
@@ -2189,6 +2947,7 @@ function graphToStroke(la, lb, graph) {
     y: O.y + a*scaleA*nA.y + b*scaleB*nB.y
   });
   const rangeA = lenA/scaleA, rangeB = lenB/scaleB;
+  const ao = la.csOriginA || 0, bo = la.csOriginB || 0;
   const parsed = parseEqn(graph.eq);
   if (!parsed) return;
   const segments = [];
@@ -2199,8 +2958,11 @@ function graphToStroke(la, lb, graph) {
     let seg=[];
     for (let i=0;i<=STEPS;i++) {
       const v=-independent+i*step; let a,b;
-      if (parsed.mode==='yfx'){a=v;b=mathEval(parsed.rhs,a,0);}
-      else{b=v;a=mathEval(parsed.rhs,0,b);}
+      if (parsed.mode==='yfx'){
+        a=v; const x_cs=a+ao; b=mathEval(parsed.rhs,x_cs,0)-bo;
+      } else {
+        b=v; const y_cs=b+bo; a=mathEval(parsed.rhs,0,y_cs)-ao;
+      }
       if(!isFinite(a)||!isFinite(b)||Math.abs(b)>rangeB*50||Math.abs(a)>rangeA*50){
         if(seg.length>1) segments.push(seg); seg=[]; continue;
       }
@@ -2209,7 +2971,7 @@ function graphToStroke(la, lb, graph) {
     if(seg.length>1) segments.push(seg);
   } else if (parsed.mode==='implicit') {
     /* Use marching squares to trace the implicit curve F(a,b)=G(a,b) → F-G=0 */
-    const fn = (a,b) => mathEval(parsed.lhs,a,b) - mathEval(parsed.rhs,a,b);
+    const fn = (a,b) => mathEval(parsed.lhs,a+ao,b+bo) - mathEval(parsed.rhs,a+ao,b+bo);
     const GRID = Math.min(100, Math.max(50, Math.round(Math.max(rangeA,rangeB)*3)));
     const da = 2*rangeA/GRID, db = 2*rangeB/GRID;
     const V = [];
@@ -2313,6 +3075,7 @@ function drawElem(el) {
   else if (el.type === 'shape')    drawShape(el);
   else if (el.type === 'text')     drawText(el);
   else if (el.type === 'image')    drawImage(el);
+  else if (el.type === 'code')     drawCode(el);
   /* richtext is rendered via DOM overlays in updateRichtextOverlays() */
 }
 
@@ -2338,10 +3101,12 @@ function redraw() {
       }
     }
   }
-  for (const id of selected) { const el = all.find(e => e.id === id); if (el) drawSelHighlight(el); }
+  for (const id of selected) { const el = all.find(e => e.id === id); if (el) { drawSelHighlight(el); if (resizing) drawSnapIndicator(el); } }
   drawSelBox();
   /* Sync rich-text DOM overlays with current view */
   updateRichtextOverlays();
+  /* Sync code widget DOM overlays */
+  updateCodeWidgets();
   /* Bug #5: Auto-restore CS panel if it closed unexpectedly (e.g. after WS round-trip) */
   const _csPanel = document.getElementById('csSetPanel');
   if (!_csPanel.classList.contains('open') && csPanelLaId && csPanelLbId && tool === 'select') {
@@ -2403,6 +3168,9 @@ function redraw() {
     }
     ctx.restore();
   }
+  /* ── zoom indicator ── */
+  const _zi = document.getElementById('zoomInd');
+  if (_zi) _zi.textContent = Math.round(vz * 100) + '%';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2423,12 +3191,24 @@ function elemBBox(el) {
     return { x:x0-r, y:y0-r, w:x1-x0+r*2, h:y1-y0+r*2 };
   }
   if (el.type === 'shape') {
+    if (el.shape === 'triangle') {
+      const xs = [el.x1,el.x2,el.x3], ys = [el.y1,el.y2,el.y3];
+      const x=Math.min(...xs), y=Math.min(...ys);
+      return { x, y, w:Math.max(...xs)-x, h:Math.max(...ys)-y };
+    }
+    if (el.shape === 'parallelogram') {
+      const dx=el.x3-el.x2, dy=el.y3-el.y2;
+      const xs=[el.x1,el.x2,el.x3,el.x1+dx], ys=[el.y1,el.y2,el.y3,el.y1+dy];
+      const x=Math.min(...xs), y=Math.min(...ys);
+      return {x, y, w:Math.max(...xs)-x, h:Math.max(...ys)-y};
+    }
     const x=Math.min(el.x1,el.x2), y=Math.min(el.y1,el.y2);
     return { x, y, w:Math.abs(el.x2-el.x1), h:Math.abs(el.y2-el.y1) };
   }
   if (el.type === 'text')     return { x:el.x, y:el.y, w:el.w||240, h:el.h||60 };
   if (el.type === 'image')    return { x:el.x, y:el.y, w:el.w||200, h:el.h||150 };
   if (el.type === 'richtext') return { x:el.x, y:el.y, w:el.w||300, h:el.h||150 };
+  if (el.type === 'code')     return { x:el.x, y:el.y, w:el.w||400, h:el.h||260 };
   return null;
 }
 
@@ -2446,7 +3226,8 @@ function localPoint(wx, wy, el) {
   const rot = el.rotation || 0;
   if (!rot) return { x: wx, y: wy };
   const bb = elemBBox(el); if (!bb) return { x: wx, y: wy };
-  const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+  const cx = el.ro ? el.ro.x : bb.x + bb.w / 2;
+  const cy = el.ro ? el.ro.y : bb.y + bb.h / 2;
   const dx = wx - cx, dy = wy - cy;
   const cos = Math.cos(-rot), sin = Math.sin(-rot);
   return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
@@ -2490,6 +3271,27 @@ function getResizeHandle(wx, wy) {
     if (Math.hypot(lp.x - mx, lp.y - my) < thr) return { el, handle: 'pm' };
     return null;
   }
+  /* Triangle: 3 vertex handles */
+  if (el.type === 'shape' && el.shape === 'triangle') {
+    if (Math.hypot(lp.x - el.x1, lp.y - el.y1) < thr) return { el, handle: 'tv1' };
+    if (Math.hypot(lp.x - el.x2, lp.y - el.y2) < thr) return { el, handle: 'tv2' };
+    if (Math.hypot(lp.x - el.x3, lp.y - el.y3) < thr) return { el, handle: 'tv3' };
+    return null;
+  }
+  /* Parallelogram: 4 edge-midpoint handles */
+  if (el.type === 'shape' && el.shape === 'parallelogram') {
+    const dx=el.x3-el.x2, dy=el.y3-el.y2;
+    const Dx=el.x1+dx, Dy=el.y1+dy;
+    const handles = {
+      p_ab: {x:(el.x1+el.x2)/2, y:(el.y1+el.y2)/2},
+      p_bc: {x:(el.x2+el.x3)/2, y:(el.y2+el.y3)/2},
+      p_cd: {x:(el.x3+Dx)/2,    y:(el.y3+Dy)/2},
+      p_da: {x:(Dx+el.x1)/2,    y:(Dy+el.y1)/2},
+    };
+    for (const [name, pos] of Object.entries(handles))
+      if (Math.hypot(lp.x - pos.x, lp.y - pos.y) < thr) return { el, handle: name };
+    return null;
+  }
   const bb = elemBBox(el); if (!bb) return null;
   for (const [name, pos] of Object.entries(getHandles(bb)))
     if (Math.hypot(lp.x - pos.x, lp.y - pos.y) < thr) return { el, handle: name };
@@ -2499,7 +3301,7 @@ function getResizeHandle(wx, wy) {
 function getRotateHandle(wx, wy) {
   if (selected.size !== 1) return null;
   const id = [...selected][0];
-  const el = all.find(e => e.id === id); if (!el) return null;
+  const el = all.find(e => e.id === id); if (!el || el.type === 'code') return null;
   const bb = elemBBox(el); if (!bb) return null;
   const sp = ts(bb.x, bb.y);
   const cx_s = sp.x + bb.w * vz / 2;
@@ -2512,6 +3314,121 @@ function getRotateHandle(wx, wy) {
   const rhW = tw(rhxS, rhyS);
   if (Math.hypot(wx - rhW.x, wy - rhW.y) < 10/vz) return el;
   return null;
+}
+
+// ──────────────────────────────────────────────────────────
+// Snap helpers for triangle vertices and parallelogram edges
+// ──────────────────────────────────────────────────────────
+
+/* Snap a triangle vertex at (vx,vy) toward special configurations.
+   pa, pb = the OTHER two vertices [x,y].
+   Returns [{x,y}, snapType|null]. Uses hysteresis via vertexSnapState. */
+function snapTriVert(vx, vy, el, handle) {
+  const pts = [{x:el.x1,y:el.y1},{x:el.x2,y:el.y2},{x:el.x3,y:el.y3}];
+  const vIdx = handle === 'tv1' ? 0 : handle === 'tv2' ? 1 : 2;
+  const pa = pts[(vIdx+1)%3], pb = pts[(vIdx+2)%3];
+  const key = `${el.id}_${handle}`;
+  const curSnap = vertexSnapState.get(key) || null;
+
+  const snapIn = 18/vz, snapOut = 34/vz;
+  const side = Math.hypot(pb.x-pa.x, pb.y-pa.y);
+  let best = null, bestDist = Infinity;
+
+  if (side > 2) {
+    const mx = (pa.x+pb.x)/2, my = (pa.y+pb.y)/2;
+    const dx = pb.x-pa.x, dy = pb.y-pa.y;
+    const ux = dx/side, uy = dy/side;     // unit along pa→pb
+    const px = -uy, py = ux;             // unit perp (left of pa→pb)
+
+    /* 1. Equilateral: two positions at ±side*√3/2 from midpoint along perp */
+    const eh = side * Math.sqrt(3) / 2;
+    for (const s of [1,-1]) {
+      const tx = mx + s*px*eh, ty = my + s*py*eh;
+      const d = Math.hypot(vx-tx, vy-ty);
+      const thr = (curSnap === 'equil') ? snapOut : snapIn;
+      if (d < thr && d < bestDist) { best = {x:tx, y:ty, type:'equil'}; bestDist = d; }
+    }
+
+    /* 2. Isosceles (current vertex equidistant from pa & pb): snap to perp bisector.
+       Perp bisector passes through midpoint in direction (px,py).
+       Project (vx,vy) onto it, measure dist to bisector. */
+    const distToBisect = Math.abs((vx-mx)*ux + (vy-my)*uy); // dist to perp bisector
+    const tIsoBisect = curSnap === 'iso' ? snapOut : snapIn;
+    if (distToBisect < tIsoBisect && !best) {
+      const t = (vx-mx)*px + (vy-my)*py; // projection along bisector direction
+      best = {x: mx+t*px, y: my+t*py, type:'iso'}; bestDist = distToBisect;
+    }
+
+    /* 3. Right angle at current vertex: Thales circle (center=midpoint, r=side/2) */
+    const r = side/2;
+    const distC = Math.hypot(vx-mx, vy-my);
+    if (distC > 0.5) {
+      const distToCircle = Math.abs(distC - r);
+      const thr = (curSnap === 'right') ? snapOut : snapIn;
+      if (distToCircle < thr && (!best || distToCircle < bestDist * 0.8)) {
+        const tx = mx + (vx-mx)/distC*r, ty = my + (vy-my)/distC*r;
+        best = {x:tx, y:ty, type:'right'}; bestDist = distToCircle;
+      }
+    }
+  }
+
+  if (best) { vertexSnapState.set(key, best.type); return [{x:best.x, y:best.y}, best.type]; }
+  vertexSnapState.delete(key);
+  return [{x:vx, y:vy}, null];
+}
+
+/* Snap parallelogram toward rectangle (AB⊥BC) with hysteresis. Modifies el.x3,y3. */
+function snapParaToRect(el) {
+  const AB={x:el.x2-el.x1,y:el.y2-el.y1}, BC={x:el.x3-el.x2,y:el.y3-el.y2};
+  const la2=AB.x*AB.x+AB.y*AB.y, lb2=BC.x*BC.x+BC.y*BC.y;
+  if (la2<1||lb2<1) return;
+  const dot=AB.x*BC.x+AB.y*BC.y;
+  const cos=Math.abs(dot)/Math.sqrt(la2*lb2);
+  if (paraSnapRect) {
+    if (cos > 0.2) { paraSnapRect=false; return; }
+    const t=dot/la2; el.x3-=t*AB.x; el.y3-=t*AB.y;
+  } else {
+    if (cos < 0.1) { paraSnapRect=true; const t=dot/la2; el.x3-=t*AB.x; el.y3-=t*AB.y; }
+  }
+}
+
+/* Draw snap indicator overlay for selected triangle (visual hint of current snap). */
+function drawSnapIndicator(el) {
+  if (el.type !== 'shape' || el.shape !== 'triangle') return;
+  const snaps = ['tv1','tv2','tv3'].map(h => vertexSnapState.get(`${el.id}_${h}`));
+  const snapType = snaps.find(Boolean);
+  if (!snapType) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(250,200,60,0.55)';
+  ctx.lineWidth = 1.2 * vz;
+  ctx.setLineDash([3*vz, 3*vz]);
+  if (snapType === 'equil') {
+    /* Draw outline of current triangle in highlight color (shape already drawn) */
+    const pts = [{x:el.x1,y:el.y1},{x:el.x2,y:el.y2},{x:el.x3,y:el.y3}];
+    ctx.beginPath();
+    pts.forEach((p,i) => { const sp2=ts(p.x,p.y); i===0?ctx.moveTo(sp2.x,sp2.y):ctx.lineTo(sp2.x,sp2.y); });
+    ctx.closePath(); ctx.stroke();
+  } else if (snapType === 'right') {
+    /* Draw small right-angle mark at the snapped vertex */
+    const vIdx = snaps.findIndex(Boolean);
+    const vx = [el.x1,el.x2,el.x3][vIdx], vy = [el.y1,el.y2,el.y3][vIdx];
+    const p1 = [{x:el.x2,y:el.y2},{x:el.x3,y:el.y3},{x:el.x1,y:el.y1}][vIdx];
+    const p2 = [{x:el.x3,y:el.y3},{x:el.x1,y:el.y1},{x:el.x2,y:el.y2}][vIdx];
+    const d1=Math.hypot(p1.x-vx,p1.y-vy), d2=Math.hypot(p2.x-vx,p2.y-vy);
+    if (d1>1 && d2>1) {
+      const sz = 10/vz;
+      const u1x=(p1.x-vx)/d1*sz, u1y=(p1.y-vy)/d1*sz;
+      const u2x=(p2.x-vx)/d2*sz, u2y=(p2.y-vy)/d2*sz;
+      const sv=ts(vx,vy);
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(sv.x+u1x*vz, sv.y+u1y*vz);
+      ctx.lineTo(sv.x+(u1x+u2x)*vz, sv.y+(u1y+u2y)*vz);
+      ctx.lineTo(sv.x+u2x*vz, sv.y+u2y*vz);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 /* Convert visual (world) endpoint positions → local element coordinates.
@@ -2564,7 +3481,22 @@ function applyResizeLine(wx, wy) {
 function applyResize(wx, wy) {
   const el = resizeEl, s = resizeSnap, h = resizeHandle;
   if (el.type === 'shape') {
-    if (el.shape !== 'line') { /* lines handled by applyResizeLine */
+    if (el.shape === 'triangle') {
+      const [snapped] = snapTriVert(wx, wy, el, h);
+      if (h === 'tv1') { el.x1=snapped.x; el.y1=snapped.y; }
+      else if (h === 'tv2') { el.x2=snapped.x; el.y2=snapped.y; }
+      else if (h === 'tv3') { el.x3=snapped.x; el.y3=snapped.y; }
+      // el.ro stays fixed — this is what prevents other vertices from drifting
+    } else if (el.shape === 'parallelogram') {
+      const mk = 'm_' + h.slice(2);
+      const ddx = wx - s[mk].x, ddy = wy - s[mk].y;
+      if      (h === 'p_ab') { el.x1=s.x1+ddx; el.y1=s.y1+ddy; el.x2=s.x2+ddx; el.y2=s.y2+ddy; }
+      else if (h === 'p_bc') { el.x2=s.x2+ddx; el.y2=s.y2+ddy; el.x3=s.x3+ddx; el.y3=s.y3+ddy; }
+      else if (h === 'p_cd') { el.x3=s.x3+ddx; el.y3=s.y3+ddy; }
+      else if (h === 'p_da') { el.x1=s.x1+ddx; el.y1=s.y1+ddy; }
+      snapParaToRect(el);
+      // el.ro stays fixed — prevents other vertices from drifting when rotated
+    } else if (el.shape !== 'line') { /* lines handled by applyResizeLine */
       let {x1,y1,x2,y2} = s;
       if (h.includes('l')) x1 = Math.min(wx, s.x2 - 2);
       if (h.includes('r')) x2 = Math.max(wx, s.x1 + 2);
@@ -2572,12 +3504,18 @@ function applyResize(wx, wy) {
       if (h.includes('b')) y2 = Math.max(wy, s.y1 + 2);
       el.x1=x1; el.y1=y1; el.x2=x2; el.y2=y2;
     }
-  } else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') {
+  } else if (el.type === 'text' || el.type === 'image' || el.type === 'richtext' || el.type === 'code') {
     let {x, y, w, h: ht} = s;
     if (h.includes('r')) w = Math.max(20, wx - x);
     if (h.includes('b')) ht = Math.max(20, wy - y);
     if (h.includes('l')) { w = Math.max(20, s.x + s.w - wx); x = s.x + s.w - w; }
     if (h.includes('t')) { ht = Math.max(20, s.y + s.h - wy); y = s.y + s.h - ht; }
+    /* Aspect ratio lock for images */
+    if (imgLockAspect && el.type === 'image' && s.w > 0 && s.h > 0) {
+      const ratio = s.w / s.h;
+      if (h.includes('r') || h.includes('l')) { const newHt = Math.max(20, w / ratio); if (h.includes('t')) y = s.y + s.h - newHt; ht = newHt; }
+      else if (h.includes('b') || h.includes('t')) { const newW = Math.max(20, ht * ratio); if (h.includes('l')) x = s.x + s.w - newW; w = newW; }
+    }
     el.x=x; el.y=y; el.w=w; el.h=ht;
   } else if (el.type === 'stroke') {
     const bb = {x:s.x, y:s.y, w:s.w, h:s.h};
@@ -2612,10 +3550,47 @@ function hitTest(el, wx, wy) {
       const t = Math.max(0, Math.min(1, ((lx-el.x1)*dx + (ly-el.y1)*dy) / (len*len)));
       return Math.hypot(lx-el.x1-t*dx, ly-el.y1-t*dy) < r + (el.size||2);
     }
+    if (el.shape === 'triangle') {
+      /* Hit: inside triangle OR within r of any edge */
+      const [ax,ay,bx,by,cx,cy] = [el.x1,el.y1,el.x2,el.y2,el.x3,el.y3];
+      const segDist = (px,py,x1,y1,x2,y2) => {
+        const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy;
+        if(l2===0) return Math.hypot(px-x1,py-y1);
+        const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/l2));
+        return Math.hypot(px-x1-t*dx,py-y1-t*dy);
+      };
+      if (segDist(lx,ly,ax,ay,bx,by)<r || segDist(lx,ly,bx,by,cx,cy)<r || segDist(lx,ly,cx,cy,ax,ay)<r) return true;
+      /* Point-in-triangle */
+      const d1=(lx-bx)*(ay-by)-(ax-bx)*(ly-by);
+      const d2=(lx-cx)*(by-cy)-(bx-cx)*(ly-cy);
+      const d3=(lx-ax)*(cy-ay)-(cx-ax)*(ly-ay);
+      return !((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0));
+    }
+    if (el.shape === 'parallelogram') {
+      /* A=(x1,y1) B=(x2,y2) C=(x3,y3) D=A+C-B */
+      const pts=[{x:el.x1,y:el.y1},{x:el.x2,y:el.y2},{x:el.x3,y:el.y3},{x:el.x1+el.x3-el.x2,y:el.y1+el.y3-el.y2}];
+      let inside = true;
+      const firstSign = Math.sign((pts[1].x-pts[0].x)*(ly-pts[0].y)-(pts[1].y-pts[0].y)*(lx-pts[0].x));
+      for (let i=0;i<4;i++) {
+        const a=pts[i],b=pts[(i+1)%4];
+        const cross=(b.x-a.x)*(ly-a.y)-(b.y-a.y)*(lx-a.x);
+        if (Math.sign(cross) !== firstSign && cross !== 0) { inside=false; break; }
+      }
+      if (inside) return true;
+      /* Edge tolerance */
+      for (let i=0;i<4;i++) {
+        const a=pts[i],b=pts[(i+1)%4];
+        const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+        if(l2===0) continue;
+        const t=Math.max(0,Math.min(1,((lx-a.x)*dx+(ly-a.y)*dy)/l2));
+        if (Math.hypot(lx-a.x-t*dx,ly-a.y-t*dy) < r) return true;
+      }
+      return false;
+    }
     const bb = elemBBox(el);
     return bb && lx >= bb.x && ly >= bb.y && lx <= bb.x+bb.w && ly <= bb.y+bb.h;
   }
-  if (el.type === 'text' || el.type === 'image' || el.type === 'richtext') {
+  if (el.type === 'text' || el.type === 'image' || el.type === 'richtext' || el.type === 'code') {
     const bb = elemBBox(el);
     return bb && lx >= bb.x && ly >= bb.y && lx <= bb.x+bb.w && ly <= bb.y+bb.h;
   }
@@ -2648,6 +3623,7 @@ let tedNew = false;  // true if element is brand-new (not yet in backend)
 function updateTedStyle() {
   if (!tedEl) return;
   ted.style.fontSize      = (tedEl.fontSize || textFontSize) * vz + 'px';
+  ted.style.fontFamily    = tedEl.font || textFont;
   ted.style.fontWeight    = (tedEl.bold      || textBold)      ? 'bold'      : 'normal';
   ted.style.fontStyle     = (tedEl.italic    || textItalic)    ? 'italic'    : 'normal';
   ted.style.textDecoration= (tedEl.underline || textUnderline) ? 'underline' : 'none';
@@ -2665,7 +3641,7 @@ function openTextEditor(el, isNew) {
   updateTedStyle();
   ted.value = el.text || '';
   ted.style.height = 'auto';
-  ted.style.height = ted.scrollHeight + 'px';
+  ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
   wrap.style.display = 'block';
   requestAnimationFrame(() => ted.focus());
 }
@@ -2681,7 +3657,15 @@ function commitTextEdit() {
     if (!_tedNew) wsSend({ type: 'erase_stroke', id: _tedEl.id });
   } else {
     _tedEl.text = text;
-    _tedEl.h = Math.ceil(ted.scrollHeight / vz) + 10;
+    /* Auto-size box to natural text content */
+    const fs = (_tedEl.fontSize || 18) * vz;
+    ctx.save();
+    ctx.font = `${_tedEl.italic ? 'italic ' : ''}${_tedEl.bold ? 'bold ' : ''}${fs}px ${_tedEl.font || 'system-ui,sans-serif'}`;
+    const rawLines = text.split('\n');
+    const maxLineW = Math.max(20, ...rawLines.map(l => ctx.measureText(l).width));
+    ctx.restore();
+    _tedEl.w = Math.ceil(maxLineW / vz) + 16;          /* world px + padding */
+    _tedEl.h = Math.ceil(rawLines.length * fs * 1.35 / vz) + 10;
     if (_tedNew) {
       wsSend({ type: 'stroke', data: _tedEl });
     } else {
@@ -2705,7 +3689,9 @@ ted.addEventListener('input', () => { ted.style.height = 'auto'; ted.style.heigh
 // ══════════════════════════════════════════════════════════
 function gp(e) {
   const r = cv.getBoundingClientRect();
-  const t = e.touches ? e.touches[0] : e;
+  const t = (e.touches && e.touches.length > 0) ? e.touches[0]
+           : (e.changedTouches && e.changedTouches.length > 0) ? e.changedTouches[0]
+           : e;
   return { x: t.clientX - r.left, y: t.clientY - r.top };
 }
 
@@ -2719,6 +3705,7 @@ function onDown(e) {
 
   /* RMB / Space / Middle → pan */
   if (e.button === 2 || e.button === 1 || (e.button === 0 && spDown)) {
+    if (followTarget) stopFollow();   // exit follow mode when user pans manually
     panning = true; panSt = gp(e); cv.style.cursor = 'grabbing'; e.preventDefault(); return;
   }
   if (e.button !== 0) return;
@@ -2755,7 +3742,7 @@ function onDown(e) {
       resizing = true; resizeHandle = rh.handle; resizeEl = rh.el;
       const el = rh.el;
       /* Normalize rect/ellipse coords (x1≤x2, y1≤y2) to fix backward-drawn shapes */
-      if (el.type === 'shape' && el.shape !== 'line') {
+      if (el.type === 'shape' && el.shape !== 'line' && el.shape !== 'triangle' && el.shape !== 'parallelogram') {
         const nx1=Math.min(el.x1,el.x2), ny1=Math.min(el.y1,el.y2);
         const nx2=Math.max(el.x1,el.x2), ny2=Math.max(el.y1,el.y2);
         el.x1=nx1; el.y1=ny1; el.x2=nx2; el.y2=ny2;
@@ -2769,6 +3756,21 @@ function onDown(e) {
         const rhx=hx*cos-hy*sin, rhy=hx*sin+hy*cos;
         resizeSnap = { x1:el.x1,y1:el.y1,x2:el.x2,y2:el.y2,
           wm:{x:mlx,y:mly}, w1:{x:mlx-rhx,y:mly-rhy}, w2:{x:mlx+rhx,y:mly+rhy} };
+      } else if (el.type === 'shape' && el.shape === 'triangle') {
+        resizeSnap = { x1:el.x1,y1:el.y1,x2:el.x2,y2:el.y2,x3:el.x3,y3:el.y3 };
+        vertexSnapState.delete(`${el.id}_tv1`);
+        vertexSnapState.delete(`${el.id}_tv2`);
+        vertexSnapState.delete(`${el.id}_tv3`);
+      } else if (el.type === 'shape' && el.shape === 'parallelogram') {
+        const _dx=el.x3-el.x2, _dy=el.y3-el.y2, _Dx=el.x1+_dx, _Dy=el.y1+_dy;
+        resizeSnap = { x1:el.x1,y1:el.y1,x2:el.x2,y2:el.y2,x3:el.x3,y3:el.y3,
+          m_ab:{x:(el.x1+el.x2)/2,y:(el.y1+el.y2)/2},
+          m_bc:{x:(el.x2+el.x3)/2,y:(el.y2+el.y3)/2},
+          m_cd:{x:(el.x3+_Dx)/2,  y:(el.y3+_Dy)/2},
+          m_da:{x:(_Dx+el.x1)/2,  y:(_Dy+el.y1)/2} };
+        const _AB={x:el.x2-el.x1,y:el.y2-el.y1}, _BC={x:el.x3-el.x2,y:el.y3-el.y2};
+        const _la2=_AB.x*_AB.x+_AB.y*_AB.y, _lb2=_BC.x*_BC.x+_BC.y*_BC.y;
+        paraSnapRect=_la2>0&&_lb2>0&&Math.abs(_AB.x*_BC.x+_AB.y*_BC.y)/Math.sqrt(_la2*_lb2)<0.05;
       } else {
         resizeSnap = el.type === 'stroke'
           ? { ...bb, pts: el.pts.map(p=>({...p})) }
@@ -2781,8 +3783,8 @@ function onDown(e) {
     if (el) {
       if (!e.shiftKey && !selected.has(el.id)) { selected.clear(); lineLockedHandles.clear(); sbLineOrder=0; }
       selected.add(el.id);
-      /* CS unified: clicking one axis auto-selects its partner */
-      if (el.csPartner) { const _csP=all.find(e=>e.id===el.csPartner); if(_csP) selected.add(_csP.id); }
+      /* CS unified: clicking one axis auto-selects its partner (desktop only; mobile selects single point) */
+      if (el.csPartner && !e.touches) { const _csP=all.find(e=>e.id===el.csPartner); if(_csP) selected.add(_csP.id); }
       addToUndo();
       dragging = true; dragOrigin = { x: w.x, y: w.y }; dragMoved = false; snapPositions();
       cv.style.cursor = 'move';
@@ -2810,13 +3812,43 @@ function onDown(e) {
   }
 
   /* ── Geometry ── */
-  if (tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') {
+  if (tool === 'geo_line' || tool === 'geo_ellipse') {
     addToUndo();
     drawing = true;
     cur = { id: gid(), type: 'shape', user_id: myId,
             shape: tool.replace('geo_',''), color: geoColor, size: geoSize, dash: geoDash,
             arrow: tool === 'geo_line' ? geoArrow : undefined,
+            fill: tool === 'geo_ellipse' ? geoFill : undefined,
+            fillOpacity: tool === 'geo_ellipse' ? geoFillOpacity : undefined,
             x1: w.x, y1: w.y, x2: w.x, y2: w.y };
+    return;
+  }
+  if (tool === 'geo_triangle') {
+    addToUndo(); drawing = true;
+    cur = { id: gid(), type: 'shape', user_id: myId,
+            shape: 'triangle', color: geoColor, size: geoSize, dash: geoDash,
+            fill: geoFill, fillOpacity: geoFillOpacity,
+            x1: w.x, y1: w.y, x2: w.x, y2: w.y, x3: w.x, y3: w.y,
+            _ax: w.x, _ay: w.y };
+    return;
+  }
+  if (tool === 'geo_parallelogram') {
+    addToUndo(); drawing = true;
+    cur = { id: gid(), type: 'shape', user_id: myId,
+            shape: 'parallelogram', color: geoColor, size: geoSize, dash: geoDash,
+            fill: geoFill, fillOpacity: geoFillOpacity,
+            x1: w.x, y1: w.y, x2: w.x, y2: w.y, x3: w.x, y3: w.y };
+    return;
+  }
+
+  /* ── Code ── */
+  if (tool === 'code') {
+    addToUndo();
+    const el = { id: gid(), type: 'code', user_id: myId, x: w.x - 200, y: w.y - 130, w: 400, h: 260, code: '# Python\nprint("Hello, HBM!")', output: '', outputErr: false };
+    all.push(el);
+    wsSend({ type: 'stroke', data: el });
+    selected.clear(); selected.add(el.id);
+    setTool('select');
     return;
   }
 
@@ -2828,7 +3860,7 @@ function onDown(e) {
     drawing = true;
     cur = { id: gid(), type: 'text', user_id: myId,
             x: w.x, y: w.y, w: 10, h: 10, text: '',
-            color: textColor, fontSize: textFontSize,
+            color: textColor, fontSize: textFontSize, font: textFont,
             bold: textBold, italic: textItalic, underline: textUnderline,
             _drag: true };
   }
@@ -2836,14 +3868,15 @@ function onDown(e) {
 
 function onMove(e) {
   e.preventDefault();
+  const isTouch = !!(e.touches || e.changedTouches);
   /* If mouse button was released outside canvas, clean up stale drag/rotate/pan state */
-  if (!(e.buttons & 1) && (dragging || rotating || resizing)) {
+  if (!isTouch && !(e.buttons & 1) && (dragging || rotating || resizing)) {
     if (dragging)  { dragging  = false; dragOrigin  = null; if (dragMoved)   commitDrag();   dragMoved   = false; }
     if (rotating)  { rotating  = false; rotateCenter= null; rotateMoved = false; rotateEl = null; }
     if (resizing)  { resizing  = false; resizeEl = null; resizeHandle = null; resizeSnap = null; }
     cv.style.cursor = 'default'; redraw(); return;
   }
-  if (!(e.buttons & 2) && panning) { panning = false; panSt = null; cv.style.cursor = 'default'; }
+  if (!isTouch && !(e.buttons & 2) && panning) { panning = false; panSt = null; cv.style.cursor = 'default'; }
   const p = gp(e), w = tw(p.x, p.y);
   if (tool === 'pen' || tool === 'erase') { cursorPos = p; if (!drawing && !panning) { redraw(); return; } }
 
@@ -2880,7 +3913,9 @@ function onMove(e) {
     if (rh) {
       const RC = {tl:'nwse-resize',t:'ns-resize',tr:'nesw-resize',r:'ew-resize',
                   br:'nwse-resize',b:'ns-resize',bl:'nesw-resize',l:'ew-resize',
-                  p1:'crosshair',p2:'crosshair',pm:'move'};
+                  p1:'crosshair',p2:'crosshair',pm:'move',
+                  tv1:'move',tv2:'move',tv3:'move',
+                  t_mid:'ns-resize',b_mid:'ns-resize',l_mid:'ew-resize',r_mid:'ew-resize'};
       const isLkd = rh.el.type==='shape' && rh.el.shape==='line' && lineLockedHandles.has(rh.handle);
       cv.style.cursor = isLkd ? 'pointer' : (RC[rh.handle] || 'default');
     } else {
@@ -2907,15 +3942,43 @@ function onMove(e) {
     }
     redraw(); return;
   }
-  if ((tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') && cur) {
+  if ((tool === 'geo_line' || tool === 'geo_ellipse') && cur) {
     cur.x2 = w.x; cur.y2 = w.y;
-    /* Shift = constrain proportions */
     if (e.shiftKey) {
       const dx = cur.x2 - cur.x1, dy = cur.y2 - cur.y1;
-      const sz = Math.max(Math.abs(dx), Math.abs(dy));
-      cur.x2 = cur.x1 + Math.sign(dx) * sz;
-      cur.y2 = cur.y1 + Math.sign(dy) * sz;
+      if (tool === 'geo_line') {
+        const len = Math.hypot(dx, dy);
+        if (len > 0) {
+          const snapped = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+          cur.x2 = cur.x1 + Math.cos(snapped) * len;
+          cur.y2 = cur.y1 + Math.sin(snapped) * len;
+        }
+      } else {
+        const sz = Math.max(Math.abs(dx), Math.abs(dy));
+        cur.x2 = cur.x1 + Math.sign(dx) * sz;
+        cur.y2 = cur.y1 + Math.sign(dy) * sz;
+      }
     }
+    redraw();
+  }
+  if (tool === 'geo_triangle' && cur) {
+    const ax = cur._ax, ay = cur._ay;
+    const base_y = Math.max(w.y, ay);
+    const apex_y = Math.min(w.y, ay);
+    cur.x1 = ax; cur.y1 = base_y;
+    cur.x2 = w.x; cur.y2 = base_y;
+    cur.x3 = (ax + w.x) / 2; cur.y3 = apex_y;
+    if (e.shiftKey) {
+      /* Shift = equilateral */
+      const base = Math.abs(cur.x2 - cur.x1);
+      cur.y3 = base_y - base * Math.sqrt(3) / 2;
+    }
+    redraw();
+  }
+  if (tool === 'geo_parallelogram' && cur) {
+    const shear = e.shiftKey ? 0 : (w.x - cur.x1) * 0.25;
+    cur.x2 = w.x; cur.y2 = cur.y1;        // B: same y as A (horizontal base)
+    cur.x3 = w.x + shear; cur.y3 = w.y;   // C: mouse + shear
     redraw();
   }
 }
@@ -2950,8 +4013,12 @@ function onUp(e) {
         undoStack.pop(); // click = toggle lock, not a real resize
         lineLockedHandles.has(_h) ? lineLockedHandles.delete(_h) : lineLockedHandles.add(_h);
       } else {
-        wsSend({ type: 'erase_stroke', id: _resEl.id });
-        setTimeout(() => wsSend({ type: 'stroke', data: _resEl }), 40);
+        /* code widgets: update-in-place so DOM overlay is preserved */
+        if (_resEl.type === 'code') { wsSend({ type: 'stroke_update', data: { ..._resEl } }); }
+        else {
+          wsSend({ type: 'erase_stroke', id: _resEl.id });
+          setTimeout(() => wsSend({ type: 'stroke', data: _resEl }), 40);
+        }
         /* Refresh CS panel if a CS axis endpoint was dragged */
         if (_resEl.csPartner) {
           const _csPartner = all.find(e => e.id === _resEl.csPartner);
@@ -2959,6 +4026,7 @@ function onUp(e) {
         }
       }
       resizeEl = null; resizeHandle = null; resizeSnap = null;
+      paraSnapRect = false;
       cv.style.cursor = 'default'; redraw(); return;
     }
     if (dragging) {
@@ -2994,8 +4062,20 @@ function onUp(e) {
   if (tool === 'pen' && cur && cur.pts.length >= 2) {
     all.push(cur); wsSend({ type: 'stroke', data: cur });
   }
-  if ((tool === 'geo_line' || tool === 'geo_rect' || tool === 'geo_ellipse') && cur) {
+  if ((tool === 'geo_line' || tool === 'geo_ellipse') && cur) {
     if (Math.abs(cur.x2 - cur.x1) > 1 || Math.abs(cur.y2 - cur.y1) > 1) {
+      all.push(cur); wsSend({ type: 'stroke', data: cur });
+    }
+  }
+  if (tool === 'geo_triangle' && cur) {
+    delete cur._ax; delete cur._ay;
+    const dx = cur.x2 - cur.x1, dy = cur.y2 - cur.y1;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      all.push(cur); wsSend({ type: 'stroke', data: cur });
+    }
+  }
+  if (tool === 'geo_parallelogram' && cur) {
+    if (Math.hypot(cur.x3 - cur.x1, cur.y3 - cur.y1) > 4) {
       all.push(cur); wsSend({ type: 'stroke', data: cur });
     }
   }
@@ -3009,7 +4089,14 @@ function eraseAt(sx, sy) {
     const el = all[i];
     const hit = hitTest(el, w.x, w.y) ||
                 (el.type === 'stroke' && el.pts?.some(p => Math.hypot(p.x-w.x, p.y-w.y) < r));
-    if (hit) { wsSend({ type: 'erase_stroke', id: el.id }); all.splice(i, 1); return; }
+    if (hit) {
+      /* If this is a CS axis, orphan the partner so it renders as plain line */
+      if (el.csPartner) {
+        const _p = all.find(e => e.id === el.csPartner);
+        if (_p) { _p.csPartner=null; _p.csScale=null; _p.csTickStep=null; wsSend({type:'stroke_update',data:{..._p}}); }
+      }
+      wsSend({ type: 'erase_stroke', id: el.id }); all.splice(i, 1); return;
+    }
   }
 }
 
@@ -3038,14 +4125,113 @@ cv.addEventListener('dblclick', e => {
   if (el && el.type === 'text') { e.preventDefault(); addToUndo(); openTextEditor(el, false); }
 });
 
-/* Touch */
+/* ─── Touch (mobile) ─── */
+let _touchStartTime = 0, _touchStartPos = null;
+let _pinchDist = null;
+let _selMode = false; // tap activates selection mode; next drag = rubber-band / element move
+
+function _getTouchDist(t) {
+  return Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY);
+}
+function _getTouchMid(t) {
+  const r = cv.getBoundingClientRect();
+  return { x: (t[0].clientX + t[1].clientX) / 2 - r.left,
+           y: (t[0].clientY + t[1].clientY) / 2 - r.top };
+}
+
 cv.addEventListener('touchstart', e => {
   e.preventDefault();
-  if (e.touches.length === 1) onDown({ button:0, ...e, touches: e.touches });
-  else { panning = true; panSt = gp(e); }
+  commitTextEdit();
+
+  if (e.touches.length >= 2) {
+    /* Pinch-to-zoom — cancel any ongoing action */
+    drawing = false; cur = null; panning = false; panSt = null;
+    _pinchDist = _getTouchDist(e.touches);
+    return;
+  }
+
+  const p = gp(e);
+  _touchStartTime = Date.now();
+  _touchStartPos  = { x: p.x, y: p.y };
+
+  if (tool === 'select') {
+    if (_selMode) {
+      /* Selection mode: route to standard mouse handler (rubber-band or drag) */
+      onDown({ button: 0, clientX: e.touches[0].clientX, clientY: e.touches[0].clientY,
+               shiftKey: false, touches: e.touches, preventDefault: () => {} });
+    } else {
+      /* Default: pan */
+      panning = true; panSt = p;
+    }
+  } else {
+    /* Drawing tools */
+    onDown({ button: 0, clientX: e.touches[0].clientX, clientY: e.touches[0].clientY,
+             shiftKey: false, touches: e.touches, preventDefault: () => {} });
+  }
 }, { passive: false });
-cv.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, { passive: false });
-cv.addEventListener('touchend',   e => { e.preventDefault(); onUp(e);   });
+
+cv.addEventListener('touchmove', e => {
+  e.preventDefault();
+
+  if (e.touches.length >= 2 && _pinchDist !== null) {
+    /* Pinch-to-zoom */
+    const newDist = _getTouchDist(e.touches);
+    const mid     = _getTouchMid(e.touches);
+    const ratio   = newDist / _pinchDist;
+    const nz = Math.max(0.05, Math.min(20, vz * ratio));
+    if (followTarget) stopFollow();   // exit follow mode on manual pinch-zoom
+    vx = mid.x - (mid.x - vx) * nz / vz;
+    vy = mid.y - (mid.y - vy) * nz / vz;
+    vz = nz; _pinchDist = newDist;
+    const _now = Date.now();
+    if (_now - lastViewSend > 150) { lastViewSend = _now; wsSend({ type: 'view', vx, vy, vz }); }
+    redraw(); return;
+  }
+
+  if (e.touches.length !== 1) return;
+
+  if (tool === 'select' && panning && panSt) {
+    /* Pan */
+    const p = gp(e);
+    vx += p.x - panSt.x; vy += p.y - panSt.y; panSt = p;
+    const _now = Date.now();
+    if (_now - lastViewSend > 100) { lastViewSend = _now; wsSend({ type: 'view', vx, vy, vz }); }
+    redraw();
+  } else {
+    /* Drawing OR selection-mode drag/rubber-band */
+    onMove(e);
+  }
+}, { passive: false });
+
+cv.addEventListener('touchend', e => {
+  e.preventDefault();
+  _pinchDist = null;
+  if (e.touches.length > 0) return;
+
+  if (tool === 'select') {
+    if (panning) {
+      /* Was panning — check if it was actually a tap (no movement) */
+      panning = false; panSt = null;
+      const p = gp(e);
+      const tapDist = _touchStartPos ? Math.hypot(p.x - _touchStartPos.x, p.y - _touchStartPos.y) : 999;
+      const tapDur  = Date.now() - _touchStartTime;
+      if (tapDist < 14 && tapDur < 300) {
+        /* Tap: toggle selection mode */
+        _selMode = !_selMode;
+        /* Visual hint: brief highlight on canvas edge */
+        if (_selMode) cv.style.outline = '2px solid var(--accent)';
+        else { cv.style.outline = ''; selected.clear(); lineLockedHandles.clear(); sbLineOrder = 0; updateSelBar(); redraw(); }
+      }
+    } else {
+      /* Was in selection mode (rubber-band or drag) — finish and exit selection mode */
+      _selMode = false;
+      cv.style.outline = '';
+      onUp(e);
+    }
+  } else {
+    onUp(e);
+  }
+});
 
 /* ─── CS axis near-mouse detection (for scroll-on-tick) ─── */
 let csHoverAxis = null;  // {el} of CS axis closest to mouse, or null
@@ -3131,6 +4317,7 @@ cv.addEventListener('wheel', e => {
     redraw();
   } else {
     /* Normal global zoom */
+    if (followTarget) stopFollow();   // exit follow mode on manual zoom
     const p=gp(e), d=e.deltaY>0?0.9:1.1;
     const nz=Math.max(0.05,Math.min(20,vz*d));
     vx=p.x-(p.x-vx)*nz/vz; vy=p.y-(p.y-vy)*nz/vz; vz=nz; redraw();
@@ -3149,21 +4336,23 @@ document.addEventListener('keydown', e => {
 
   const k = e.key.toLowerCase();
 
-  /* ESC — закрыть пикер / сбросить выделение */
+  /* ESC — выйти из слежки / закрыть пикер / сбросить выделение */
   if (k === 'escape') {
     e.preventDefault();
+    if (followTarget) { stopFollow(); return; }
     if (geoPicking) { hideGeoPicker(); return; }
     commitTextEdit(); clearSel(); setTool('select'); return;
   }
 
   /* ── Навигация в геопикере ── */
   if (geoPicking) {
-    if (k === 'arrowdown' || k === 'arrowright') { geoPickIdx = (geoPickIdx+1) % 3; updateGeoPickerHighlight(); e.preventDefault(); return; }
-    if (k === 'arrowup'   || k === 'arrowleft')  { geoPickIdx = (geoPickIdx+2) % 3; updateGeoPickerHighlight(); e.preventDefault(); return; }
+    if (k === 'arrowdown' || k === 'arrowright') { geoPickIdx = (geoPickIdx+1) % GEO_TOOLS.length; updateGeoPickerHighlight(); e.preventDefault(); return; }
+    if (k === 'arrowup'   || k === 'arrowleft')  { geoPickIdx = (geoPickIdx+GEO_TOOLS.length-1) % GEO_TOOLS.length; updateGeoPickerHighlight(); e.preventDefault(); return; }
     if (k === 'enter') { setTool(GEO_TOOLS[geoPickIdx]); hideGeoPicker(); e.preventDefault(); return; }
-    if (k === 'l' || k === 'д') { geoPickIdx=0; setTool('geo_line');    hideGeoPicker(); e.preventDefault(); return; }
-    if (k === 'r' || k === 'к') { geoPickIdx=1; setTool('geo_rect');    hideGeoPicker(); e.preventDefault(); return; }
-    if (k === 'c' || k === 'с') { geoPickIdx=2; setTool('geo_ellipse'); hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 'l' || k === 'д') { geoPickIdx=0; setTool('geo_line');          hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 't' || k === 'е') { geoPickIdx=1; setTool('geo_triangle');      hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 'p' || k === 'з') { geoPickIdx=2; setTool('geo_parallelogram'); hideGeoPicker(); e.preventDefault(); return; }
+    if (k === 'c' || k === 'с') { geoPickIdx=3; setTool('geo_ellipse');       hideGeoPicker(); e.preventDefault(); return; }
     if (k === 'g' || k === 'п') { hideGeoPicker(); e.preventDefault(); return; }
     e.preventDefault(); return; // поглощаем все клавиши пока пикер открыт
   }
@@ -3214,6 +4403,7 @@ document.addEventListener('keydown', e => {
 
   /* ── Ctrl / Meta комбинации — ПОСЛЕ R-блока чтобы Ctrl+Arrow работал ── */
   if (e.ctrlKey || e.metaKey) {
+    if (e.code === 'KeyZ' && e.shiftKey) { e.preventDefault(); doRedo(); return; }
     if (e.code === 'KeyZ') { e.preventDefault(); doUndo(); return; }
     if (e.code === 'KeyC') { e.preventDefault(); doCopy(); return; }
     if (e.code === 'KeyX') { e.preventDefault(); doCut();  return; }
@@ -3228,6 +4418,7 @@ document.addEventListener('keydown', e => {
   if (k === 'i' || k === 'ш')      { openMediaPicker(); return; }
   if (k === 'g' || k === 'п')      { showGeoPicker();   return; }
   if (k === 't' || k === 'е')      { setTool('text');   return; }
+  if (k === 'k' || k === 'л')      { setTool('code');   return; }
 
   /* ── Удалить выделенное ── */
   if ((k === 'delete' || k === 'backspace') && selected.size) {
@@ -3247,6 +4438,159 @@ document.addEventListener('keyup', e => {
 });
 
 // ══════════════════════════════════════════════════════════
+// §16b  CODE WIDGETS (inline DOM overlays)
+// ══════════════════════════════════════════════════════════
+
+function createCodeWidget(el) {
+  const div = document.createElement('div');
+  div.className = 'cwo';
+  div.dataset.id = el.id;
+  const cwLang = el.lang || 'python';
+  div.innerHTML =
+    '<div class="cwo-hdr">' +
+    '<select class="cwo-lang"><option value="python"' + (cwLang==='python'?' selected':'') + '>🐍 Python</option>' +
+    '<option value="javascript"' + (cwLang==='javascript'?' selected':'') + '>🟨 JS</option></select>' +
+    '<button class="cwo-run">▶ Запустить</button></div>' +
+    '<div class="cwo-ta"></div>' +
+    '<div class="cwo-out-hdr">OUTPUT</div>' +
+    '<div class="cwo-out"></div>' +
+    '<div class="cwo-rh n"></div><div class="cwo-rh ne"></div>' +
+    '<div class="cwo-rh e"></div><div class="cwo-rh se"></div>' +
+    '<div class="cwo-rh s"></div><div class="cwo-rh sw"></div>' +
+    '<div class="cwo-rh w"></div><div class="cwo-rh nw"></div>';
+
+  const out = div.querySelector('.cwo-out');
+  const btn = div.querySelector('.cwo-run');
+  const hdr = div.querySelector('.cwo-hdr');
+  const cmEl = div.querySelector('.cwo-ta');
+
+  const cwMode = (el.lang||'python')==='javascript' ? {name:'javascript'} : 'python';
+  const cm = CodeMirror(cmEl, {
+    value: el.code || '',
+    mode: cwMode, lineNumbers: true, indentUnit: 4, tabSize: 4,
+    indentWithTabs: false, autoCloseBrackets: true, matchBrackets: true, viewportMargin: Infinity,
+    extraKeys: { Tab: cm => cm.execCommand('indentMore'), 'Shift-Tab': cm => cm.execCommand('indentLess') }
+  });
+  codeEditorMap.set(el.id, cm);
+  let _cmSt = null;
+  cm.on('change', () => {
+    el.code = cm.getValue();
+    clearTimeout(_cmSt);
+    _cmSt = setTimeout(() => wsSend({ type: 'stroke_update', data: { ...el } }), 900);
+  });
+  const langSel = div.querySelector('.cwo-lang');
+  if (langSel) langSel.addEventListener('change', () => {
+    el.lang = langSel.value;
+    const newMode = el.lang === 'javascript' ? {name:'javascript'} : 'python';
+    cm.setOption('mode', newMode);
+    wsSend({ type: 'stroke_update', data: { ...el } });
+  });
+
+  out.textContent = el.output || '';
+  out.className = 'cwo-out' + (el.outputErr ? ' err' : (el.output ? ' ok' : ''));
+
+  /* ── Header drag → move element ── */
+  hdr.addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.target === btn) return;
+    e.preventDefault(); e.stopPropagation();
+    selected.clear(); selected.add(el.id);
+    updateSelBar(); redraw();
+    const sx = e.clientX, sy = e.clientY;
+    const getEl = () => all.find(x => x.id === el.id) || el;
+    const s0 = { x: getEl().x, y: getEl().y };
+    const mv = e2 => { const cur = getEl(); cur.x = s0.x + (e2.clientX - sx) / vz; cur.y = s0.y + (e2.clientY - sy) / vz; updateCodeWidgets(); };
+    const up = () => { const cur = getEl(); wsSend({ type: 'stroke_update', data: { ...cur } }); redraw(); document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', mv);
+    document.addEventListener('mouseup', up);
+  });
+
+  /* ── Resize handles (8 directions) ── */
+  div.querySelectorAll('.cwo-rh').forEach(rh => {
+    const dir = [...rh.classList].find(c => c !== 'cwo-rh') || 'se';
+    rh.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      selected.clear(); selected.add(el.id); updateSelBar();
+      const sx = e.clientX, sy = e.clientY;
+      const getEl = () => all.find(x => x.id === el.id) || el;
+      const snap  = () => { const cur = getEl(); return { x:cur.x, y:cur.y, w:cur.w||400, h:cur.h||260 }; };
+      const s0 = snap();
+      const mv = e2 => {
+        const cur = getEl();
+        const dx = (e2.clientX - sx) / vz, dy = (e2.clientY - sy) / vz;
+        if (dir.includes('e')) cur.w = Math.max(220, s0.w + dx);
+        if (dir.includes('s')) cur.h = Math.max(150, s0.h + dy);
+        if (dir.includes('w')) { const nw = Math.max(220, s0.w - dx); cur.x = s0.x + (s0.w - nw); cur.w = nw; }
+        if (dir.includes('n')) { const nh = Math.max(150, s0.h - dy); cur.y = s0.y + (s0.h - nh); cur.h = nh; }
+        updateCodeWidgets();
+      };
+      const up = () => {
+        const cur = getEl();
+        wsSend({ type: 'stroke_update', data: { ...cur } });
+        redraw();
+        document.removeEventListener('mousemove', mv);
+        document.removeEventListener('mouseup', up);
+      };
+      document.addEventListener('mousemove', mv);
+      document.addEventListener('mouseup', up);
+    });
+  });
+
+  /* ── Run button ── */
+  btn.addEventListener('click', async () => {
+    el.code = cm.getValue();
+    btn.disabled = true; btn.textContent = '⏳';
+    out.textContent = ''; out.className = 'cwo-out';
+    try {
+      const tok = localStorage.getItem('token');
+      const resp = await fetch('/api/run_code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify({ code: el.code, lang: el.lang || 'python' })
+      });
+      const r = await resp.json();
+      const txt = (r.stdout || '') + (r.stderr ? ((r.stdout ? '\n' : '') + r.stderr) : '');
+      el.output = txt; el.outputErr = !r.ok;
+      out.textContent = txt || '(нет вывода)';
+      out.className = 'cwo-out ' + (!r.ok ? 'err' : 'ok');
+      wsSend({ type: 'stroke_update', data: { ...el } });
+      redraw();
+    } catch(err) {
+      out.textContent = 'Ошибка: ' + err.message;
+      out.className = 'cwo-out err';
+    } finally {
+      btn.disabled = false; btn.textContent = '▶ Запустить';
+    }
+  });
+
+  /* CM handles Tab, indent, bracket matching and live sync above */
+
+  document.body.appendChild(div);
+  return div;
+}
+
+function updateCodeWidgets() {
+  /* Remove overlays for deleted elements */
+  for (const [id, div] of codeOverlayMap) {
+    if (!all.find(e => e.id === id)) { div.remove(); codeOverlayMap.delete(id); codeEditorMap.delete(id); }
+  }
+  /* Add/position overlays for code elements */
+  for (const el of all) {
+    if (el.type !== 'code') continue;
+    let div = codeOverlayMap.get(el.id);
+    if (!div) { div = createCodeWidget(el); codeOverlayMap.set(el.id, div); }
+    const sp = ts(el.x, el.y);
+    const sw = (el.w || 400) * vz, sh = (el.h || 260) * vz;
+    div.style.left   = (sp.x + 56) + 'px';
+    div.style.top    = (sp.y + 52) + 'px';  /* +52 = topbar height */
+    div.style.width  = sw + 'px';
+    div.style.height = sh + 'px';
+    div.style.fontSize = Math.max(9, Math.round(vz * 13)) + 'px';
+    div.classList.toggle('sel', selected.has(el.id));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // §17  WEBSOCKET
 // ══════════════════════════════════════════════════════════
 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -3258,8 +4602,8 @@ function connect() {
     ? `${proto}//${location.host}/ws/personal-board/${PERSONAL_ID}?token=${tok}`
     : `${proto}//${location.host}/ws/board/${SID}?token=${tok}`;
   ws = new WebSocket(wsUrl);
-  ws.onopen  = () => { document.getElementById('status').textContent = '✓'; rc = 0; ws.send(JSON.stringify({ type: 'load' })); };
-  ws.onclose = () => { document.getElementById('status').textContent = '⚠'; setTimeout(() => { rc++; if (rc < 30) connect(); }, 1000 * Math.min(rc+1, 5)); };
+  ws.onopen  = () => { const _s=document.getElementById('status'); _s.style.display='none'; _s.textContent=''; rc = 0; ws.send(JSON.stringify({ type: 'load' })); };
+  ws.onclose = () => { const _s=document.getElementById('status'); _s.style.display='block'; _s.style.color='#f87171'; _s.textContent='⚠ нет связи'; setTimeout(() => { rc++; if (rc < 30) connect(); }, 1000 * Math.min(rc+1, 5)); };
   ws.onerror = () => ws.close();
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
@@ -3268,37 +4612,64 @@ function connect() {
       if (m.online) { m.online.forEach(u => { onlineUsers[u.uid] = u.name; }); updateOnlinePanel(); }
     }
     else if (m.type === 'user_join') {
-      if (m.uid && m.uid !== myId) { onlineUsers[m.uid] = m.name; updateOnlinePanel(); redraw(); }
+      if (m.uid && m.uid !== myId) { onlineUsers[m.uid] = m.name; updateOnlinePanel(); scheduleRedraw(); }
     }
     else if (m.type === 'user_leave') {
       delete onlineUsers[m.uid]; delete peerCursors[m.uid];
-      if (followTarget === m.uid) followTarget = null;
-      updateOnlinePanel(); redraw();
+      if (followTarget === m.uid) { followTarget = null; updateFollowInd(); }
+      updateOnlinePanel(); scheduleRedraw();
     }
     else if (m.type === 'cursor') {
       if (m.uid && m.uid !== myId) {
         if (!peerCursors[m.uid]) peerCursors[m.uid] = {};
         peerCursors[m.uid].x = m.x; peerCursors[m.uid].y = m.y;
         peerCursors[m.uid].name = m.name;
-        redraw();
+        scheduleRedraw();  /* batched — many cursor msgs/sec, max 1 repaint/frame */
       }
     }
     else if (m.type === 'view') {
       if (m.uid && m.uid !== myId) {
         if (!peerCursors[m.uid]) peerCursors[m.uid] = {};
         peerCursors[m.uid].view = { vx: m.vx, vy: m.vy, vz: m.vz };
+        /* Follow mode: sync viewport immediately (no rAF delay — must feel instant) */
         if (followTarget === m.uid) { vx = m.vx; vy = m.vy; vz = m.vz; redraw(); }
+        /* Non-follow: no redraw needed (stored view is only used on follow activation) */
       }
     }
-    else if (m.type === 'strokes')      { all = m.data || []; redraw(); }
-    else if (m.type === 'stroke')       { all.push(m.data); redraw(); }
-    else if (m.type === 'clear')        { all = []; redraw(); }
-    else if (m.type === 'erase_stroke') { all = all.filter(s => s.id !== m.id); redraw(); }
+    else if (m.type === 'strokes')      { all = m.data || []; redraw(); /* initial load — immediate */ }
+    else if (m.type === 'stroke')       { if (!all.find(s => s.id === m.data.id)) all.push(m.data); scheduleRedraw(); }
+    else if (m.type === 'stroke_update') {
+      const idx = all.findIndex(s => s.id === m.data.id);
+      if (idx >= 0) { Object.assign(all[idx], m.data); } else { all.push(m.data); }
+      /* Update code widget DOM immediately (textarea / output text) */
+      const cDiv = codeOverlayMap.get(m.data.id);
+      if (cDiv) {
+        const _cm = codeEditorMap.get(m.data.id);
+        const cout = cDiv.querySelector('.cwo-out');
+        if (_cm && _cm.getInputField() !== document.activeElement && _cm.getValue() !== (m.data.code||''))
+          _cm.setValue(m.data.code || '');
+        cout.textContent = m.data.output || '';
+        cout.className = 'cwo-out' + (m.data.outputErr ? ' err' : (m.data.output ? ' ok' : ''));
+      }
+      scheduleRedraw();
+    }
+    else if (m.type === 'clear')        { all = []; scheduleRedraw(); }
+    else if (m.type === 'erase_stroke') { all = all.filter(s => s.id !== m.id); scheduleRedraw(); }
   };
 }
 connect();
 
 function wsSend(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+
+/* scheduleRedraw: batches WS-triggered redraws — at most one canvas repaint per animation frame.
+   Use for incoming WS events. Keep calling redraw() directly for local interactions (pen, drag)
+   so local input stays instant. */
+let _rdraf = false;
+function scheduleRedraw() {
+  if (_rdraf) return;
+  _rdraf = true;
+  requestAnimationFrame(() => { _rdraf = false; redraw(); });
+}
 
 // ══════════════════════════════════════════════════════════
 // §18  ACTIONS

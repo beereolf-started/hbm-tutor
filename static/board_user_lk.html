@@ -1,0 +1,387 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HBM — Мастерская</title>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;--text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-logo{font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px}
+.topbar-logo svg{width:20px;height:20px;fill:none}
+.topbar-r{display:flex;align-items:center;gap:8px}
+.topbar-name{color:var(--muted);font-size:.85em}
+.link-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85em;padding:4px 8px;border-radius:6px}
+.link-btn:hover{background:var(--surface-2);color:var(--text)}
+.notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:4px 8px;border-radius:6px;line-height:1}
+.notif-btn:hover{background:var(--surface-2)}
+.notif-badge{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:.6em;font-weight:700;padding:1px 4px;border-radius:10px;min-width:14px;text-align:center;display:none}
+.notif-panel{position:fixed;top:52px;right:12px;width:320px;max-height:440px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 30px #0008;z-index:200;display:none;flex-direction:column;overflow:hidden}
+.notif-panel.open{display:flex}
+.notif-panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:.88em;flex-shrink:0}
+.notif-panel-body{overflow-y:auto;flex:1}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--surface-2)}
+.notif-item.unread{background:#1a2a1a}
+.notif-item-text{font-size:.85em;line-height:1.4}
+.notif-item-time{font-size:.75em;color:var(--muted);margin-top:3px}
+.notif-msgs-row{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.85em;cursor:pointer}
+.notif-msgs-row:hover{background:var(--surface-2)}
+.notif-empty{padding:24px;text-align:center;color:var(--muted);font-size:.85em}
+
+/* Layout */
+.layout{display:flex;min-height:calc(100vh - 52px)}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;flex-shrink:0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:.9em;color:var(--muted);border:none;background:none;width:100%;text-align:left;transition:background .15s;text-decoration:none}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:var(--surface-2);color:var(--text);font-weight:600}
+.nav-item-icon{font-size:1.05em;flex-shrink:0;width:20px;text-align:center}
+.nav-sep{height:1px;background:var(--border);margin:8px 4px}
+.main{flex:1;padding:24px 28px;min-width:0;max-width:860px}
+
+/* Dashboard */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:16px}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 16px;cursor:pointer;transition:border-color .2s,background .2s;text-decoration:none;color:var(--text);display:block}
+.dash-card:hover{border-color:var(--green-t);background:var(--surface-2)}
+.dash-card-icon{font-size:1.8em;margin-bottom:8px}
+.dash-card h3{font-size:.9em;font-weight:600;margin-bottom:4px}
+.dash-card-count{font-size:1.6em;font-weight:700;color:var(--green-t);margin-bottom:2px}
+.dash-card-sub{font-size:.78em;color:var(--muted)}
+
+/* Section header */
+.sec-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.sec-title{font-size:1.1em;font-weight:700}
+
+/* Contacts */
+.contact-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.contact-item:last-child{border-bottom:none}
+.contact-avatar{width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0}
+
+/* Buttons */
+.btn-sm{padding:5px 12px;font-size:.82em;border-radius:6px;border:none;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green-h)}
+
+/* Chat overlay */
+.overlay{display:none;position:fixed;inset:0;background:#000c;z-index:300;align-items:flex-end;justify-content:flex-end}
+.overlay-box{background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;width:360px;max-width:100vw;height:70vh;display:flex;flex-direction:column}
+.overlay-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.overlay-body{flex:1;overflow-y:auto;padding:12px}
+.overlay-inp{padding:10px;border-top:1px solid var(--border);display:flex;gap:6px}
+.overlay-inp input{flex:1;padding:7px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.9em}
+.overlay-inp button{padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600}
+
+.empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:.92em}
+
+@media(max-width:680px){
+  .sidebar{display:none}
+  .main{padding:14px 12px}
+  .mob-nav{display:flex!important}
+}
+.mob-nav{display:none;gap:4px;padding:10px 12px;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.mob-nav-btn{white-space:nowrap;padding:6px 12px;border-radius:20px;font-size:.82em;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--muted)}
+.mob-nav-btn.active{border-color:var(--green-t);color:var(--green-t);font-weight:600}
+</style></head><body>
+
+<div class="topbar">
+  <span class="topbar-logo">
+    <svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/>
+      <line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/>
+      <line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/>
+    </svg>
+    HBM
+  </span>
+  <div class="topbar-r">
+    <span class="topbar-name" id="uname"></span>
+    <a href="/profile.html" class="link-btn" title="Профиль">&#128100;</a>
+    <button class="notif-btn" onclick="toggleNotifPanel()" title="Уведомления">&#128276;<span class="notif-badge" id="notifBadge"></span></button>
+    <button class="link-btn" onclick="logout()">Выйти</button>
+  </div>
+</div>
+
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-panel-head">
+    <span>&#128276; Уведомления</span>
+    <div style="display:flex;gap:8px">
+      <button class="link-btn" style="font-size:.78em" onclick="markAllNotifsRead()">Прочитать все</button>
+      <button class="link-btn" style="font-size:.78em" onclick="closeNotifPanel()">&#x2715;</button>
+    </div>
+  </div>
+  <div class="notif-panel-body" id="notifPanelBody"><div class="notif-empty">Загрузка...</div></div>
+</div>
+
+<!-- Mobile nav bar -->
+<div class="mob-nav" id="mobNav">
+  <button class="mob-nav-btn active" onclick="goSection(null,this)">&#127968; Главная</button>
+  <button class="mob-nav-btn" onclick="goSection('contacts',this)">&#128172; Контакты</button>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <button class="nav-item active" id="nav-home" onclick="goSection(null)">
+      <span class="nav-item-icon">&#127968;</span>Главная
+    </button>
+    <div class="nav-sep"></div>
+    <a class="nav-item" id="nav-workshop" href="/workshop.html">
+      <span class="nav-item-icon">&#128296;</span>Мастерская
+    </a>
+    <button class="nav-item" id="nav-contacts" onclick="goSection('contacts')">
+      <span class="nav-item-icon">&#128172;</span>Контакты
+    </button>
+  </div>
+  <div class="main" id="main"><div class="empty">Загрузка...</div></div>
+</div>
+
+<!-- Chat overlay -->
+<div class="overlay" id="chatOverlay">
+  <div class="overlay-box">
+    <div class="overlay-head">
+      <span id="chatTitle" style="font-weight:600">&#128172; Сообщения</span>
+      <div style="display:flex;gap:6px">
+        <button class="link-btn" style="font-size:.8em" id="chatBackBtn" onclick="loadConvos()">&#8592; Назад</button>
+        <button class="link-btn" onclick="closeChat()">&#x2715;</button>
+      </div>
+    </div>
+    <div class="overlay-body" id="chatBody"></div>
+    <div class="overlay-inp" id="chatInp" style="display:none">
+      <input id="chatIn" placeholder="Написать..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="sendMsg()">&#8594;</button>
+    </div>
+  </div>
+</div>
+
+<script src="/api.js"></script>
+<script>
+if(!requireAuth(['board_user']))throw'';
+document.getElementById('uname').textContent = localStorage.getItem('name') || '';
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+// ─── STATE ────────────────────────────────────────────────────────────────
+let curSection = null;
+let contacts = [];
+
+// ─── NAV ──────────────────────────────────────────────────────────────────
+function goSection(s, mobBtn){
+  curSection = s;
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const navEl = document.getElementById('nav-'+(s||'home'));
+  if(navEl) navEl.classList.add('active');
+  if(mobBtn){
+    document.querySelectorAll('.mob-nav-btn').forEach(el=>el.classList.remove('active'));
+    mobBtn.classList.add('active');
+  }
+  render();
+}
+
+function render(){
+  const m = document.getElementById('main');
+  if(curSection === null)         renderHome(m);
+  else if(curSection==='contacts') renderContacts(m);
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────────────
+function renderHome(m){
+  m.innerHTML = `
+<div style="margin-bottom:22px">
+  <div style="font-size:1.2em;font-weight:700;margin-bottom:3px">Добро пожаловать, ${esc(localStorage.getItem('name')||'')}</div>
+  <div style="color:var(--muted);font-size:.85em">Пользователь доски</div>
+</div>
+<div class="dash-grid">
+  <a class="dash-card" href="/workshop.html">
+    <div class="dash-card-icon">&#128296;</div>
+    <h3>Мастерская</h3>
+    <div class="dash-card-sub">Личные и совместные доски</div>
+  </a>
+  <div class="dash-card" onclick="goSection('contacts')">
+    <div class="dash-card-icon">&#128172;</div>
+    <h3>Контакты</h3>
+    <div class="dash-card-count">${contacts.length}</div>
+    <div class="dash-card-sub">собеседников</div>
+  </div>
+</div>`;
+}
+
+// ─── CONTACTS ─────────────────────────────────────────────────────────────
+const roleLabel = {owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель',board_user:'Польз. доски'};
+
+function renderContacts(m){
+  let h = `<div class="sec-header"><span class="sec-title">&#128172; Контакты</span></div>`;
+  if(!contacts.length){
+    m.innerHTML = h + '<div class="empty">Нет контактов</div>';
+    return;
+  }
+  h += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px 16px">`;
+  h += contacts.map(c=>`<div class="contact-item">
+  <div class="contact-avatar" style="background:${c.role==='owner'?'#2d1f5e':c.role==='tutor'?'#0d2e3a':c.role==='board_user'?'#1a2a1a':'var(--green)'};color:${c.role==='owner'?'#a78bfa':c.role==='tutor'?'#38bdf8':'var(--green-t)'}">${(c.name||'?')[0].toUpperCase()}</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:.88em;font-weight:600">
+      <a href="/profile.html?uid=${c.id}" style="color:inherit;text-decoration:none" onmouseover="this.style.color='var(--green-t)'" onmouseout="this.style.color='inherit'">${esc(c.name)}</a>
+    </div>
+    <div style="font-size:.78em;color:var(--muted)">${roleLabel[c.role]||c.role}</div>
+  </div>
+  <button onclick="startChat('${c.id}','${esc(c.name)}')" class="btn-sm btn-green">Написать</button>
+</div>`).join('');
+  h += `</div>`;
+  m.innerHTML = h;
+}
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────
+let chatUid = null, chatName = '', chatPollTimer = null;
+
+function openChatOverlay(){ document.getElementById('chatOverlay').style.display = 'flex'; }
+function closeChat(){
+  clearInterval(chatPollTimer); chatPollTimer = null;
+  document.getElementById('chatOverlay').style.display = 'none';
+  chatUid = null;
+}
+function startChat(uid, name){
+  chatUid = uid; chatName = name;
+  document.getElementById('chatTitle').textContent = '\u{1F4AC} ' + name;
+  document.getElementById('chatInp').style.display = 'flex';
+  document.getElementById('chatBackBtn').style.display = '';
+  openChatOverlay();
+  refreshChat();
+  clearInterval(chatPollTimer);
+  chatPollTimer = setInterval(refreshChat, 5000);
+}
+
+function _renderBubble(msg, mine){
+  try{
+    const j = JSON.parse(msg.text);
+    if(j.type==='board_invite'){
+      if(mine) return `<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><div style="max-width:78%;padding:7px 10px;border-radius:10px;font-size:.85em;background:var(--green);color:#fff;opacity:.8">&#128203; Приглашение на доску &laquo;${esc(j.board_title)}&raquo; &mdash; отправлено</div></div>`;
+      return `<div style="display:flex;justify-content:flex-start;margin-bottom:6px"><div style="max-width:80%;padding:10px 14px;border-radius:10px;font-size:.85em;background:var(--surface-2);border:1px solid var(--border)">
+<div style="font-weight:600;margin-bottom:4px">&#128203; Приглашение на доску</div>
+<div style="color:var(--green-t);margin-bottom:8px">&laquo;${esc(j.board_title)}&raquo;</div>
+<div id="invact_${esc(j.invite_id)}" style="display:flex;gap:6px">
+<button style="padding:4px 12px;background:var(--green);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_acceptBI('${esc(j.invite_id)}',this)">Принять</button>
+<button style="padding:4px 12px;background:none;color:#ef4444;border:1px solid #ef4444;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_declineBI('${esc(j.invite_id)}',this)">Отклонить</button>
+</div></div></div>`;
+    }
+  }catch{}
+  return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px">
+<div style="max-width:78%;padding:7px 10px;border-radius:10px;font-size:.85em;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'}">${esc(msg.text)}</div></div>`;
+}
+
+async function _acceptBI(iid,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/accept',{});
+    const w=document.getElementById('invact_'+iid);
+    if(w) w.innerHTML=`<span style="color:var(--green-t);font-size:.82em">&#10003; Принято &mdash; <a href="/workshop.html" style="color:var(--green-t)">Мастерская</a></span>`;
+  }catch(e){btn.disabled=false;alert(e.detail||'Ошибка');}
+}
+async function _declineBI(iid,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/decline',{});
+    const w=document.getElementById('invact_'+iid);
+    if(w) w.innerHTML=`<span style="color:var(--muted);font-size:.82em">Отклонено</span>`;
+  }catch(e){btn.disabled=false;}
+}
+
+async function loadConvos(){
+  clearInterval(chatPollTimer); chatPollTimer=null; chatUid=null;
+  document.getElementById('chatTitle').textContent='\u{1F4AC} Сообщения';
+  document.getElementById('chatInp').style.display='none';
+  openChatOverlay();
+  const convos=await get('/api/messages').catch(()=>[]);
+  const body=document.getElementById('chatBody');
+  if(!convos.length){body.innerHTML='<p style="color:var(--muted);text-align:center;padding:20px">Нет сообщений</p>';return}
+  body.innerHTML=convos.map(c=>`<div style="padding:10px 8px;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''" onclick="startChat('${c.partner_id}','${esc(c.partner_name)}')">
+<div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0">${(c.partner_name||'?')[0].toUpperCase()}</div>
+<div style="flex:1;min-width:0"><div style="font-size:.88em;font-weight:600">${esc(c.partner_name)}</div><div style="font-size:.78em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.last_text||'')}</div></div>
+${c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.68em;font-weight:700;padding:1px 5px;border-radius:8px">${c.unread}</span>`:''}</div>`).join('');
+}
+
+async function refreshChat(){
+  if(!chatUid) return;
+  const msgs=await get('/api/messages/'+chatUid).catch(()=>[]);
+  const body=document.getElementById('chatBody');
+  if(!body) return;
+  const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
+  body.innerHTML=msgs.map(m=>{const mine=m.to_id===chatUid;return _renderBubble(m,mine)}).join('');
+  if(atBottom) body.scrollTop=body.scrollHeight;
+  pollNotifs();
+}
+async function sendMsg(){
+  const inp=document.getElementById('chatIn');
+  if(!inp||!inp.value.trim()) return;
+  try{
+    await post('/api/messages',{to_id:chatUid,text:inp.value.trim()});
+    inp.value=''; await refreshChat();
+  }catch(e){alert(e.detail||'Ошибка');}
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────
+let notifPanelOpen=false, lastNotifsData=null;
+function fmtNotifTime(iso){
+  if(!iso) return '';
+  const d=Date.now()-new Date(iso).getTime(), m=Math.floor(d/60000);
+  if(m<2) return 'только что';
+  if(m<60) return m+' мин назад';
+  const h=Math.floor(m/60);
+  if(h<24) return h+' ч назад';
+  return new Date(iso).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+}
+async function pollNotifs(){
+  try{
+    const r=await get('/api/notifications');
+    lastNotifsData=r;
+    const n=r.unread||0;
+    const b=document.getElementById('notifBadge');
+    if(b){b.textContent=n>99?'99+':n;b.style.display=n>0?'':'none';}
+    if(notifPanelOpen) renderNotifPanel(r);
+  }catch(e){}
+  setTimeout(pollNotifs,30000);
+}
+function renderNotifPanel(r){
+  const body=document.getElementById('notifPanelBody');
+  if(!body) return;
+  const msgs=r.unread_messages||0;
+  const notifs=r.notifications||[];
+  let h='';
+  if(msgs>0) h+=`<div class="notif-msgs-row" onclick="closeNotifPanel();loadConvos()">
+<span>&#128172; ${msgs} новых сообщений</span><span style="color:var(--green-t);font-size:.8em">Открыть &rarr;</span></div>`;
+  if(!notifs.length&&!msgs){h='<div class="notif-empty">Нет уведомлений</div>';}
+  else h+=notifs.map(n=>`<div class="notif-item${n.is_read?'':' unread'}" onclick="handleNotif('${n.id}','${n.link||''}')">
+<div class="notif-item-text">${esc(n.text)}</div>
+<div class="notif-item-time">${fmtNotifTime(n.created_at)}</div></div>`).join('');
+  body.innerHTML=h;
+}
+function toggleNotifPanel(){
+  notifPanelOpen=!notifPanelOpen;
+  document.getElementById('notifPanel').classList.toggle('open',notifPanelOpen);
+  if(notifPanelOpen){if(lastNotifsData) renderNotifPanel(lastNotifsData); pollNotifs();}
+}
+function closeNotifPanel(){
+  notifPanelOpen=false;
+  document.getElementById('notifPanel').classList.remove('open');
+}
+async function handleNotif(id,link){
+  await post('/api/notifications/'+id+'/read',{}).catch(()=>{});
+  if(link) location.href=link;
+  pollNotifs();
+}
+async function markAllNotifsRead(){
+  await post('/api/notifications/read-all',{}).catch(()=>{});
+  pollNotifs();
+}
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('notifPanel');
+  const btn=e.target.closest('.notif-btn');
+  if(!btn&&panel&&!panel.contains(e.target)) closeNotifPanel();
+});
+
+// ─── LOAD ─────────────────────────────────────────────────────────────────
+async function load(){
+  try{
+    contacts = await get('/api/contacts').catch(()=>[]);
+  }catch(e){}
+  render();
+  pollNotifs();
+}
+load();
+</script></body></html>

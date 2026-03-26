@@ -1,18 +1,16 @@
 <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HBM — Родитель</title>
 <style>
-:root{
-  --bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;
-  --text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950;
-}
+:root{--bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;--text:#e6edf3;--muted:#7d8590;--green:#1a7f37;--green-h:#2ea043;--green-t:#3fb950}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 
-.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
-.topbar-logo{font-weight:700;font-size:1em}
-.topbar-r{display:flex;align-items:center;gap:12px}
-.topbar-name{color:var(--muted);font-size:.88em}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-logo{font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px}
+.topbar-logo svg{width:20px;height:20px;fill:none}
+.topbar-r{display:flex;align-items:center;gap:8px}
+.topbar-name{color:var(--muted);font-size:.85em}
 .link-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85em;padding:4px 8px;border-radius:6px}
 .link-btn:hover{background:var(--surface-2);color:var(--text)}
 .notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:4px 8px;border-radius:6px;line-height:1}
@@ -31,51 +29,117 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .notif-msgs-row{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.85em;cursor:pointer}
 .notif-msgs-row:hover{background:var(--surface-2)}
 .notif-empty{padding:24px;text-align:center;color:var(--muted);font-size:.85em}
-.wrap{max-width:820px;margin:0 auto;padding:28px 20px}
-.meta{color:var(--muted);font-size:.85em}
 
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px}
-.card h2{font-size:1.05em;font-weight:600;margin-bottom:10px}
+/* Layout */
+.layout{display:flex;min-height:calc(100vh - 52px)}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;flex-shrink:0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:.9em;color:var(--muted);border:none;background:none;width:100%;text-align:left;transition:background .15s;text-decoration:none}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:var(--surface-2);color:var(--text);font-weight:600}
+.nav-item-icon{font-size:1.05em;flex-shrink:0;width:20px;text-align:center}
+.nav-sep{height:1px;background:var(--border);margin:8px 4px}
+.main{flex:1;padding:24px 28px;min-width:0;max-width:860px}
 
-/* Price */
-.price-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;background:var(--surface-2);border-radius:8px;margin-bottom:12px;border:1px solid var(--border)}
-.price-cur{font-size:1.3em;font-weight:700;color:var(--green-t)}
-.price-disc{font-size:.82em;color:#fbbf24}
-.price-bar{height:5px;background:var(--bg);border-radius:3px;width:80px;flex-shrink:0}
-.price-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-t));border-radius:3px}
+/* Dashboard */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:16px}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 16px;cursor:pointer;transition:border-color .2s,background .2s;text-decoration:none;color:var(--text);display:block}
+.dash-card:hover{border-color:var(--green-t);background:var(--surface-2)}
+.dash-card-icon{font-size:1.8em;margin-bottom:8px}
+.dash-card h3{font-size:.9em;font-weight:600;margin-bottom:4px}
+.dash-card-count{font-size:1.6em;font-weight:700;color:var(--green-t);margin-bottom:2px}
+.dash-card-sub{font-size:.78em;color:var(--muted)}
+
+/* Section header */
+.sec-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.sec-title{font-size:1.1em;font-weight:700}
+
+/* Child cards */
+.child-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+.child-card-top{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.child-avatar{width:44px;height:44px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1em;flex-shrink:0}
+.child-name{font-size:1.05em;font-weight:700}
+.child-meta{color:var(--muted);font-size:.82em;margin-top:2px}
+.child-actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.btn-sm{padding:5px 12px;font-size:.82em;border-radius:6px;border:none;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green-h)}
+.btn-outline{background:none;border:1px solid var(--border);color:var(--muted)}
+.btn-outline:hover{border-color:var(--green-t);color:var(--text)}
+
+/* Goal badges */
 .goal{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.75em;font-weight:600}
 .goal-ege{background:#2d1f5e;color:#a78bfa}.goal-olymp{background:#3a2a00;color:#fbbf24}.goal-base{background:#0d2e1e;color:#34d399}
 
-/* Sections */
-.sec{background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:6px;border:1px solid transparent}
-.sec-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-.sec-title{font-size:.9em;font-weight:600;color:var(--text);flex:1}
+/* Price */
+.price-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:var(--surface-2);border-radius:8px;margin-bottom:10px;border:1px solid var(--border)}
+.price-cur{font-size:1.2em;font-weight:700;color:var(--green-t)}
+.price-bar{height:4px;background:var(--bg);border-radius:2px;width:70px;flex-shrink:0}
+.price-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-t));border-radius:2px}
+
+/* Section blocks */
+.sec-block{background:var(--surface-2);border-radius:8px;padding:9px 12px;margin-bottom:5px;border:1px solid var(--border)}
+.sec-block-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.sec-block-title{font-size:.88em;font-weight:600;flex:1}
+.sec-prog{height:3px;background:var(--border);border-radius:2px}
+.sec-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-t));border-radius:2px}
+.badge{font-size:.72em;padding:2px 7px;border-radius:20px;font-weight:600;display:inline-block}
+.badge-hw{background:#1a1040;color:#a78bfa}.badge-hw.done{background:#0d2e1e;color:#34d399}
+.badge-idz{background:#3a2a00;color:#fbbf24}.badge-idz.done{background:#0d2e1e;color:#34d399}
+.badge-ctrl-pass{background:#0d2e1e;color:#34d399}.badge-ctrl-fail{background:#2d0d0d;color:#f87171}.badge-ctrl-none{background:var(--surface);color:var(--muted)}
 .lock-badge{font-size:.72em;padding:2px 7px;border-radius:20px;background:#0d2e1e;color:var(--green-t);border:1px solid #1a5e32}
 
-/* Progress badges */
-.badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
-.badge{font-size:.72em;padding:2px 7px;border-radius:20px;font-weight:600}
-.badge-hw{background:#1a1040;color:#a78bfa}
-.badge-hw.done{background:#0d2e1e;color:#34d399}
-.badge-idz{background:#3a2a00;color:#fbbf24}
-.badge-idz.done{background:#0d2e1e;color:#34d399}
-.badge-ctrl-pass{background:#0d2e1e;color:#34d399}
-.badge-ctrl-fail{background:#2d0d0d;color:#f87171}
-.badge-ctrl-none{background:var(--surface);color:var(--muted)}
+/* Schedule */
+.sched-wrap{overflow-x:auto;margin-bottom:20px;border-radius:8px;border:1px solid var(--border)}
+.sched-tbl{border-collapse:collapse;min-width:100%;font-size:.85em}
+.sched-tbl th,.sched-tbl td{border:1px solid var(--border);padding:4px 6px;text-align:center;white-space:nowrap}
+.sched-tbl th{background:var(--surface-2);font-weight:600;font-size:.8em;color:var(--muted)}
+.tc{color:var(--muted);font-size:.78em;background:var(--surface-2)!important;min-width:52px}
+.sched-chip{border-radius:6px;padding:4px 6px;font-size:.8em;text-align:left;line-height:1.3}
+.sched-child-label{font-size:.72em;opacity:.85;display:block;margin-top:2px}
+.child-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.78em;font-weight:600;margin-right:4px;margin-bottom:4px}
 
-/* Items */
-.items-grid{display:flex;flex-direction:column;gap:3px}
-.item{display:flex;align-items:center;gap:8px;font-size:.82em;padding:4px 2px}
-.status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.st-none{background:#1c5e30}.st-progress{background:#f59e0b}.st-done{background:#10b981}
-.item-grade{font-size:.78em;font-weight:600}
-.grade-5{color:var(--green-t)}.grade-4{color:#bef264}.grade-3{color:#fde047}.grade-2{color:#fdba74}.grade-1{color:#fca5a5}
+/* Contacts */
+.contact-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.contact-item:last-child{border-bottom:none}
+.contact-avatar{width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0}
 
-/* Progress bar for section */
-.sec-prog{height:3px;background:var(--border);border-radius:2px;margin-bottom:6px}
-.sec-prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-t));border-radius:2px;transition:width .4s}
+/* Chat overlay */
+.overlay{display:none;position:fixed;inset:0;background:#000c;z-index:300;align-items:flex-end;justify-content:flex-end}
+.overlay-box{background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;width:360px;max-width:100vw;height:70vh;display:flex;flex-direction:column}
+.overlay-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.overlay-body{flex:1;overflow-y:auto;padding:12px}
+.overlay-inp{padding:10px;border-top:1px solid var(--border);display:flex;gap:6px}
+.overlay-inp input{flex:1;padding:7px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.9em}
+.overlay-inp button{padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600}
+
+.empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:.92em}
+
+@media(max-width:680px){
+  .sidebar{display:none}
+  .main{padding:14px 12px}
+  .mob-nav{display:flex!important}
+}
+.mob-nav{display:none;gap:4px;padding:10px 12px;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.mob-nav-btn{white-space:nowrap;padding:6px 12px;border-radius:20px;font-size:.82em;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--muted)}
+.mob-nav-btn.active{border-color:var(--green-t);color:var(--green-t);font-weight:600}
 </style></head><body>
-<div class="topbar"><span class="topbar-logo">👨‍👩‍👧 Кабинет родителя</span><div class="topbar-r"><span class="topbar-name" id="uname"></span><button class="link-btn" onclick="openContacts()">💬 Контакты</button><a href="/workshop.html" class="link-btn">🛠 Мастерская</a><a class="link-btn" href="/profile.html" title="Мой профиль">👤</a><button class="notif-btn" onclick="toggleNotifPanel()" title="Уведомления">🔔<span class="notif-badge" id="notifBadge"></span></button><button class="link-btn" onclick="logout()">Выйти</button></div></div>
+
+<div class="topbar">
+  <span class="topbar-logo">
+    <svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/>
+      <line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/>
+      <line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/>
+    </svg>
+    Кабинет родителя
+  </span>
+  <div class="topbar-r">
+    <span class="topbar-name" id="uname"></span>
+    <a href="/profile.html" class="link-btn" title="Профиль">👤</a>
+    <button class="notif-btn" onclick="toggleNotifPanel()" title="Уведомления">🔔<span class="notif-badge" id="notifBadge"></span></button>
+    <button class="link-btn" onclick="logout()">Выйти</button>
+  </div>
+</div>
 
 <div class="notif-panel" id="notifPanel">
   <div class="notif-panel-head">
@@ -88,238 +152,526 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
   <div class="notif-panel-body" id="notifPanelBody"><div class="notif-empty">Загрузка...</div></div>
 </div>
 
-<!-- Contacts overlay -->
-<div id="contactsOverlay" style="display:none;position:fixed;inset:0;background:#000c;z-index:200;align-items:flex-end;justify-content:flex-end">
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;width:360px;max-width:100vw;height:60vh;display:flex;flex-direction:column;margin-right:0">
-  <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-    <span style="font-weight:600">💬 Контакты</span>
-    <button class="link-btn" onclick="closeContacts()">✕</button>
-  </div>
-  <div id="contactsBody" style="flex:1;overflow-y:auto;padding:12px"></div>
+<!-- Mobile nav bar -->
+<div class="mob-nav" id="mobNav">
+  <button class="mob-nav-btn active" onclick="goSection(null,this)">🏠 Главная</button>
+  <button class="mob-nav-btn" onclick="goSection('children',this)">👦 Мои дети</button>
+  <button class="mob-nav-btn" onclick="goSection('schedule',this)">📅 Расписание</button>
+  <button class="mob-nav-btn" onclick="goSection('contacts',this)">💬 Контакты</button>
 </div>
-</div>
-<!-- Messages overlay -->
-<div id="msgOverlay" style="display:none;position:fixed;inset:0;background:#000c;z-index:200;align-items:flex-end;justify-content:flex-end">
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;width:360px;max-width:100vw;height:70vh;display:flex;flex-direction:column;margin-right:0">
-  <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-    <span id="msgTitle" style="font-weight:600">💬 Сообщения</span>
-    <button class="link-btn" onclick="closeMessages()">✕</button>
+
+<div class="layout">
+  <div class="sidebar">
+    <button class="nav-item active" id="nav-home" onclick="goSection(null)">
+      <span class="nav-item-icon">🏠</span>Главная
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-item" id="nav-children" onclick="goSection('children')">
+      <span class="nav-item-icon">👦</span>Мои дети
+    </button>
+    <button class="nav-item" id="nav-schedule" onclick="goSection('schedule')">
+      <span class="nav-item-icon">📅</span>Расписание
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-item" id="nav-contacts" onclick="goSection('contacts')">
+      <span class="nav-item-icon">💬</span>Контакты
+    </button>
   </div>
-  <div id="msgBody" style="flex:1;overflow-y:auto;padding:12px"></div>
-  <div id="msgInput" style="display:none;padding:10px;border-top:1px solid var(--border);display:none">
-    <div style="display:flex;gap:6px">
-      <input id="msgIn" placeholder="Написать..." style="flex:1;padding:7px 10px" onkeydown="if(event.key==='Enter')sendMsg()">
-      <button style="padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600" onclick="sendMsg()">→</button>
+  <div class="main" id="main"><div class="empty">Загрузка...</div></div>
+</div>
+
+<!-- Chat overlay -->
+<div class="overlay" id="chatOverlay">
+  <div class="overlay-box">
+    <div class="overlay-head">
+      <span id="chatTitle" style="font-weight:600">💬 Сообщения</span>
+      <div style="display:flex;gap:6px">
+        <button class="link-btn" style="font-size:.8em" id="chatBackBtn" onclick="loadConvos()" style="display:none">← Назад</button>
+        <button class="link-btn" onclick="closeChat()">✕</button>
+      </div>
+    </div>
+    <div class="overlay-body" id="chatBody"></div>
+    <div class="overlay-inp" id="chatInp" style="display:none">
+      <input id="chatIn" placeholder="Написать..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="sendMsg()">→</button>
     </div>
   </div>
 </div>
-</div>
-<div class="wrap"><div id="children"></div></div>
+
 <script src="/api.js"></script>
 <script>
 if(!requireAuth(['parent']))throw'';
-document.getElementById('uname').textContent=localStorage.getItem('name');
+document.getElementById('uname').textContent = localStorage.getItem('name') || '';
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 
-const gradeColors={5:'grade-5',4:'grade-4',3:'grade-3',2:'grade-2',1:'grade-1'};
+// ─── STATE ───────────────────────────────────────────────────────────────
+let curSection = null;
+let children = [], childDetails = {}, scheduleSlots = [], apiContacts = [];
+let parentContacts = [];
 
-function secBadges(sec){
-    const hw=sec.items.filter(i=>i.type==='hw');
-    const hwDone=hw.length>0&&hw.every(i=>(i.grade||0)===5);
-    const hwPart=hw.length>0&&hw.some(i=>(i.grade||0)>0);
-    const ctrl=sec.control_enabled;
-    const idz=sec.idz_enabled;
-    let b='';
-    if(hw.length>0){
-        const cls=hwDone?'badge-hw done':'badge-hw';
-        const hwGrades=hw.filter(i=>i.grade).map(i=>i.grade);
-        const avgHw=hwGrades.length?Math.round(hwGrades.reduce((a,b)=>a+b,0)/hwGrades.length):null;
-        b+=`<span class="badge ${cls}">ДЗ${avgHw?' '+avgHw:''}${hwDone?' ✓':''}</span>`}
-    if(idz){
-        const g=sec.idz||0;
-        const cls=g===5?'badge-idz done':'badge-idz';
-        b+=`<span class="badge ${cls}">ИДЗ${g?' '+g+'/5':''}</span>`}
-    if(ctrl){
-        if(sec.control==='passed') b+=`<span class="badge badge-ctrl-pass">Контроль ✓</span>`;
-        else if(sec.control==='failed') b+=`<span class="badge badge-ctrl-fail">Контроль ✗</span>`;
-        else b+=`<span class="badge badge-ctrl-none">Контроль —</span>`}
-    return b}
+const CHILD_COLORS = ['#1f6feb','#b91c1c','#6e40c9','#d97706','#0e7490','#1a7f37','#b45309','#be185d'];
+const SCHED_COLORS = {blue:'#1f6feb',red:'#b91c1c',purple:'#6e40c9',orange:'#d97706',teal:'#0e7490'};
+const SCHED_DAYS   = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+function slotToTime(idx){
+  const h = Math.floor(idx/2), mn = idx%2 ? '30':'00';
+  return String(h).padStart(2,'0') + ':' + mn;
+}
 
-function secProgress(sec){
-    const items=sec.items;
-    if(!items.length) return 0;
-    const done=items.filter(i=>i.status==='done').length;
-    return Math.round(done/items.length*100)}
+// ─── NAV ─────────────────────────────────────────────────────────────────
+function goSection(s, mobBtn){
+  curSection = s;
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const navEl = document.getElementById('nav-'+(s||'home'));
+  if(navEl) navEl.classList.add('active');
+  if(mobBtn){
+    document.querySelectorAll('.mob-nav-btn').forEach(el=>el.classList.remove('active'));
+    mobBtn.classList.add('active');
+  }
+  render();
+}
 
-async function load(){
-    apiContacts=await get('/api/contacts').catch(()=>[]);
-    const list=await get('/api/students');
-    if(!list.length){document.getElementById('children').innerHTML='<p class="meta" style="text-align:center;padding:40px">Нет привязанных детей</p>';return}
-    let h='';
-    for(const s of list){
-        const [full,contacts]=await Promise.all([
-            get('/api/students/'+s.id),
-            get('/api/students/'+s.id+'/contacts').catch(()=>({tutors:[],parents:[]}))]);
-        const gl=full.goal==='ege'?'ЕГЭ':full.goal==='olymp'?'Олимп':'База';
-        // Pricing
-        const n=full.sections.length;
-        let disc=0;
-        if(n){const share=full.base_rate*0.30/n;for(const sec of full.sections){
-            const hw=sec.items.filter(i=>i.type==='hw');
-            if(hw.length>0&&hw.every(i=>(i.grade||0)===5))disc+=share/3;
-            if(sec.control==='passed')disc+=share/3;
-            if(sec.idz_enabled&&(sec.idz||0)===5)disc+=share/3;}}
-        const discR=Math.round(disc),pct=Math.round(disc/full.base_rate*100),cur=full.base_rate-discR;
-        h+=`<div class="card"><h2>${full.name}</h2>
-<div class="price-row">
-  <span class="price-cur">${cur} ₽/ч</span>
-  <span style="color:#7aaa8a;font-size:.8em;text-decoration:line-through">${full.base_rate} ₽</span>
-  <span class="price-disc">−${discR} ₽ (−${pct}%)</span>
-  <div class="price-bar"><div class="price-bar-fill" style="width:${Math.min(100,pct*100/30)}%"></div></div>
-  <span class="meta" style="margin-left:auto">${pct}% скидка</span>
+function render(){
+  const m = document.getElementById('main');
+  if(curSection === null)        renderHome(m);
+  else if(curSection==='children') renderChildren(m);
+  else if(curSection==='schedule') renderSchedule(m);
+  else if(curSection==='contacts') renderContacts(m);
+}
+
+// ─── HOME ────────────────────────────────────────────────────────────────
+function renderHome(m){
+  m.innerHTML = `
+<div style="margin-bottom:22px">
+  <div style="font-size:1.2em;font-weight:700;margin-bottom:3px">Добро пожаловать, ${esc(localStorage.getItem('name')||'')}</div>
+  <div style="color:var(--muted);font-size:.85em">Кабинет родителя</div>
 </div>
-<div class="meta" style="margin-bottom:8px">${full.grade} класс · <span class="goal goal-${full.goal}">${gl}</span> · ${full.format} · <a href="/board.html?id=${full.id}">🎨 Доска</a></div>`;
-        if(contacts.tutors.length){
-            h+=`<div class="meta" style="margin-bottom:10px">👨‍🏫 ${contacts.tutors.map(t=>t.name+(t.subjects&&t.subjects.length?' ('+t.subjects.join(', ')+')':'')).join(', ')}</div>`}
-        if(full.sections.length){
-            for(const sec of full.sections){
-                const pct2=secProgress(sec);
-                const badges=secBadges(sec);
-                h+=`<div class="sec">
-<div class="sec-head">
-  <span class="sec-title">${sec.title}</span>
-  ${sec.locked?`<span class="lock-badge">🔒 Закрыт</span>`:''}
-  <span class="meta">${pct2}%</span>
-</div>`;
-                if(badges) h+=`<div class="badges">${badges}</div>`;
-                if(pct2>0) h+=`<div class="sec-prog"><div class="sec-prog-fill" style="width:${pct2}%"></div></div>`;
-                const visItems=sec.items.filter(i=>i.type!=='topic'||i.name);
-                if(visItems.length){
-                    h+='<div class="items-grid">';
-                    for(const it of visItems){
-                        const icon=it.type==='hw'?'📝':it.type==='control'?'📋':it.type==='idz'?'📊':it.type==='media'?'🎬':'📌';
-                        const gc=it.grade&&gradeColors[it.grade]?`<span class="item-grade ${gradeColors[it.grade]}">${it.grade}</span>`:'';
-                        h+=`<div class="item"><div class="status st-${it.status||'none'}"></div><span>${icon} ${it.name||it.type}</span>${gc}</div>`}
-                    h+='</div>'}
-                h+='</div>'}
-        }else{h+='<p class="meta" style="margin-top:8px">Программа не назначена</p>'}
-        h+='</div>'}
-    document.getElementById('children').innerHTML=h}
-let apiContacts=[];
-function onlineLabel(uid){
-  const c=apiContacts.find(x=>x.id===uid);
-  if(!c||!c.last_seen) return '<span style="color:var(--muted);font-size:.75em">не был в сети</span>';
-  const diff=Date.now()-new Date(c.last_seen).getTime(), mins=Math.floor(diff/60000);
-  if(mins<2) return '<span style="color:#3fb950;font-size:.75em">● онлайн</span>';
-  if(mins<60) return `<span style="color:var(--muted);font-size:.75em">был(а) ${mins} мин назад</span>`;
-  const hrs=Math.floor(mins/60);
-  if(hrs<24) return `<span style="color:var(--muted);font-size:.75em">был(а) ${hrs} ч назад</span>`;
-  return `<span style="color:var(--muted);font-size:.75em">был(а) ${Math.floor(hrs/24)} д назад</span>`}
-
-async function openContacts(){
-  document.getElementById('contactsOverlay').style.display='flex';
-  apiContacts=await get('/api/contacts').catch(()=>[]);
-  const body=document.getElementById('contactsBody');
-  if(!apiContacts.length){body.innerHTML='<p style="color:var(--muted);text-align:center;padding:20px">Нет контактов</p>';return}
-  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
-  body.innerHTML=apiContacts.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
-  <div style="width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0">${(c.name||'?')[0].toUpperCase()}</div>
-  <div style="flex:1">
-    <div style="font-size:.88em;font-weight:600"><a href="/profile.html?uid=${c.id}" style="color:inherit;text-decoration:none" onmouseover="this.style.color='var(--green-t)'" onmouseout="this.style.color='inherit'">${esc(c.name)}</a></div>
-    <div style="display:flex;gap:6px;align-items:center"><span style="color:var(--muted);font-size:.75em">${roleLabel[c.role]||c.role}</span>${onlineLabel(c.id)}</div>
+<div class="dash-grid">
+  <div class="dash-card" onclick="goSection('children')">
+    <div class="dash-card-icon">👦</div>
+    <h3>Мои дети</h3>
+    <div class="dash-card-count">${children.length}</div>
+    <div class="dash-card-sub">привязанных учеников</div>
   </div>
-  <button onclick="closeContacts();openMessages();openChat('${c.id}','${esc(c.name)}')" style="padding:4px 10px;font-size:.8em;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer">Написать</button>
-</div>`).join('')}
-function closeContacts(){document.getElementById('contactsOverlay').style.display='none'}
+  <div class="dash-card" onclick="goSection('schedule')">
+    <div class="dash-card-icon">📅</div>
+    <h3>Расписание</h3>
+    <div class="dash-card-count">${scheduleSlots.length}</div>
+    <div class="dash-card-sub">занятий в расписании</div>
+  </div>
+  <div class="dash-card" onclick="goSection('contacts')">
+    <div class="dash-card-icon">💬</div>
+    <h3>Контакты</h3>
+    <div class="dash-card-count">${parentContacts.length}</div>
+    <div class="dash-card-sub">детей и преподавателей</div>
+  </div>
+</div>`;
+}
 
-let msgChatUid=null, chatPollTimer=null, msgChatName='';
-function openMessages(){
-  document.getElementById('msgOverlay').style.display='flex';
-  msgChatUid=null;loadConvos()}
-function closeMessages(){
-  clearInterval(chatPollTimer);chatPollTimer=null;
-  document.getElementById('msgOverlay').style.display='none'}
-async function loadConvos(){
-  clearInterval(chatPollTimer);chatPollTimer=null;
-  const convos=await get('/api/messages').catch(()=>[]);
-  const body=document.getElementById('msgBody');
-  document.getElementById('msgTitle').textContent='💬 Сообщения';
-  document.getElementById('msgInput').style.display='none';
-  msgChatUid=null;
-  if(!convos.length){body.innerHTML='<p style="color:var(--muted);text-align:center;padding:20px">Нет сообщений</p>';return}
-  body.innerHTML=convos.map(c=>`<div style="padding:10px 8px;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''" onclick="openChat('${c.partner_id}','${esc(c.partner_name)}')">
-  <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0">${(c.partner_name||'?')[0].toUpperCase()}</div>
-  <div style="flex:1;min-width:0"><div style="font-size:.88em;font-weight:600">${esc(c.partner_name)}</div><div style="font-size:.78em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.last_text||'')}</div></div>
-  ${c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.68em;font-weight:700;padding:1px 5px;border-radius:8px">${c.unread}</span>`:''}
-</div>`).join('')}
-async function openChat(uid,name){
-  msgChatUid=uid;if(name)msgChatName=name;
-  document.getElementById('msgTitle').innerHTML=`<button onclick="loadConvos()" style="background:none;border:none;cursor:pointer;color:var(--muted);margin-right:6px;font-size:.85em">←</button>💬 ${esc(msgChatName)}`;
-  const inp=document.getElementById('msgInput');inp.style.display='flex';
-  await refreshChat();
+// ─── CHILDREN ────────────────────────────────────────────────────────────
+function secBadges(sec){
+  const hw = sec.items.filter(i=>i.type==='hw');
+  const hwDone = hw.length>0 && hw.every(i=>(i.grade||0)===5);
+  let b = '';
+  if(hw.length>0){
+    const hg = hw.filter(i=>i.grade).map(i=>i.grade);
+    const avg = hg.length ? Math.round(hg.reduce((a,x)=>a+x,0)/hg.length) : null;
+    b += `<span class="badge badge-hw${hwDone?' done':''}">ДЗ${avg?' '+avg:''}${hwDone?' ✓':''}</span>`;
+  }
+  if(sec.idz_enabled){
+    const g=sec.idz||0;
+    b += `<span class="badge badge-idz${g===5?' done':''}">ИДЗ${g?' '+g:''}</span>`;
+  }
+  if(sec.control_enabled){
+    if(sec.control==='passed')      b += `<span class="badge badge-ctrl-pass">Контроль ✓</span>`;
+    else if(sec.control==='failed') b += `<span class="badge badge-ctrl-fail">Контроль ✗</span>`;
+    else                            b += `<span class="badge badge-ctrl-none">Контроль —</span>`;
+  }
+  return b;
+}
+function secProg(sec){
+  if(!sec.items.length) return 0;
+  return Math.round(sec.items.filter(i=>i.status==='done').length / sec.items.length * 100);
+}
+
+function renderChildren(m){
+  if(!children.length){
+    m.innerHTML = '<div class="empty">Нет привязанных детей.<br>Обратитесь к преподавателю для добавления.</div>';
+    return;
+  }
+  let h = `<div class="sec-header"><span class="sec-title">👦 Мои дети</span></div>`;
+
+  children.forEach((child, ci) => {
+    const d = childDetails[child.id];
+    const color = CHILD_COLORS[ci % CHILD_COLORS.length];
+    const gl = d ? (d.goal==='ege'?'ЕГЭ':d.goal==='olymp'?'Олимп':'База') : '';
+    // Price calc
+    const n = d && d.sections ? d.sections.length : 0;
+    let disc = 0;
+    if(d && n){
+      const share = (d.base_rate||0)*0.30/n;
+      for(const sec of d.sections){
+        const hw = sec.items.filter(i=>i.type==='hw');
+        if(hw.length>0 && hw.every(i=>(i.grade||0)===5)) disc += share/3;
+        if(sec.control==='passed') disc += share/3;
+        if(sec.idz_enabled && (sec.idz||0)===5) disc += share/3;
+      }
+    }
+    const discR = Math.round(disc);
+    const pct = (d && d.base_rate) ? Math.round(disc/d.base_rate*100) : 0;
+    const cur = d ? (d.base_rate||0) - discR : 0;
+
+    h += `<div class="child-card">
+<div class="child-card-top">
+  <div class="child-avatar" style="background:${color}">${(child.name||'?')[0].toUpperCase()}</div>
+  <div style="flex:1;min-width:0">
+    <div class="child-name">${esc(child.name)}</div>
+    <div class="child-meta">${d ? `${d.grade} класс · <span class="goal goal-${d.goal}">${gl}</span> · ${d.format}` : '<span style="color:var(--muted)">загрузка...</span>'}</div>
+  </div>
+  <div class="child-actions">
+    <a href="/board.html?id=${child.id}" class="btn-sm btn-green">🎨 Доска</a>
+  </div>
+</div>`;
+
+    if(d && d.base_rate){
+      h += `<div class="price-row">
+  <span class="price-cur">${cur} ₽/ч</span>
+  <span style="color:#7aaa8a;font-size:.8em;text-decoration:line-through">${d.base_rate} ₽</span>
+  <span style="color:#fbbf24;font-size:.82em">−${discR} ₽ (−${pct}%)</span>
+  <div class="price-bar" style="margin-left:auto"><div class="price-bar-fill" style="width:${Math.min(100,pct*100/30)}%"></div></div>
+  <span style="color:var(--muted);font-size:.78em">${pct}%</span>
+</div>`;
+    }
+
+    if(d && d.sections && d.sections.length){
+      h += `<div style="font-size:.78em;color:var(--muted);font-weight:600;margin:8px 0 5px;text-transform:uppercase;letter-spacing:.04em">Программа</div>`;
+      for(const sec of d.sections){
+        const p = secProg(sec), badges = secBadges(sec);
+        h += `<div class="sec-block">
+<div class="sec-block-head">
+  <span class="sec-block-title">${esc(sec.title)}</span>
+  ${sec.locked ? `<span class="lock-badge">🔒</span>` : ''}
+  <span style="color:var(--muted);font-size:.78em">${p}%</span>
+</div>
+${badges ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">${badges}</div>` : ''}
+<div class="sec-prog"><div class="sec-prog-fill" style="width:${p}%"></div></div>
+</div>`;
+      }
+    } else if(d){
+      h += `<div style="color:var(--muted);font-size:.85em;padding:4px 0">Программа не назначена</div>`;
+    }
+
+    h += '</div>';
+  });
+  m.innerHTML = h;
+}
+
+// ─── SCHEDULE ────────────────────────────────────────────────────────────
+function renderSchedule(m){
+  let h = `<div class="sec-header"><span class="sec-title">📅 Расписание</span></div>`;
+  if(!scheduleSlots.length){
+    m.innerHTML = h + '<div class="empty">Расписание пока не назначено</div>';
+    return;
+  }
+
+  // Child color map
+  const childColorMap = {};
+  children.forEach((c,i) => childColorMap[c.id] = CHILD_COLORS[i % CHILD_COLORS.length]);
+
+  // Legend (if multiple children)
+  if(children.length > 1){
+    h += `<div style="margin-bottom:14px;display:flex;flex-wrap:wrap;gap:4px">`;
+    children.forEach((c,i) => {
+      const col = CHILD_COLORS[i % CHILD_COLORS.length];
+      h += `<span class="child-pill" style="background:${col}22;color:${col};border:1px solid ${col}55">● ${esc(c.name)}</span>`;
+    });
+    h += `</div>`;
+  }
+
+  const byDay = Array.from({length:7}, () => []);
+  scheduleSlots.forEach(s => byDay[s.day_of_week].push(s));
+  let minSl=48, maxSl=0;
+  scheduleSlots.forEach(s => {
+    minSl = Math.min(minSl, s.slot_index);
+    maxSl = Math.max(maxSl, s.slot_index + (s.duration||2) - 1);
+  });
+  minSl = Math.max(0, minSl-1);
+  maxSl = Math.min(47, maxSl+1);
+  const activeDays = [];
+  for(let d=0;d<7;d++) if(byDay[d].length) activeDays.push(d);
+
+  h += `<div class="sched-wrap"><table class="sched-tbl"><thead><tr><th class="tc">Время</th>`;
+  h += activeDays.map(d=>`<th>${SCHED_DAYS[d]}</th>`).join('');
+  h += `</tr></thead><tbody>`;
+  const skipSet = new Set();
+  for(let si=minSl; si<=maxSl; si++){
+    h += `<tr><td class="tc">${slotToTime(si)}</td>`;
+    for(const d of activeDays){
+      const key = `${d}_${si}`;
+      if(skipSet.has(key)){ continue; }
+      const slot = byDay[d].find(s=>s.slot_index===si);
+      if(slot){
+        const dur = slot.duration || 2;
+        for(let dd=1; dd<dur; dd++) skipSet.add(`${d}_${si+dd}`);
+        const bg = childColorMap[slot.student_id] || SCHED_COLORS[slot.color] || '#1a7f37';
+        h += `<td rowspan="${dur}" style="background:${bg}22;padding:3px;vertical-align:top">
+<div class="sched-chip" style="background:${bg};color:#fff">
+  <b>${slotToTime(slot.slot_index)}–${slotToTime(slot.slot_index+dur)}</b>
+  ${slot.note ? `<div style="font-size:.78em;opacity:.9">${esc(slot.note)}</div>` : ''}
+  ${children.length>1 ? `<span class="sched-child-label">${esc(slot.student_name||'')}</span>` : ''}
+</div></td>`;
+      } else {
+        h += `<td></td>`;
+      }
+    }
+    h += `</tr>`;
+  }
+  h += `</tbody></table></div>`;
+
+  // Slot list below table
+  h += `<div style="margin-top:20px">
+<div style="font-size:.8em;color:var(--muted);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Все занятия</div>`;
+  scheduleSlots.forEach(s => {
+    const dur = s.duration || 2;
+    const bg = childColorMap[s.student_id] || SCHED_COLORS[s.color] || '#1a7f37';
+    h += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;margin-bottom:7px">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div style="width:10px;height:10px;border-radius:50%;background:${bg};flex-shrink:0"></div>
+    <div style="font-size:.88em;font-weight:600">${SCHED_DAYS[s.day_of_week]} · ${slotToTime(s.slot_index)}–${slotToTime(s.slot_index+dur)}</div>
+    ${s.note ? `<span style="color:var(--muted);font-size:.82em">${esc(s.note)}</span>` : ''}
+    ${children.length>1 ? `<span style="margin-left:auto;font-size:.78em;color:${bg};font-weight:600">${esc(s.student_name||'')}</span>` : ''}
+  </div>
+  ${s.student_note ? `<div style="margin-top:5px;font-size:.82em;color:var(--muted);padding-left:18px;line-height:1.4">${esc(s.student_note)}</div>` : ''}
+</div>`;
+  });
+  h += `</div>`;
+  m.innerHTML = h;
+}
+
+// ─── BUILD PARENT CONTACTS ────────────────────────────────────────────────
+// Returns deduplicated list: children + their tutors
+function buildParentContacts(){
+  const map = new Map();
+  // Add children
+  children.forEach(c => map.set(c.id, {id:c.id, name:c.name, role:'student'}));
+  // Add tutors from each child's contacts
+  Object.values(childDetails).forEach(d => {
+    if(d && d._contacts){
+      d._contacts.tutors.forEach(t => {
+        if(!map.has(t.id)) map.set(t.id, {id:t.id, name:t.name, role:'tutor', subjects:t.subjects});
+      });
+    }
+  });
+  return [...map.values()];
+}
+
+// ─── CONTACTS ────────────────────────────────────────────────────────────
+function renderContacts(m){
+  const roleLabel = {tutor:'Преподаватель', student:'Ученик', parent:'Родитель', owner:'Владелец'};
+  const contacts = buildParentContacts();
+  let h = `<div class="sec-header"><span class="sec-title">💬 Контакты</span></div>`;
+  if(!contacts.length){
+    m.innerHTML = h + '<div class="empty">Нет контактов</div>';
+    return;
+  }
+  // Group: students first, then tutors
+  const students = contacts.filter(c=>c.role==='student');
+  const tutors   = contacts.filter(c=>c.role!=='student');
+  const sections = [];
+  if(students.length) sections.push({label:'👦 Дети', items: students});
+  if(tutors.length)   sections.push({label:'👨‍🏫 Преподаватели', items: tutors});
+  sections.forEach(sec => {
+    h += `<div style="font-size:.78em;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 6px">${sec.label}</div>`;
+    h += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px 16px">`;
+    h += sec.items.map(c=>`<div class="contact-item">
+  <div class="contact-avatar" style="background:${c.role==='student'?'var(--green)':'#6e40c9'}">${(c.name||'?')[0].toUpperCase()}</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:.88em;font-weight:600">
+      <a href="/profile.html?uid=${c.id}" style="color:inherit;text-decoration:none" onmouseover="this.style.color='var(--green-t)'" onmouseout="this.style.color='inherit'">${esc(c.name)}</a>
+    </div>
+    <div style="font-size:.78em;color:var(--muted)">${c.subjects&&c.subjects.length ? c.subjects.join(', ') : roleLabel[c.role]||c.role}</div>
+  </div>
+  <button onclick="startChat('${c.id}','${esc(c.name)}')" class="btn-sm btn-green">Написать</button>
+</div>`).join('');
+    h += `</div>`;
+  });
+  m.innerHTML = h;
+}
+
+// ─── CHAT ────────────────────────────────────────────────────────────────
+let chatUid = null, chatName = '', chatPollTimer = null;
+
+function openChatOverlay(){
+  document.getElementById('chatOverlay').style.display = 'flex';
+}
+function closeChat(){
+  clearInterval(chatPollTimer); chatPollTimer = null;
+  document.getElementById('chatOverlay').style.display = 'none';
+  chatUid = null;
+}
+function startChat(uid, name){
+  chatUid = uid; chatName = name;
+  document.getElementById('chatTitle').textContent = '💬 ' + name;
+  document.getElementById('chatInp').style.display = 'flex';
+  document.getElementById('chatBackBtn').style.display = '';
+  openChatOverlay();
+  refreshChat();
   clearInterval(chatPollTimer);
-  chatPollTimer=setInterval(refreshChat,5000);}
+  chatPollTimer = setInterval(refreshChat, 5000);
+}
+
+function _renderBubble(msg, mine){
+  try{
+    const j = JSON.parse(msg.text);
+    if(j.type==='board_invite'){
+      if(mine) return `<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><div style="max-width:78%;padding:7px 10px;border-radius:10px;font-size:.85em;background:var(--green);color:#fff;opacity:.8">📋 Приглашение на доску «${esc(j.board_title)}» — отправлено</div></div>`;
+      return `<div style="display:flex;justify-content:flex-start;margin-bottom:6px"><div style="max-width:80%;padding:10px 14px;border-radius:10px;font-size:.85em;background:var(--surface-2);border:1px solid var(--border)">
+<div style="font-weight:600;margin-bottom:4px">📋 Приглашение на доску</div>
+<div style="color:var(--green-t);margin-bottom:8px">«${esc(j.board_title)}»</div>
+<div id="invact_${esc(j.invite_id)}" style="display:flex;gap:6px">
+<button style="padding:4px 12px;background:var(--green);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_acceptBI('${esc(j.invite_id)}',this)">Принять</button>
+<button style="padding:4px 12px;background:none;color:#ef4444;border:1px solid #ef4444;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_declineBI('${esc(j.invite_id)}',this)">Отклонить</button>
+</div></div></div>`;
+    }
+  }catch{}
+  return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px">
+<div style="max-width:78%;padding:7px 10px;border-radius:10px;font-size:.85em;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'}">${esc(msg.text)}</div></div>`;
+}
+async function _acceptBI(iid,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/accept',{});
+    const w=document.getElementById('invact_'+iid);
+    if(w) w.innerHTML=`<span style="color:var(--green-t);font-size:.82em">✓ Принято — <a href="/workshop.html" style="color:var(--green-t)">Мастерская</a></span>`;
+  }catch(e){btn.disabled=false;alert(e.detail||'Ошибка');}
+}
+async function _declineBI(iid,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/decline',{});
+    const w=document.getElementById('invact_'+iid);
+    if(w) w.innerHTML=`<span style="color:var(--muted);font-size:.82em">Отклонено</span>`;
+  }catch(e){btn.disabled=false;}
+}
+
+async function loadConvos(){
+  clearInterval(chatPollTimer); chatPollTimer=null; chatUid=null;
+  document.getElementById('chatTitle').textContent='💬 Сообщения';
+  document.getElementById('chatInp').style.display='none';
+  openChatOverlay();
+  const convos = await get('/api/messages').catch(()=>[]);
+  const body = document.getElementById('chatBody');
+  if(!convos.length){body.innerHTML='<p style="color:var(--muted);text-align:center;padding:20px">Нет сообщений</p>';return}
+  body.innerHTML = convos.map(c=>`<div style="padding:10px 8px;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''" onclick="startChat('${c.partner_id}','${esc(c.partner_name)}')">
+<div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0">${(c.partner_name||'?')[0].toUpperCase()}</div>
+<div style="flex:1;min-width:0"><div style="font-size:.88em;font-weight:600">${esc(c.partner_name)}</div><div style="font-size:.78em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.last_text||'')}</div></div>
+${c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.68em;font-weight:700;padding:1px 5px;border-radius:8px">${c.unread}</span>`:''}</div>`).join('');
+}
+
 async function refreshChat(){
-  if(!msgChatUid) return;
-  const msgs=await get('/api/messages/'+msgChatUid).catch(()=>[]);
-  const body=document.getElementById('msgBody');
+  if(!chatUid) return;
+  const msgs = await get('/api/messages/'+chatUid).catch(()=>[]);
+  const body = document.getElementById('chatBody');
   if(!body) return;
-  const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
-  body.innerHTML=msgs.map(m=>{
-    const mine=m.to_id===msgChatUid;
-    return`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px">
-  <div style="max-width:78%;padding:7px 10px;border-radius:10px;font-size:.85em;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'}">${esc(m.text)}</div>
-</div>`}).join('');
-  if(atBottom) body.scrollTop=body.scrollHeight;
-  pollNotifs();}
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
+  body.innerHTML = msgs.map(m=>{const mine=m.to_id===chatUid;return _renderBubble(m,mine)}).join('');
+  if(atBottom) body.scrollTop = body.scrollHeight;
+  pollNotifs();
+}
 async function sendMsg(){
-  const inp=document.getElementById('msgIn');if(!inp||!inp.value.trim())return;
-  try{await post('/api/messages',{to_id:msgChatUid,text:inp.value.trim()});inp.value='';
-    await refreshChat();}catch(e){alert(e.detail||'Ошибка')}}
-let notifPanelOpen=false;
-let lastNotifsData=null;
+  const inp = document.getElementById('chatIn');
+  if(!inp || !inp.value.trim()) return;
+  try{
+    await post('/api/messages',{to_id:chatUid,text:inp.value.trim()});
+    inp.value=''; await refreshChat();
+  }catch(e){alert(e.detail||'Ошибка');}
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────
+let notifPanelOpen = false, lastNotifsData = null;
 function fmtNotifTime(iso){
   if(!iso) return '';
-  const d=Date.now()-new Date(iso).getTime(),m=Math.floor(d/60000);
-  if(m<2) return 'только что';if(m<60) return m+' мин назад';
-  const h=Math.floor(m/60);if(h<24) return h+' ч назад';
-  return new Date(iso).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}
+  const d=Date.now()-new Date(iso).getTime(), m=Math.floor(d/60000);
+  if(m<2) return 'только что';
+  if(m<60) return m+' мин назад';
+  const h=Math.floor(m/60);
+  if(h<24) return h+' ч назад';
+  return new Date(iso).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+}
 async function pollNotifs(){
   try{
-    const r=await get('/api/notifications');
-    lastNotifsData=r;
-    const n=r.unread||0;
-    const b=document.getElementById('notifBadge');
-    if(b){b.textContent=n>99?'99+':n;b.style.display=n>0?'':'none'}
+    const r = await get('/api/notifications');
+    lastNotifsData = r;
+    const n = r.unread||0;
+    const b = document.getElementById('notifBadge');
+    if(b){b.textContent=n>99?'99+':n; b.style.display=n>0?'':'none';}
     if(notifPanelOpen) renderNotifPanel(r);
   }catch(e){}
-  setTimeout(pollNotifs,30000)}
+  setTimeout(pollNotifs, 30000);
+}
 function renderNotifPanel(r){
-  const body=document.getElementById('notifPanelBody');if(!body) return;
-  const msgs=r.unread_messages||0;
-  const notifs=r.notifications||[];
-  let h='';
-  if(msgs>0) h+=`<div class="notif-msgs-row" onclick="closeNotifPanel();openMessages()">
-    <span>💬 ${msgs} новых сообщений</span><span style="color:var(--green-t);font-size:.8em">Открыть →</span></div>`;
-  if(!notifs.length&&!msgs){h='<div class="notif-empty">Нет уведомлений</div>';}
-  else h+=notifs.map(n=>`<div class="notif-item${n.is_read?'':' unread'}" onclick="handleNotif('${n.id}','${n.link||''}')">
-    <div class="notif-item-text">${esc(n.text)}</div>
-    <div class="notif-item-time">${fmtNotifTime(n.created_at)}</div></div>`).join('');
-  body.innerHTML=h}
+  const body = document.getElementById('notifPanelBody');
+  if(!body) return;
+  const msgs = r.unread_messages||0;
+  const notifs = r.notifications||[];
+  let h = '';
+  if(msgs>0) h += `<div class="notif-msgs-row" onclick="closeNotifPanel();loadConvos()">
+<span>💬 ${msgs} новых сообщений</span><span style="color:var(--green-t);font-size:.8em">Открыть →</span></div>`;
+  if(!notifs.length && !msgs){ h = '<div class="notif-empty">Нет уведомлений</div>'; }
+  else h += notifs.map(n=>`<div class="notif-item${n.is_read?'':' unread'}" onclick="handleNotif('${n.id}','${n.link||''}')">
+<div class="notif-item-text">${esc(n.text)}</div>
+<div class="notif-item-time">${fmtNotifTime(n.created_at)}</div></div>`).join('');
+  body.innerHTML = h;
+}
 function toggleNotifPanel(){
-  notifPanelOpen=!notifPanelOpen;
-  document.getElementById('notifPanel').classList.toggle('open',notifPanelOpen);
-  if(notifPanelOpen){if(lastNotifsData) renderNotifPanel(lastNotifsData);pollNotifs();}}
-function closeNotifPanel(){notifPanelOpen=false;document.getElementById('notifPanel').classList.remove('open')}
-async function handleNotif(id,link){
+  notifPanelOpen = !notifPanelOpen;
+  document.getElementById('notifPanel').classList.toggle('open', notifPanelOpen);
+  if(notifPanelOpen){ if(lastNotifsData) renderNotifPanel(lastNotifsData); pollNotifs(); }
+}
+function closeNotifPanel(){
+  notifPanelOpen = false;
+  document.getElementById('notifPanel').classList.remove('open');
+}
+async function handleNotif(id, link){
   await post('/api/notifications/'+id+'/read',{}).catch(()=>{});
-  if(link) location.href=link;
-  pollNotifs();}
+  if(link) location.href = link;
+  pollNotifs();
+}
 async function markAllNotifsRead(){
   await post('/api/notifications/read-all',{}).catch(()=>{});
-  pollNotifs();}
-document.addEventListener('click',e=>{
-  const panel=document.getElementById('notifPanel');
-  const btn=e.target.closest('.notif-btn');
-  if(!btn&&panel&&!panel.contains(e.target)){closeNotifPanel();}});
-pollNotifs();
+  pollNotifs();
+}
+document.addEventListener('click', e=>{
+  const panel = document.getElementById('notifPanel');
+  const btn = e.target.closest('.notif-btn');
+  if(!btn && panel && !panel.contains(e.target)) closeNotifPanel();
+});
+
+// ─── LOAD ────────────────────────────────────────────────────────────────
+async function load(){
+  try{
+    [children, scheduleSlots, apiContacts] = await Promise.all([
+      get('/api/students').catch(()=>[]),
+      get('/api/schedule/parent').catch(()=>[]),
+      get('/api/contacts').catch(()=>[])
+    ]);
+  }catch(e){}
+  render();
+  // Load child details + their contacts in background, then re-render
+  if(children.length){
+    await Promise.all(
+      children.map(c =>
+        Promise.all([
+          get('/api/students/'+c.id).catch(()=>null),
+          get('/api/students/'+c.id+'/contacts').catch(()=>({tutors:[],parents:[]}))
+        ]).then(([d, contacts]) => {
+          if(d){ d._contacts = contacts; childDetails[c.id] = d; }
+        })
+      )
+    );
+    parentContacts = buildParentContacts();
+    render();
+  }
+  pollNotifs();
+}
+load();
 </script></body></html>

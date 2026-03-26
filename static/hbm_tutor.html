@@ -13,7 +13,7 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 /* TOP BAR */
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 .topbar-logo{font-weight:700;font-size:1.05em;color:var(--text);display:flex;align-items:center;gap:8px}
-.topbar-logo svg{width:22px;height:22px;fill:var(--green-t)}
+.topbar-logo svg{width:22px;height:22px;fill:none;stroke:var(--green-t)}
 .topbar-r{display:flex;align-items:center;gap:12px}
 .role-pill{padding:2px 10px;border-radius:20px;font-size:.75em;font-weight:600;background:#1f3a27;color:var(--green-t);border:1px solid #2d5a38}
 .role-pill.owner{background:#2d1f5e;color:#a78bfa;border-color:#4c3a8a}
@@ -23,6 +23,8 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:4px 8px;border-radius:6px;line-height:1}
 .notif-btn:hover{background:var(--surface-2);color:var(--text)}
 .notif-badge{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:.6em;font-weight:700;padding:1px 4px;border-radius:10px;min-width:14px;text-align:center;display:none}
+@keyframes bellshake{0%,100%{transform:rotate(0)}15%{transform:rotate(16deg)}30%{transform:rotate(-13deg)}45%{transform:rotate(10deg)}60%{transform:rotate(-7deg)}75%{transform:rotate(4deg)}}
+.notif-btn.shake{animation:bellshake .7s ease-in-out}
 .notif-panel{position:fixed;top:52px;right:12px;width:340px;max-height:480px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 30px #0008;z-index:100;display:none;flex-direction:column;overflow:hidden}
 .notif-panel.open{display:flex}
 .notif-panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:.88em;flex-shrink:0}
@@ -104,6 +106,7 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .role-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.72em;font-weight:600}
 .rb-owner{background:#2d1f5e;color:#a78bfa}.rb-tutor{background:#0d2e3a;color:#38bdf8}
 .rb-student{background:#0d2e1e;color:var(--green-t)}.rb-parent{background:#3a2200;color:#fb923c}
+.rb-board-user{background:#1a2a1a;color:#3fb950}
 .subj-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
 .subj-tag{font-size:.72em;padding:2px 7px;border-radius:20px;background:var(--surface-2);color:var(--muted);border:1px solid var(--border)}
 
@@ -159,12 +162,15 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
 .sched-expand-row td{text-align:center;padding:6px}
 .sched-expand-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 18px;font-size:.75em;cursor:pointer}
 .sched-expand-btn:hover{background:var(--surface-2);color:var(--text)}
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.filter-bar input,.filter-bar select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 10px;font-size:.85em;min-width:140px}
+.filter-bar input{flex:1;min-width:180px}
 .sched-shutter-top td,.sched-shutter-bot td{background:var(--surface);border:1px solid var(--border)}
 </style></head><body>
 
 <div class="topbar">
-  <div class="topbar-logo">
-    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+  <div class="topbar-logo" onclick="goHome()" style="cursor:pointer;user-select:none" title="На главную">
+    <svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg>
     HBM
   </div>
   <div class="topbar-r">
@@ -194,8 +200,22 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
 <h2 id="mStudentTitle">Новый ученик</h2>
 <label>Имя</label><input id="sName" placeholder="Имя ученика">
 <div class="form-row">
-  <div><label>Класс</label><input id="sGrade" value="9" style="width:80px"></div>
-  <div><label>Цель</label><select id="sGoal"><option value="ege">ЕГЭ</option><option value="olymp">Олимпиады</option><option value="base">База</option></select></div>
+  <div><label>Уровень</label><select id="sLevel" onchange="onLevelChange()">
+    <option value="school">Школьник</option>
+    <option value="university">Студент</option>
+    <option value="additional">Доп. образование</option>
+  </select></div>
+  <div id="gradeWrap"><label>Класс</label><input id="sGrade" value="9" style="width:60px"></div>
+</div>
+<div class="form-row">
+  <div><label>Цель</label><select id="sGoal">
+    <option value="ege">ЕГЭ</option>
+    <option value="oge">ОГЭ</option>
+    <option value="olymp">Олимпиады</option>
+    <option value="improve_grades">Улучшение оценок</option>
+    <option value="deepening">Углубление материала</option>
+    <option value="extra_education">Дополнительное образование</option>
+  </select></div>
 </div>
 <div class="form-row">
   <div><label>Ставка (₽/ч)</label><input id="sRate" type="number" value="1500"></div>
@@ -289,6 +309,8 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
   <option value="7">3,5 часа</option>
   <option value="8">4 часа</option>
 </select>
+<label>Цена занятия <span style="color:var(--muted)">(₽/ч, необязательно)</span></label>
+<input id="schedPrice" type="number" min="0" step="50" placeholder="0">
 <label>Заметка <span style="color:var(--muted)">(необязательно)</span></label>
 <input id="schedNote" placeholder="Тема урока, пометка..." maxlength="80">
 <div class="modal-footer">
@@ -330,6 +352,9 @@ if(isOwner) rp.classList.add('owner');
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 let subjects=[],students=[],users=[];
+function _djwt(t){try{return JSON.parse(atob(t.split('.')[1]))}catch{return{}}}
+const myUserId=_djwt(localStorage.getItem('token')||'').sub||'';
+let unreadMsgCount=0; // global unread messages count
 let curSection=null; // null=home, 'students'|'users'|'subjects'
 
 // ─── NAV ──────────────────────────────────────────────────────────────────
@@ -339,6 +364,7 @@ function goSection(s){
   if(s==='messages')loadConvos();
   if(s==='contacts')loadContacts();
   if(s==='schedule')loadSchedule();
+  if(s==='finances')loadFinances();
   render()}
 function render(){
   if(curSection===null) renderHome();
@@ -347,7 +373,8 @@ function render(){
   else if(curSection==='subjects') renderSubjects();
   else if(curSection==='messages') renderMessages();
   else if(curSection==='contacts') renderContacts();
-  else if(curSection==='schedule') renderSchedule()}
+  else if(curSection==='schedule') renderSchedule()
+  else if(curSection==='finances') renderFinances()}
 
 // ─── HOME ─────────────────────────────────────────────────────────────────
 function renderHome(){
@@ -356,8 +383,9 @@ function renderHome(){
     {key:'students',icon:'👥',title:'Ученики',count:students.length,desc:'Профили и успеваемость'},
     {key:'users',icon:'👤',title:'Пользователи',count:users.length,desc:'Аккаунты системы'},
     {key:'courses',icon:'📚',title:'Курсы',count:null,desc:'Учебные программы',href:'/courses.html'},
-    {key:'contacts',icon:'💬',title:'Контакты',count:null,desc:'Написать ученику или родителю'},
+    {key:'contacts',icon:'💬',title:'Контакты',count:null,desc:'Написать ученику или родителю',badge:'contacts'},
     {key:'schedule',icon:'📅',title:'Расписание',count:null,desc:'Занятия по дням недели'},
+    {key:'finances',icon:'💰',title:'Финансы',count:null,desc:'Счета комиссии'},
     {key:'workshop',icon:'🛠',title:'Мастерская',count:null,desc:'Мои личные доски',href:'/workshop.html'},
   ];
   if(isOwner) sections.push({key:'subjects',icon:'📐',title:'Предметы',count:subjects.length,desc:'Учебные предметы'});
@@ -365,32 +393,69 @@ function renderHome(){
   for(const s of sections){
     const el=s.href?'a':'div';
     const attr=s.href?`href="${s.href}"`:`onclick="goSection('${s.key}')"`;
-    const cnt=s.count!==null?`<div class="dc-count">${s.count}</div>`:'<div class="dc-count" style="font-size:.9em;color:var(--muted)">→</div>';
+    let cnt;
+    if(s.count!==null) cnt=`<div class="dc-count">${s.count}</div>`;
+    else if(s.badge==='contacts') cnt=`<div class="dc-count" style="position:relative">${unreadMsgCount>0?`<span id="contactsCardCount" style="background:#ef4444;color:#fff;font-size:.75em;font-weight:700;padding:1px 7px;border-radius:10px">${unreadMsgCount}</span>`:'<span id="contactsCardCount" style="display:none"></span><span style="font-size:.9em;color:var(--muted)">→</span>'}</div>`;
+    else cnt='<div class="dc-count" style="font-size:.9em;color:var(--muted)">→</div>';
     cards+=`<${el} class="dash-card" ${attr}><div class="dc-icon">${s.icon}</div><div class="dc-title">${s.title}</div>${cnt}<div class="dc-desc">${s.desc}</div></${el}>`;
   }
   m.innerHTML=`<div class="dash-header"><h1>Добро пожаловать, ${uname}</h1><p>Выберите раздел для работы</p></div><div class="dash-grid">${cards}</div>`}
 
 
 // ─── STUDENTS ─────────────────────────────────────────────────────────────
-function renderStudents(){
+function renderStudents(studFilter){
   const m=document.getElementById('main');
+  const sfQ=(studFilter!==undefined?studFilter:document.getElementById('studSearch')?.value)||'';
+  const sfSubj=document.getElementById('studSubjFilter')?.value||'';
+  const sfTutor=document.getElementById('studTutorFilter')?.value||'';
+  const sfOwn=document.getElementById('studOwnFilter')?.checked||false;
   let h=`<div class="sec-header">
     <button class="back-btn" onclick="goHome()">← Главная</button>
     <span class="sec-title">👥 Ученики</span>
     <div class="sec-header-actions"><button class="btn btn-p" onclick="openAddStudent()">+ Ученик</button></div>
+  </div>
+  <div class="filter-bar">
+    <input id="studSearch" placeholder="🔍 Поиск по имени..." value="${esc(sfQ)}" oninput="renderStudents()">
+    ${isOwner?`<select id="studTutorFilter" onchange="renderStudents()"><option value="">Все преподаватели</option>${users.filter(u=>u.role==='tutor').map(u=>`<option value="${u.id}"${sfTutor===u.id?' selected':''}>${esc(u.name)}</option>`).join('')}</select>`:''}` +
+    `${isOwner?`<select id="studSubjFilter" onchange="renderStudents()"><option value="">Все предметы</option>${subjects.map(x=>`<option value="${x.id}"${sfSubj===x.id?' selected':''}>${x.icon} ${esc(x.name)}</option>`).join('')}</select>`:''}
+    ${isOwner?`<label style="display:flex;align-items:center;gap:5px;font-size:.85em;cursor:pointer"><input type="checkbox" id="studOwnFilter" ${sfOwn?'checked':''} onchange="renderStudents()"> Мои ученики</label>`:''}
   </div>`;
   if(!students.length){m.innerHTML=h+'<div class="empty">Нет учеников. Создайте первого!</div>';return}
+  // Sort: own students first for owner
+  let sorted=[...students];
+  if(isOwner) sorted.sort((a,b)=>(b.created_by===myUserId?1:0)-(a.created_by===myUserId?1:0));
+  // Filter
+  const q=sfQ.toLowerCase();
+  sorted=sorted.filter(s=>{
+    if(q&&!s.name.toLowerCase().includes(q)) return false;
+    if(sfSubj&&s.subject_id!==sfSubj) return false;
+    if(sfTutor&&s.created_by!==sfTutor) return false;
+    if(sfOwn&&s.created_by!==myUserId) return false;
+    return true;
+  });
+  if(!sorted.length){m.innerHTML=h+'<div class="empty">Нет учеников по фильтру</div>';return}
+  // Separator between own and others (owner only)
+  let ownCount=isOwner?sorted.filter(s=>s.created_by===myUserId).length:sorted.length;
   h+='<div class="cards-grid">';
-  for(const s of students){
-    const gc=s.goal==='ege'?'goal-ege':s.goal==='olymp'?'goal-olymp':'goal-base';
-    const gl=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
+  let separatorShown=false;
+  for(let i=0;i<sorted.length;i++){const s=sorted[i];
+  if(isOwner&&!sfOwn&&i===ownCount&&ownCount>0&&ownCount<sorted.length){
+    h+=`</div><div style="color:var(--muted);font-size:.78em;padding:8px 4px;margin-top:4px">Остальные ученики</div><div class="cards-grid">`;
+  }
+    const GOAL_LABEL={ege:'ЕГЭ',oge:'ОГЭ',olymp:'Олимпиады',improve_grades:'Улучшение оценок',deepening:'Углубление',extra_education:'Доп. образование'};
+    const GOAL_CSS={ege:'goal-ege',oge:'goal-ege',olymp:'goal-olymp',improve_grades:'goal-base',deepening:'goal-base',extra_education:'goal-base'};
+    const LEVEL_LABEL={school:'Школьник',university:'Студент',additional:'Доп. образование'};
+    const gc=GOAL_CSS[s.goal]||'goal-base';
+    const gl=GOAL_LABEL[s.goal]||s.goal;
+    const lvl=LEVEL_LABEL[s.level||'school']||s.level;
+    const gradeStr=s.level==='school'&&s.grade?s.grade+' кл · ':'';
     const subj=subjects.find(x=>x.id===s.subject_id);
     const hasAcct=users.some(u=>u.student_id===s.id);
     h+=`<div class="card" id="sc_${s.id}">
   <div class="card-body" onclick="location.href='/student.html?id=${s.id}'">
     <h3>${s.name}${hasAcct?` <span class="acct-tag">👤 Аккаунт</span>`:''}</h3>
     <div class="meta" style="margin-bottom:6px">
-      ${s.grade} кл · <span class="goal ${gc}">${gl}</span> · ${s.base_rate} ₽/ч
+      ${gradeStr}<span style="opacity:.7">${lvl}</span> · <span class="goal ${gc}">${gl}</span> · ${s.base_rate} ₽/ч
       ${subj?'· '+subj.icon+' '+subj.name:''}
     </div>
     <a href="/board.html?id=${s.id}" onclick="event.stopPropagation()" style="font-size:.78em;color:var(--green-t);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface-2);border-radius:6px;border:1px solid var(--border);text-decoration:none;margin-top:4px">🎨 Доска</a>
@@ -412,14 +477,44 @@ function renderStudents(){
 // ─── USERS ─────────────────────────────────────────────────────────────────
 function renderUsers(){
   const m=document.getElementById('main');
+  const uq=(document.getElementById('usrSearch')?.value||'').toLowerCase();
+  const uroF=document.getElementById('usrRoleFilter')?.value||'';
+  const usort=document.getElementById('usrSort')?.value||'name';
   let h=`<div class="sec-header">
     <button class="back-btn" onclick="goHome()">← Главная</button>
     <span class="sec-title">👤 Пользователи</span>
     <div class="sec-header-actions"><button class="btn btn-p" onclick="openM('mUser')">+ Пользователь</button></div>
+  </div>
+  <div class="filter-bar">
+    <input id="usrSearch" placeholder="🔍 Имя, логин..." value="${uq}" oninput="renderUsers()">
+    <select id="usrRoleFilter" onchange="renderUsers()">
+      <option value="">Все роли</option>
+      <option value="tutor"${uroF==='tutor'?' selected':''}>👨‍🏫 Преподаватели</option>
+      <option value="student"${uroF==='student'?' selected':''}>🎓 Ученики</option>
+      <option value="parent"${uroF==='parent'?' selected':''}>👨‍👩‍👧 Родители</option>
+      <option value="board_user"${uroF==='board_user'?' selected':''}>🛠 Польз. доски</option>
+    </select>
+    <select id="usrSort" onchange="renderUsers()">
+      <option value="name"${usort==='name'?' selected':''}>По имени</option>
+      <option value="created"${usort==='created'?' selected':''}>По дате регистрации</option>
+      <option value="online"${usort==='online'?' selected':''}>По активности</option>
+      <option value="role"${usort==='role'?' selected':''}>По роли</option>
+    </select>
   </div>`;
-  const rl={owner:'rb-owner',tutor:'rb-tutor',student:'rb-student',parent:'rb-parent'};
-  const rn={owner:'👑 Владелец',tutor:'👨‍🏫 Преподаватель',student:'🎓 Ученик',parent:'👨‍👩‍👧 Родитель'};
-  for(const u of users){
+  const rl={owner:'rb-owner',tutor:'rb-tutor',student:'rb-student',parent:'rb-parent',board_user:'rb-board-user'};
+  const rn={owner:'👑 Владелец',tutor:'👨‍🏫 Преподаватель',student:'🎓 Ученик',parent:'👨‍👩‍👧 Родитель',board_user:'🛠 Польз. доски'};
+  const ROLE_ORD={owner:0,tutor:1,student:2,parent:3,board_user:4};
+  let filtUsers=users.filter(u=>{
+    if(uq&&!u.name.toLowerCase().includes(uq)&&!u.login.toLowerCase().includes(uq)) return false;
+    if(uroF&&u.role!==uroF) return false;
+    return true;
+  });
+  if(usort==='created') filtUsers.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  else if(usort==='online') filtUsers.sort((a,b)=>new Date(b.last_seen||0)-new Date(a.last_seen||0));
+  else if(usort==='role') filtUsers.sort((a,b)=>(ROLE_ORD[a.role]||9)-(ROLE_ORD[b.role]||9));
+  else filtUsers.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  if(!filtUsers.length){m.innerHTML=h+'<div class="empty">Нет пользователей по фильтру</div>';return}
+  for(const u of filtUsers){
     const canDel=isOwner&&u.role!=='owner';
     const subjTags=u.subject_ids&&u.subject_ids.length
       ?u.subject_ids.map(sid=>{const s=subjects.find(x=>x.id===sid);return s?`<span class="subj-tag">${s.icon} ${s.name}</span>`:''}).join('')
@@ -477,15 +572,21 @@ function closeAllMenus(){document.querySelectorAll('.dot-dd.open').forEach(el=>e
 function closeMenuThen(fn){closeAllMenus();fn()}
 
 // ─── STUDENT CRUD ─────────────────────────────────────────────────────────
+function onLevelChange(){
+  const lv=document.getElementById('sLevel').value;
+  document.getElementById('gradeWrap').style.display=lv==='school'?'':'none';
+}
 let editStudId=null;
 function openAddStudent(){
   editStudId=null;
   document.getElementById('mStudentTitle').textContent='Новый ученик';
   document.getElementById('sName').value='';
+  document.getElementById('sLevel').value='school';
   document.getElementById('sGrade').value='9';
   document.getElementById('sGoal').value='ege';
   document.getElementById('sRate').value='1500';
   document.getElementById('sFormat').value='online';
+  onLevelChange();
   fillSubjSelect('sSubject');
   openM('mStudent')}
 function editStud(stid){
@@ -493,16 +594,21 @@ function editStud(stid){
   editStudId=stid;
   document.getElementById('mStudentTitle').textContent='Редактировать ученика';
   document.getElementById('sName').value=s.name;
-  document.getElementById('sGrade').value=s.grade;
+  document.getElementById('sLevel').value=s.level||'school';
+  document.getElementById('sGrade').value=s.grade||'';
   document.getElementById('sGoal').value=s.goal;
   document.getElementById('sRate').value=s.base_rate;
   document.getElementById('sFormat').value=s.format;
+  onLevelChange();
   fillSubjSelect('sSubject');
   setTimeout(()=>document.getElementById('sSubject').value=s.subject_id||'',50);
   openM('mStudent')}
 async function saveStudent(){
   try{
-    const d={name:document.getElementById('sName').value,grade:document.getElementById('sGrade').value,
+    const lv=document.getElementById('sLevel').value;
+    const d={name:document.getElementById('sName').value,
+      level:lv,
+      grade:lv==='school'?(document.getElementById('sGrade').value||null):null,
       goal:document.getElementById('sGoal').value,base_rate:+document.getElementById('sRate').value,
       format:document.getElementById('sFormat').value,subject_id:document.getElementById('sSubject').value||null};
     if(editStudId) await patch('/api/students/'+editStudId,d);
@@ -589,7 +695,7 @@ function openLinkStudent(uid,name,curStid){
   document.getElementById('mLinkStudentInfo').textContent='Аккаунт: '+name;
   const sel=document.getElementById('linkStudentSel');
   sel.innerHTML='<option value="">— выберите ученика —</option>'+
-    students.map(s=>`<option value="${s.id}"${s.id===curStid?' selected':''}>${s.name} (${s.grade} кл.)</option>`).join('');
+    students.map(s=>`<option value="${s.id}"${s.id===curStid?' selected':''}>${s.name}${s.level==='school'&&s.grade?' ('+s.grade+' кл.)':''}</option>`).join('');
   openM('mLinkStudent')}
 async function saveLinkStudent(){
   if(!linkUserId) return;
@@ -649,7 +755,7 @@ function fillChildrenSelect(){
   document.getElementById('uChildren').innerHTML=students.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
 function buildRoleOptions(){
   const sel=document.getElementById('uRole');
-  const opts=isOwner?[['tutor','👨‍🏫 Преподаватель'],['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель']]:[['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель']];
+  const opts=isOwner?[['tutor','👨‍🏫 Преподаватель'],['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель'],['board_user','🛠 Польз. доски']]:[['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель']];
   sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}
 function onRoleChange(){
   const r=document.getElementById('uRole').value;
@@ -755,6 +861,41 @@ async function openChat(uid,name){
   renderChat(document.getElementById('main'));
   clearInterval(chatPollTimer);
   chatPollTimer=setInterval(refreshChat,5000);}
+function _renderBubble(msg,mine){
+  try{
+    const j=JSON.parse(msg.text);
+    if(j.type==='board_invite'){
+      if(mine) return`<div style="display:flex;justify-content:flex-end">
+  <div style="max-width:72%;padding:8px 12px;border-radius:12px;background:var(--green);color:#fff;font-size:.88em;opacity:.8">
+    📋 Приглашение на доску «${esc(j.board_title)}» — отправлено
+  </div></div>`;
+      return`<div style="display:flex;justify-content:flex-start">
+  <div style="max-width:80%;padding:10px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font-size:.88em">
+    <div style="font-weight:600;margin-bottom:4px">📋 Приглашение на доску</div>
+    <div style="color:var(--green-t);margin-bottom:8px">«${esc(j.board_title)}»</div>
+    <div id="invact_${esc(j.invite_id)}" style="display:flex;gap:6px">
+      <button style="padding:4px 12px;background:var(--green);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_acceptBI('${esc(j.invite_id)}','${esc(j.board_title)}',this)">Принять</button>
+      <button style="padding:4px 12px;background:none;color:#ef4444;border:1px solid #ef4444;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_declineBI('${esc(j.invite_id)}',this)">Отклонить</button>
+    </div>
+  </div></div>`;}}catch{}
+  return`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
+  <div style="max-width:72%;padding:8px 12px;border-radius:12px;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'};font-size:.88em">
+    ${esc(msg.text)}
+  </div></div>`;}
+async function _acceptBI(iid,title,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/accept',{});
+    const wrap=document.getElementById('invact_'+iid);
+    if(wrap) wrap.innerHTML=`<span style="color:var(--green-t);font-size:.82em">✓ Принято — доска добавлена в <a href="/workshop.html" style="color:var(--green-t)">Мастерскую</a></span>`;
+  }catch(e){btn.disabled=false;alert(e.detail||'Ошибка');}}
+async function _declineBI(iid,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/decline',{});
+    const wrap=document.getElementById('invact_'+iid);
+    if(wrap) wrap.innerHTML=`<span style="color:var(--muted);font-size:.82em">Отклонено</span>`;
+  }catch(e){btn.disabled=false;}}
 async function refreshChat(){
   if(!chatUid) return;
   const msgs=await get('/api/messages/'+chatUid).catch(()=>[]);
@@ -762,13 +903,7 @@ async function refreshChat(){
   const tb=document.getElementById('threadBox');
   if(!tb) return;
   const atBottom=tb.scrollHeight-tb.scrollTop-tb.clientHeight<60;
-  tb.innerHTML=msgs.map(msg=>{
-    const mine=msg.from_id!==chatUid;
-    return`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
-  <div style="max-width:72%;padding:8px 12px;border-radius:12px;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'};font-size:.88em">
-    ${esc(msg.text)}
-  </div>
-</div>`}).join('');
+  tb.innerHTML=msgs.map(msg=>{const mine=msg.from_id!==chatUid;return _renderBubble(msg,mine)}).join('');
   if(atBottom) tb.scrollTop=tb.scrollHeight;
   pollNotifs();}
 function renderChat(m){
@@ -778,13 +913,7 @@ function renderChat(m){
     <span class="sec-title">💬 ${esc(name)}</span>
   </div>
   <div id="threadBox" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:60vh;overflow-y:auto;padding:4px">`;
-  for(const msg of chatThread){
-    const mine=msg.from_id!==chatUid;
-    h+=`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
-  <div style="max-width:72%;padding:8px 12px;border-radius:12px;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'};font-size:.88em">
-    ${esc(msg.text)}
-  </div>
-</div>`}
+  for(const msg of chatThread){const mine=msg.from_id!==chatUid;h+=_renderBubble(msg,mine)}
   h+=`</div>
   <div style="display:flex;gap:8px">
     <input id="msgIn" placeholder="Написать..." style="flex:1" onkeydown="if(event.key==='Enter')sendMsg()">
@@ -809,6 +938,13 @@ async function pollNotifs(){
     const r=await get('/api/notifications');
     lastNotifsData=r;
     const n=r.unread||0;
+    unreadMsgCount=r.unread_messages||0;
+    // Contacts card badge update
+    const cc=document.getElementById('contactsCardCount');
+    if(cc){cc.textContent=unreadMsgCount>0?unreadMsgCount:'';cc.style.display=unreadMsgCount>0?'':'none';}
+    // Bell shake
+    const btn=document.querySelector('.notif-btn');
+    if(btn&&n>0){btn.classList.remove('shake');void btn.offsetWidth;btn.classList.add('shake');setTimeout(()=>btn.classList.remove('shake'),800);}
     const b=document.getElementById('notifBadge');
     if(b){b.textContent=n>99?'99+':n;b.style.display=n>0?'':'none'}
     if(notifPanelOpen) renderNotifPanel(r);
@@ -846,6 +982,8 @@ document.addEventListener('click',e=>{
 
 // ─── SCHEDULE ─────────────────────────────────────────────────────────────
 let schedSlots=[];
+let finBills=[];
+let finSessions=[];
 let schedEditDay=null,schedEditSlot=null,schedEditId=null;
 
 const DAYS_FULL=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
@@ -859,6 +997,204 @@ function stColor(stid){
   if(!stid) return '#30363d';
   const idx=students.findIndex(s=>s.id===stid);
   return S_COLORS[idx>=0?idx%S_COLORS.length:0]}
+
+async function loadFinances(){
+  [finBills,finSessions]=await Promise.all([
+    get('/api/bills').catch(()=>[]),
+    get('/api/lesson-sessions').catch(()=>[])
+  ]);
+  if(curSection==='finances') renderFinances()
+}
+
+function renderFinances(){
+  const m=document.getElementById('main');
+  const STATUS={open:'Открыт',reported:'Оплата заявлена',closed:'Закрыт',archived:'В архиве'};
+  const SC={open:'#1f6feb',reported:'#d29922',closed:'#1a7f37',archived:'#7d8590'};
+  const finStatusF=document.getElementById('finStatusF')?.value||'active';
+  const finSortF=document.getElementById('finSortF')?.value||'date';
+  const finTutorQ=document.getElementById('finTutorF')?.value||'';
+  const finStudentQ=document.getElementById('finStudentF')?.value||'';
+  const finDateFrom=document.getElementById('finDateFrom')?.value||'';
+  const finDateTo=document.getElementById('finDateTo')?.value||'';
+  const finOverdue=document.getElementById('finOverdueF')?.value||'';
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">💰 Финансы</span>
+  </div>
+  <div class="filter-bar" style="flex-wrap:wrap;gap:6px">
+    <select id="finStatusF" onchange="renderFinances()">
+      <option value="active"${finStatusF==='active'?' selected':''}>Открытые</option>
+      <option value="all"${finStatusF==='all'?' selected':''}>Все</option>
+      <option value="reported"${finStatusF==='reported'?' selected':''}>Ожидают подтв.</option>
+      <option value="closed"${finStatusF==='closed'?' selected':''}>Закрытые</option>
+    </select>
+    ${isOwner?(()=>{const tutors=[...new Set(finBills.map(b=>b.tutor_name||'').filter(Boolean))].sort();return`<select id="finTutorF" onchange="renderFinances()"><option value="">Все преподаватели</option>${tutors.map(t=>`<option value="${t}"${finTutorQ===t?' selected':''}>${esc(t)}</option>`).join('')}</select>`;})():''}` +
+    `${(()=>{const students=[...new Set(finSessions.map(s=>s.student_name||'').filter(Boolean))].sort();return`<select id="finStudentF" onchange="renderFinances()"><option value="">Все ученики</option>${students.map(n=>`<option value="${n}"${finStudentQ===n?' selected':''}>${esc(n)}</option>`).join('')}</select>`;})()}
+    <input type="date" id="finDateFrom" value="${finDateFrom}" onchange="renderFinances()" title="Дата от">
+    <input type="date" id="finDateTo" value="${finDateTo}" onchange="renderFinances()" title="Дата до">
+    <select id="finOverdueF" onchange="renderFinances()">
+      <option value=""${finOverdue===''?' selected':''}>Любой срок</option>
+      <option value="7"${finOverdue==='7'?' selected':''}>&gt;7 дн.</option>
+      <option value="14"${finOverdue==='14'?' selected':''}>&gt;14 дн.</option>
+      <option value="30"${finOverdue==='30'?' selected':''}>&gt;30 дн.</option>
+    </select>
+    <select id="finSortF" onchange="renderFinances()">
+      <option value="date"${finSortF==='date'?' selected':''}>По дате</option>
+      <option value="amount"${finSortF==='amount'?' selected':''}>По сумме</option>
+      <option value="overdue"${finSortF==='overdue'?' selected':''}>По давности</option>
+    </select>
+  </div>`;
+  const _filterBill=b=>{
+    if(finStatusF==='active'&&b.status!=='open'&&b.status!=='reported') return false;
+    if(finStatusF==='reported'&&b.status!=='reported') return false;
+    if(finStatusF==='closed'&&b.status!=='closed'&&b.status!=='archived') return false;
+    if(finTutorQ&&(b.tutor_name||'')!==finTutorQ) return false;
+    if(finDateFrom&&new Date(b.created_at)<new Date(finDateFrom)) return false;
+    if(finDateTo&&new Date(b.created_at)>new Date(finDateTo+'T23:59:59')) return false;
+    if(finOverdue){const age=(Date.now()-new Date(b.created_at))/86400000;if(age<parseInt(finOverdue)) return false;}
+    return true;
+  };
+  let shownBills=[...finBills].filter(_filterBill);
+  if(finStudentQ) shownBills=shownBills.filter(b=>{
+    const sess=finSessions.filter(s=>s.bill_id===b.id);
+    return sess.some(s=>(s.student_name||'')===finStudentQ);
+  });
+  if(finSortF==='amount') shownBills.sort((a,b)=>b.total_commission-a.total_commission);
+  else if(finSortF==='overdue') shownBills.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  else shownBills.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const openBills=finBills.filter(b=>b.status==='open'||b.status==='reported');
+  const closedBills=finBills.filter(b=>b.status==='closed'||b.status==='archived');
+  const totalOwed=openBills.reduce((s,b)=>s+b.total_commission,0);
+
+  if(openBills.length){
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px">
+      <div style="font-size:.85em;color:var(--muted);margin-bottom:4px">Итого к оплате комиссии</div>
+      <div style="font-size:1.6em;font-weight:700;color:var(--green-t)">${totalOwed.toFixed(2)} ₽</div>
+      <div style="font-size:.8em;color:var(--muted);margin-top:2px">5% от заработка ${openBills.reduce((s,b)=>s+b.total_lessons,0).toFixed(2)} ₽</div>
+    </div>`;
+  }
+
+  if(isOwner) h+=`<div style="margin-bottom:10px"><button class="btn btn-p" style="font-size:.84em" onclick="ownerCreateBill()">+ Создать счёт</button></div>`;
+  for(const b of shownBills){
+    const sessions=finSessions.filter(s=>s.bill_id===b.id);
+    const tutorLbl=isOwner&&b.tutor_name?` — ${esc(b.tutor_name)}`:''; 
+    h+=`<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <span style="font-weight:600">Счёт от ${new Date(b.created_at).toLocaleDateString('ru-RU')}${tutorLbl}</span>
+          <span style="margin-left:8px;font-size:.8em;padding:2px 8px;border-radius:10px;background:${SC[b.status]}22;color:${SC[b.status]}">${STATUS[b.status]}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;color:var(--green-t)">${b.total_commission.toFixed(2)} ₽</div>
+          <div style="font-size:.78em;color:var(--muted)">с ${b.total_lessons.toFixed(2)} ₽</div>
+        </div>
+      </div>
+      <details><summary style="cursor:pointer;font-size:.83em;color:var(--muted)">Занятия (${sessions.length})</summary>
+        <div style="margin-top:6px">${sessions.map(s=>{
+          const dt=new Date(s.scheduled_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+          const dBtn=isOwner&&b.status==='open'?`<button onclick="ownerRemoveSession('${b.id}','${s.id}')" style="background:none;border:none;color:#f87171;cursor:pointer;padding:0 4px" title="Удалить">✕</button>`:'';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:.82em;border-bottom:1px solid var(--border)"><span>${dt} · ${esc(s.student_name||'?')}</span><span style="display:flex;align-items:center;gap:2px"><span style="color:var(--green-t)">${(s.price||0).toFixed(2)} ₽</span>${dBtn}</span></div>`;
+        }).join('')}</div>
+      </details>
+      ${b.owner_note?`<div style="font-size:.83em;color:var(--muted);margin-top:6px">📝 Владелец: ${esc(b.owner_note)}</div>`:''}
+      ${b.status==='open'?`<div style="margin-top:10px">
+        <button class="btn btn-p" style="width:100%" onclick="openReportBill('${b.id}')">💳 Сообщить об оплате</button>
+      </div>`:''}
+      ${b.status==='reported'?`<div style="margin-top:8px;font-size:.85em;color:var(--yellow)">⏳ Ожидаем подтверждения</div>`:''}
+      ${isOwner?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        ${b.status==='open'?`<button class="btn btn-s" style="font-size:.8em" onclick="ownerManageBill('${b.id}','close','')">✅ Закрыть</button><button class="btn btn-s" style="font-size:.8em" onclick="ownerAddSession('${b.id}')">+ Занятие</button>`:''}
+        ${b.status==='reported'?`<button class="btn btn-p" style="font-size:.8em" onclick="ownerManageBill('${b.id}','close','')">✅ Подтвердить</button><button class="btn btn-s" style="font-size:.8em" onclick="ownerManageBill('${b.id}','reopen','')">↩ Переоткрыть</button>`:''}
+        ${b.status==='closed'?`<button class="btn btn-s" style="font-size:.8em" onclick="ownerManageBill('${b.id}','archive','')">📦 В архив</button><button class="btn btn-s" style="font-size:.8em" onclick="ownerManageBill('${b.id}','reopen','')">↩ Переоткрыть</button>`:''}
+      </div>`:''}
+    </div>`;
+  }
+
+  if(!shownBills.length) h+=`<div style="color:var(--muted);padding:24px;text-align:center;font-size:.9em">Нет счетов по выбранному фильтру.</div>`;
+
+  if(closedBills.length){
+    h+=`<div style="font-weight:600;font-size:.88em;color:var(--muted);margin:16px 0 8px">История</div>`;
+    for(const b of closedBills){
+      h+=`<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+        <div><span style="font-size:.85em;color:var(--muted)">${new Date(b.created_at).toLocaleDateString('ru-RU')}</span>
+        <span style="margin-left:8px;font-size:.8em;padding:2px 8px;border-radius:10px;background:${SC[b.status]}22;color:${SC[b.status]}">${STATUS[b.status]}</span></div>
+        <span style="font-weight:600">${b.total_commission.toFixed(2)} ₽</span>
+      </div>`;
+    }
+  }
+
+  // Modal for reporting payment
+  h+=`<div id="mReportBill" class="modal" style="display:none"><div class="modal-box">
+    <div class="modal-head"><span>💳 Сообщить об оплате</span><button onclick="closeM('mReportBill')">✕</button></div>
+    <textarea id="reportBillNote" placeholder="Комментарий (способ оплаты, дата и т.д.)..." style="width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px;font-size:.88em;resize:vertical;min-height:80px;margin-bottom:12px"></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p" style="flex:1" onclick="submitReportBill()">Отправить</button>
+      <button class="btn btn-s" onclick="closeM('mReportBill')">Отмена</button>
+    </div>
+  </div></div>`;
+
+  m.innerHTML=h;
+}
+
+
+async function ownerManageBill(bid,action,note){
+  try{
+    await post('/api/bills/'+bid+'/respond',{action,note});
+    const L={close:'Счёт закрыт',archive:'В архиве',reopen:'Переоткрыт'};
+    showToast(L[action]||'Готово');await loadFinances();
+  }catch(e){alert(e.detail||'Ошибка')}}
+async function ownerCreateBill(){
+  const tname=prompt('Часть имени преподавателя:');
+  if(!tname)return;
+  const t=(users||[]).filter(u=>u.role==='tutor').find(u=>u.name.toLowerCase().includes(tname.toLowerCase()));
+  if(!t){alert('Не найден');return}
+  try{await post('/api/bills',{tutor_id:t.id});showToast('Счёт создан');await loadFinances();}catch(e){alert(e.detail||'Ошибка')}}
+async function ownerAddSession(billId){
+  const stname=prompt('Имя ученика:');if(!stname)return;
+  const st=(students||[]).find(s=>s.name.toLowerCase().includes(stname.toLowerCase()));
+  if(!st){alert('Не найден');return}
+  const price=parseFloat(prompt('Стоимость (₽):'));if(!price||price<=0)return;
+  const ds=prompt('Дата (YYYY-MM-DD HH:MM):',new Date().toISOString().slice(0,16).replace('T',' '));
+  try{await post('/api/bills/'+billId+'/manual-session',{student_id:st.id,price,scheduled_at:ds,note:'Ручное'});
+    showToast('Добавлено');await loadFinances();}catch(e){alert(e.detail||'Ошибка')}}
+async function ownerRemoveSession(billId,sessId){
+  if(!confirm('Удалить занятие из счёта?'))return;
+  try{await del('/api/bills/'+billId+'/sessions/'+sessId);showToast('Удалено');await loadFinances();}catch(e){alert(e.detail||'Ошибка')}}
+
+async function ownerManageBill(bid,action,note){
+  try{
+    await post('/api/bills/'+bid+'/respond',{action,note});
+    const L={close:'Счёт закрыт',archive:'В архиве',reopen:'Переоткрыт'};
+    showToast(L[action]||'Готово');await loadFinances();
+  }catch(e){alert(e.detail||'Ошибка')}}
+async function ownerCreateBill(){
+  const tname=prompt('Часть имени преподавателя:');
+  if(!tname)return;
+  const t=(users||[]).filter(u=>u.role==='tutor').find(u=>u.name.toLowerCase().includes(tname.toLowerCase()));
+  if(!t){alert('Не найден');return}
+  try{await post('/api/bills',{tutor_id:t.id});showToast('Счёт создан');await loadFinances();}catch(e){alert(e.detail||'Ошибка')}}
+async function ownerAddSession(billId){
+  const stname=prompt('Имя ученика:');if(!stname)return;
+  const st=(students||[]).find(s=>s.name.toLowerCase().includes(stname.toLowerCase()));
+  if(!st){alert('Не найден');return}
+  const price=parseFloat(prompt('Стоимость (₽):'));if(!price||price<=0)return;
+  const ds=prompt('Дата (YYYY-MM-DD HH:MM):',new Date().toISOString().slice(0,16).replace('T',' '));
+  try{await post('/api/bills/'+billId+'/manual-session',{student_id:st.id,price,scheduled_at:ds,note:'Ручное'});
+    showToast('Добавлено');await loadFinances();}catch(e){alert(e.detail||'Ошибка')}}
+async function ownerRemoveSession(billId,sessId){
+  if(!confirm('Удалить занятие из счёта?'))return;
+  try{await del('/api/bills/'+billId+'/sessions/'+sessId);showToast('Удалено');await loadFinances();}catch(e){alert(e.detail||'Ошибка')}}
+let _reportBillId=null;
+function openReportBill(bid){_reportBillId=bid;document.getElementById('reportBillNote').value='';openM('mReportBill')}
+async function submitReportBill(){
+  if(!_reportBillId) return;
+  const note=document.getElementById('reportBillNote').value.trim();
+  try{
+    await post('/api/bills/'+_reportBillId+'/report',{note});
+    closeM('mReportBill');
+    showToast('Сообщение об оплате отправлено владельцу');
+    await loadFinances();
+  }catch(e){alert(e.detail||'Ошибка')}
+}
 
 async function loadSchedule(){
   schedSlots=await get('/api/schedule').catch(()=>[]);
@@ -991,12 +1327,13 @@ function openSchedAdd(day,slotIdx,dur=2){
   document.getElementById('mSchedTitle').textContent='Добавить занятие';
   const endTime=dur>1?' – '+slotTime(slotIdx+dur):'';
   document.getElementById('mSchedDay').textContent=DAYS_FULL[day]+' · '+slotTime(slotIdx)+endTime;
+  document.getElementById('schedPrice').value='';
   document.getElementById('schedNote').value='';
   document.getElementById('schedDelBtn').style.display='none';
   document.getElementById('schedDuration').value=String(Math.min(Math.max(dur,1),8));
   const sel=document.getElementById('schedStudent');
   sel.innerHTML='<option value="">— выберите ученика —</option>'+
-    students.map(s=>`<option value="${s.id}">${esc(s.name)} (${s.grade} кл.)</option>`).join('');
+    students.map(s=>`<option value="${s.id}">${esc(s.name)}${s.level==='school'&&s.grade?' ('+s.grade+' кл.)':''}</option>`).join('');
   openM('mSched')}
 
 function openSchedEdit(day,slotIdx){
@@ -1005,12 +1342,13 @@ function openSchedEdit(day,slotIdx){
   schedEditDay=day; schedEditSlot=slotIdx; schedEditId=slot.id;
   document.getElementById('mSchedTitle').textContent='Изменить занятие';
   document.getElementById('mSchedDay').textContent=DAYS_FULL[day]+' · '+slotTime(slotIdx);
+  document.getElementById('schedPrice').value=slot.price||'';
   document.getElementById('schedNote').value=slot.note||'';
   document.getElementById('schedDuration').value=String(slot.duration||2);
   document.getElementById('schedDelBtn').style.display='';
   const sel=document.getElementById('schedStudent');
   sel.innerHTML='<option value="">— выберите ученика —</option>'+
-    students.map(s=>`<option value="${s.id}"${s.id===slot.student_id?' selected':''}>${esc(s.name)} (${s.grade} кл.)</option>`).join('');
+    students.map(s=>`<option value="${s.id}"${s.id===slot.student_id?' selected':''}>${esc(s.name)}${s.level==='school'&&s.grade?' ('+s.grade+' кл.)':''}</option>`).join('');
   openM('mSched')}
 
 async function saveSchedSlot(){
@@ -1019,7 +1357,8 @@ async function saveSchedSlot(){
   const dur=parseInt(document.getElementById('schedDuration').value)||2;
   if(!stid){alert('Выберите ученика');return}
   try{
-    await post('/api/schedule',{student_id:stid,day_of_week:schedEditDay,slot_index:schedEditSlot,duration:dur,note:note||null});
+    const price=parseFloat(document.getElementById('schedPrice').value)||null;
+    await post('/api/schedule',{student_id:stid,day_of_week:schedEditDay,slot_index:schedEditSlot,duration:dur,note:note||null,price});
     closeM('mSched'); await loadSchedule();
   }catch(e){alert('Ошибка сохранения')}}
 
@@ -1041,7 +1380,9 @@ async function load(){
   // Handle ?chat=uid&name=name from profile page
   const _qp=new URLSearchParams(location.search);
   const _initChat=_qp.get('chat');
-  if(_initChat){history.replaceState(null,'',location.pathname);goToChat(_initChat,_qp.get('name')||_initChat);}}
+  if(_initChat){history.replaceState(null,'',location.pathname);goToChat(_initChat,_qp.get('name')||_initChat);return}
+  const _initSec=_qp.get('section');
+  if(_initSec){history.replaceState(null,'',location.pathname);goSection(_initSec);}}
 
 load();pollNotifs();loadContacts();
 </script></body></html>

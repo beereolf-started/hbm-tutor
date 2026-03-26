@@ -5,7 +5,8 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:360px;max-width:90vw;box-shadow:0 8px 40px #0008}
-h1{text-align:center;margin-bottom:6px;font-size:1.7em;font-weight:700}
+h1{text-align:center;margin-bottom:6px;font-size:1.7em;font-weight:700;display:flex;align-items:center;justify-content:center;gap:12px}
+h1 svg{flex-shrink:0}
 .sub{text-align:center;color:var(--muted);margin-bottom:28px;font-size:.9em}
 input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.95em;margin-bottom:10px;outline:none;transition:border-color .15s}
 input:focus{border-color:var(--green-t)}
@@ -16,30 +17,33 @@ button:hover{background:var(--green-h)}
 </style></head><body>
 <div class="card">
 <div id="loginForm">
-<h1>📐 HBM</h1><p class="sub">Платформа репетитора</p>
+<h1><svg width="38" height="38" viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg>HBM</h1><p class="sub">Платформа репетитора</p>
 <input id="login" placeholder="Логин" autocomplete="username">
 <input id="pw" type="password" placeholder="Пароль" autocomplete="current-password">
 <button onclick="doLogin()">Войти</button>
 <p class="err" id="err"></p>
 </div>
 <div id="chpw" class="chpw">
-<h2>Смена пароля</h2><p class="sub">Установите новый пароль</p>
+<h2>&#128274; Первый вход</h2>
+<p class="sub" style="margin-bottom:18px;line-height:1.5">Это ваш первый вход. Придумайте постоянный пароль для аккаунта&nbsp;<strong id="chpwName"></strong>.</p>
+<label style="display:block;font-size:.82em;color:var(--muted);margin-bottom:4px">Текущий пароль (выданный администратором)</label>
 <input id="oldPw" type="password" placeholder="Текущий пароль">
-<input id="newPw" type="password" placeholder="Новый пароль (мин. 6)">
-<button onclick="doChange()">Сменить</button>
+<label style="display:block;font-size:.82em;color:var(--muted);margin-bottom:4px;margin-top:6px">Новый пароль</label>
+<input id="newPw" type="password" placeholder="Минимум 6 символов" onkeydown="if(event.key==='Enter')doChange()">
+<button onclick="doChange()" style="margin-top:8px">Сохранить и войти</button>
 <p class="err" id="err2"></p>
 </div>
 </div>
 <script src="/api.js"></script>
 <script>
-const ROUTES={owner:'/hbm_tutor.html',tutor:'/hbm_tutor.html',student:'/student_lk.html',parent:'/parent_lk.html'};
+const ROUTES={owner:'/hbm_tutor.html',tutor:'/hbm_tutor.html',student:'/student_lk.html',parent:'/parent_lk.html',board_user:'/board_user_lk.html'};
 if(localStorage.getItem('token')){const r=role();if(r&&ROUTES[r])location.href=ROUTES[r]}
 async function doLogin(){
     const e=document.getElementById('err');e.style.display='none';
     try{
         const d=await post('/api/auth/login',{login:document.getElementById('login').value,password:document.getElementById('pw').value});
         localStorage.setItem('token',d.token);localStorage.setItem('role',d.role);localStorage.setItem('name',d.name);
-        if(d.must_change_password){document.getElementById('loginForm').style.display='none';document.getElementById('chpw').style.display='block';document.getElementById('oldPw').value=document.getElementById('pw').value;return}
+        if(d.must_change_password){document.getElementById('loginForm').style.display='none';const cp=document.getElementById('chpw');cp.style.display='block';document.getElementById('oldPw').value=document.getElementById('pw').value;const nm=document.getElementById('chpwName');if(nm)nm.textContent=d.name||'';document.getElementById('newPw').focus();return}
         location.href=ROUTES[d.role]||'/hbm_tutor.html';
     }catch(x){e.textContent=x.detail||'Ошибка';e.style.display='block'}}
 async function doChange(){

@@ -23,15 +23,31 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .page-header h1{font-size:1.3em;font-weight:700}
 .page-header p{color:var(--muted);font-size:.88em;margin-top:2px}
 
+/* Pending invites panel */
+.invites-panel{background:var(--surface);border:1px solid #2d4a1e;border-radius:12px;padding:16px 18px;margin-bottom:24px;display:none}
+.invites-panel.show{display:block}
+.invites-panel-title{font-size:.88em;font-weight:600;color:var(--green-t);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.invite-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.invite-row:last-child{border-bottom:none;padding-bottom:0}
+.invite-info{flex:1;font-size:.85em}
+.invite-info strong{font-weight:600}
+.invite-info span{color:var(--muted);font-size:.82em;margin-left:6px}
+.invite-btns{display:flex;gap:6px;flex-shrink:0}
+
 .boards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 
 .board-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .15s}
 .board-card:hover{border-color:var(--green-t)}
+.board-card.shared-card{border-color:#2a3a4a}
 .board-card-body{padding:18px 16px;cursor:pointer;min-height:100px;display:flex;flex-direction:column;gap:8px}
 .board-card-body:hover{background:var(--surface-2)}
 .board-card-title{font-weight:600;font-size:.95em}
 .board-card-meta{color:var(--muted);font-size:.78em}
 .board-card-actions{display:flex;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface-2)}
+
+.badge{display:inline-flex;align-items:center;font-size:.7em;font-weight:600;padding:2px 6px;border-radius:4px;letter-spacing:.02em}
+.badge-mine{background:#1a3a1f;color:var(--green-t)}
+.badge-guest{background:#1a2a3a;color:#58a6ff}
 
 .new-card{background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
 .new-card:hover{border-color:var(--green-t);background:var(--surface-2)}
@@ -46,7 +62,7 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 
 .modal-bg{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:200}
 .modal-bg.show{display:flex}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:440px;max-width:94vw}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:460px;max-width:94vw;max-height:90vh;overflow-y:auto}
 .modal h2{font-size:1.05em;font-weight:600;margin-bottom:16px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-weight:500}
@@ -56,7 +72,15 @@ input:focus{border-color:var(--blue)}
 .share-box{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:8px}
 .share-link{flex:1;font-size:.82em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.empty{text-align:center;color:var(--muted);padding:48px}
+.section-sep{border-top:1px solid var(--border);margin:14px 0;padding-top:12px}
+.section-label{font-size:.78em;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+
+/* Members list */
+.member-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.member-row:last-child{border-bottom:none}
+.member-avatar{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75em;flex-shrink:0}
+.member-name{flex:1;font-size:.85em}
+.member-role{font-size:.73em;color:var(--muted)}
 
 /* Contacts mini-list for sharing */
 .contact-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer}
@@ -64,13 +88,13 @@ input:focus{border-color:var(--blue)}
 .contact-avatar{width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85em;flex-shrink:0}
 .contact-name{font-size:.88em;font-weight:500}
 .contact-role{font-size:.75em;color:var(--muted)}
+
+.empty{text-align:center;color:var(--muted);padding:48px}
 </style></head><body>
 
 <div class="topbar">
   <div class="topbar-logo">
-    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-    </svg>
+    <svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg>
     HBM — Мастерская
   </div>
   <div class="topbar-r">
@@ -88,6 +112,13 @@ input:focus{border-color:var(--blue)}
     </div>
     <button class="btn btn-p" onclick="openCreate()">+ Новая доска</button>
   </div>
+
+  <!-- Pending invites panel -->
+  <div class="invites-panel" id="invitesPanel">
+    <div class="invites-panel-title">📬 Приглашения на совместные доски</div>
+    <div id="invitesList"></div>
+  </div>
+
   <div class="boards-grid" id="boardsGrid"></div>
 </div>
 
@@ -117,27 +148,37 @@ input:focus{border-color:var(--blue)}
   </div>
 </div>
 
-<!-- Modal: Share board -->
+<!-- Modal: Share board (owner only) -->
 <div class="modal-bg" id="mShare">
   <div class="modal">
-    <h2>Поделиться доской</h2>
-    <div id="shareTokenSection">
-      <p style="font-size:.85em;color:var(--muted);margin-bottom:10px">Создайте ссылку, чтобы поделиться доской. Открыть смогут только пользователи с аккаунтом в HBM.</p>
-      <div id="shareLinkWrap" style="display:none">
-        <div class="share-box">
-          <span class="share-link" id="shareLink"></span>
-          <button class="btn btn-s" onclick="copyLink()" style="flex-shrink:0">Копировать</button>
-        </div>
-        <button class="btn btn-d" style="margin-top:8px;font-size:.78em" onclick="revokeLink()">Отозвать ссылку</button>
+    <h2>Совместный доступ</h2>
+
+    <!-- Share link section -->
+    <div class="section-label">Ссылка-приглашение</div>
+    <p style="font-size:.82em;color:var(--muted);margin-bottom:8px">Только пользователи с аккаунтом HBM смогут открыть доску.</p>
+    <div id="shareLinkWrap" style="display:none">
+      <div class="share-box">
+        <span class="share-link" id="shareLink"></span>
+        <button class="btn btn-s" onclick="copyLink()" style="flex-shrink:0">Копировать</button>
       </div>
-      <div id="shareGenWrap">
-        <button class="btn btn-s" onclick="generateLink()">Создать ссылку</button>
-      </div>
+      <button class="btn btn-d" style="margin-top:8px;font-size:.78em" onclick="revokeLink()">Отозвать ссылку</button>
     </div>
-    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-      <p style="font-size:.82em;color:var(--muted);margin-bottom:8px">Или отправить напрямую контакту:</p>
-      <div id="shareContactsList" style="max-height:180px;overflow-y:auto"></div>
+    <div id="shareGenWrap">
+      <button class="btn btn-s" onclick="generateLink()">Создать ссылку</button>
     </div>
+
+    <!-- Members section -->
+    <div class="section-sep">
+      <div class="section-label">Участники доски</div>
+      <div id="membersList" style="margin-bottom:10px"></div>
+    </div>
+
+    <!-- Contacts for direct invite -->
+    <div class="section-sep">
+      <div class="section-label">Пригласить контакт</div>
+      <div id="shareContactsList" style="max-height:160px;overflow-y:auto"></div>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-s" onclick="closeModal('mShare')">Закрыть</button>
     </div>
@@ -146,12 +187,11 @@ input:focus{border-color:var(--blue)}
 
 <script src="/api.js"></script>
 <script>
-if(!requireAuth(['owner','tutor','student','parent']))throw'';
+if(!requireAuth(['owner','tutor','student','parent','board_user']))throw'';
 const uname=localStorage.getItem('name');
 document.getElementById('userName').textContent=uname;
-// Back link based on role
 const r=role();
-const back=r==='student'?'/student_lk.html':r==='parent'?'/parent_lk.html':'/hbm_tutor.html';
+const back=r==='student'?'/student_lk.html':r==='parent'?'/parent_lk.html':r==='board_user'?'/board_user_lk.html':'/hbm_tutor.html';
 document.getElementById('backLink').href=back;
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
@@ -159,13 +199,54 @@ function closeModal(id){document.getElementById(id).classList.remove('show')}
 function openModal(id){document.getElementById(id).classList.add('show')}
 window.onclick=e=>{if(e.target.classList.contains('modal-bg'))e.target.classList.remove('show')}
 
+const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель',board_user:'Польз. доски'};
 let boards=[], contacts=[], curBoardId=null;
 
 async function load(){
   [boards,contacts]=await Promise.all([
     get('/api/personal-boards').catch(()=>[]),
     get('/api/contacts').catch(()=>[])]);
-  renderBoards()}
+  renderBoards();
+}
+
+async function loadInvites(){
+  const invites=await get('/api/board-invites/pending').catch(()=>[]);
+  renderInvites(invites);
+}
+
+function renderInvites(invites){
+  const panel=document.getElementById('invitesPanel');
+  const list=document.getElementById('invitesList');
+  if(!invites||!invites.length){panel.classList.remove('show');return}
+  panel.classList.add('show');
+  list.innerHTML=invites.map(inv=>`
+<div class="invite-row" id="inv_${inv.id}">
+  <div class="invite-info">
+    <strong>${esc(inv.board_title)}</strong>
+    <span>от ${esc(inv.from_name)}</span>
+  </div>
+  <div class="invite-btns">
+    <button class="btn btn-p" style="padding:4px 10px;font-size:.78em" onclick="acceptInvite('${inv.id}','${inv.board_id}')">Принять</button>
+    <button class="btn btn-d" style="padding:4px 10px;font-size:.78em;border:1px solid var(--red)" onclick="declineInvite('${inv.id}')">Отклонить</button>
+  </div>
+</div>`).join('');
+}
+
+async function acceptInvite(iid,bid){
+  try{
+    await apiPost('/api/board-invites/'+iid+'/accept',{});
+    // refresh everything
+    await load();
+    await loadInvites();
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+async function declineInvite(iid){
+  try{
+    await apiPost('/api/board-invites/'+iid+'/decline',{});
+    document.getElementById('inv_'+iid)?.remove();
+    const panel=document.getElementById('invitesPanel');
+    if(!document.getElementById('invitesList').children.length) panel.classList.remove('show');
+  }catch(e){alert(e.detail||'Ошибка')}}
 
 function fmtDate(iso){
   if(!iso) return '';
@@ -181,25 +262,37 @@ function renderBoards(){
   if(!boards.length){
     g.innerHTML=`<div class="new-card" onclick="openCreate()"><div class="new-card-icon">🎨</div><div class="new-card-title">Создать первую доску</div></div>`;
     return}
-  let h=boards.map(b=>`
-<div class="board-card" id="bc_${b.id}">
+  let h=boards.map(b=>{
+    const isOwner=b.is_owner!==false;
+    const badge=isOwner
+      ?`<span class="badge badge-mine">Моя</span>`
+      :`<span class="badge badge-guest">Доска: ${esc(b.owner_name||'Пользователь')}</span>`;
+    const membersInfo=isOwner&&b.member_count>0
+      ?`<div style="font-size:.75em;color:var(--muted)">👥 ${b.member_count} участн.</div>`:'';
+    const linkInfo=isOwner&&b.share_token
+      ?'<div style="font-size:.75em;color:var(--green-t)">🔗 Ссылка активна</div>':'';
+    const actions=isOwner
+      ?`<button class="btn-icon" onclick="event.stopPropagation();openRename('${b.id}','${esc(b.title)}')">✏️</button>
+         <button class="btn-icon" onclick="event.stopPropagation();openShare('${b.id}')">👥 Доступ</button>
+         <div style="flex:1"></div>
+         <button class="btn-icon" style="color:var(--red)" onclick="event.stopPropagation();deleteBoard('${b.id}','${esc(b.title)}')">🗑</button>`
+      :`<div style="flex:1"></div>
+         <button class="btn-icon" style="color:#58a6ff" onclick="event.stopPropagation();leaveBoard('${b.id}','${esc(b.title)}')">↩ Покинуть</button>`;
+    return`<div class="board-card${isOwner?'':' shared-card'}" id="bc_${b.id}">
   <div class="board-card-body" onclick="openBoard('${b.id}')">
-    <div class="board-card-title">${esc(b.title)}</div>
+    <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap">
+      <div class="board-card-title" style="flex:1">${esc(b.title)}</div>
+      ${badge}
+    </div>
     <div class="board-card-meta">Обновлено: ${fmtDate(b.updated_at)}</div>
-    ${b.share_token?'<div style="font-size:.75em;color:var(--green-t)">🔗 Есть ссылка</div>':''}
+    ${membersInfo}${linkInfo}
   </div>
-  <div class="board-card-actions">
-    <button class="btn-icon" onclick="event.stopPropagation();openRename('${b.id}','${esc(b.title)}')">✏️ Rename</button>
-    <button class="btn-icon" onclick="event.stopPropagation();openShare('${b.id}')">🔗 Share</button>
-    <div style="flex:1"></div>
-    <button class="btn-icon" style="color:var(--red)" onclick="event.stopPropagation();deleteBoard('${b.id}','${esc(b.title)}')">🗑</button>
-  </div>
-</div>`).join('');
+  <div class="board-card-actions">${actions}</div>
+</div>`}).join('');
   h+=`<div class="new-card" onclick="openCreate()"><div class="new-card-icon">＋</div><div class="new-card-title">Новая доска</div></div>`;
   g.innerHTML=h}
 
-function openBoard(bid){
-  location.href='/board.html?personal='+bid}
+function openBoard(bid){location.href='/board.html?personal='+bid}
 
 // ── CREATE ──────────────────────────────────────────────────────────────
 function openCreate(){
@@ -230,7 +323,7 @@ async function saveRename(){
   try{
     const b=await patch('/api/personal-boards/'+renameId,{title});
     const idx=boards.findIndex(x=>x.id===renameId);
-    if(idx>=0) boards[idx]=b;
+    if(idx>=0) boards[idx]={...boards[idx],...b};
     closeModal('mRename');renderBoards();
   }catch(e){alert(e.detail||'Ошибка')}}
 
@@ -242,11 +335,20 @@ async function deleteBoard(bid,title){
     boards=boards.filter(b=>b.id!==bid);renderBoards();
   }catch(e){alert(e.detail||'Ошибка')}}
 
+// ── LEAVE (for guest) ────────────────────────────────────────────────────
+async function leaveBoard(bid,title){
+  if(!confirm(`Покинуть доску «${title}»?`)) return;
+  try{
+    await apiDelete('/api/personal-boards/'+bid+'/leave');
+    boards=boards.filter(b=>b.id!==bid);renderBoards();
+  }catch(e){alert(e.detail||'Ошибка')}}
+
 // ── SHARE ──────────────────────────────────────────────────────────────
-function openShare(bid){
+async function openShare(bid){
   curBoardId=bid;
   const b=boards.find(x=>x.id===bid);
   if(!b) return;
+  // Link section
   const linkWrap=document.getElementById('shareLinkWrap');
   const genWrap=document.getElementById('shareGenWrap');
   if(b.share_token){
@@ -255,24 +357,51 @@ function openShare(bid){
     linkWrap.style.display='block';genWrap.style.display='none';
   }else{
     linkWrap.style.display='none';genWrap.style.display='block';}
+  // Members
+  await loadMembers(bid);
   // Contacts list
   const cl=document.getElementById('shareContactsList');
-  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
   cl.innerHTML=contacts.map(c=>`<div class="contact-item" onclick="shareWithContact('${c.id}','${esc(c.name)}')">
   <div class="contact-avatar">${(c.name||'?')[0].toUpperCase()}</div>
   <div><div class="contact-name">${esc(c.name)}</div><div class="contact-role">${roleLabel[c.role]||c.role}</div></div>
-</div>`).join('')||'<p style="color:var(--muted);font-size:.82em;padding:8px">Нет контактов</p>';
+</div>`).join('')||'<p style="color:var(--muted);font-size:.82em;padding:4px 0">Нет контактов</p>';
   openModal('mShare')}
+
+async function loadMembers(bid){
+  const ml=document.getElementById('membersList');
+  try{
+    const members=await get('/api/personal-boards/'+bid+'/members');
+    if(!members.length){
+      ml.innerHTML='<p style="color:var(--muted);font-size:.82em">Нет участников — только вы.</p>';
+      return}
+    ml.innerHTML=members.map(m=>`<div class="member-row" id="mbr_${m.id}">
+  <div class="member-avatar">${(m.name||'?')[0].toUpperCase()}</div>
+  <div class="member-name">${esc(m.name)} <span class="member-role">${roleLabel[m.role]||m.role}</span></div>
+  <button class="btn-icon" style="color:var(--red);font-size:.78em" onclick="removeMember('${bid}','${m.id}','${esc(m.name)}')">✕ Удалить</button>
+</div>`).join('');
+  }catch{ml.innerHTML='<p style="color:var(--muted);font-size:.82em">Не удалось загрузить участников.</p>'}}
+
+async function removeMember(bid,uid,name){
+  if(!confirm(`Удалить ${name} из доски?`)) return;
+  try{
+    await apiDelete('/api/personal-boards/'+bid+'/members/'+uid);
+    document.getElementById('mbr_'+uid)?.remove();
+    // update member_count in boards array
+    const b=boards.find(x=>x.id===bid);
+    if(b&&b.member_count>0) b.member_count--;
+    renderBoards();
+  }catch(e){alert(e.detail||'Ошибка')}}
 
 async function generateLink(){
   if(!curBoardId) return;
   try{
     const b=await apiPost('/api/personal-boards/'+curBoardId+'/share',{});
-    const idx=boards.findIndex(x=>x.id===curBoardId);if(idx>=0) boards[idx]=b;
+    const idx=boards.findIndex(x=>x.id===curBoardId);if(idx>=0) boards[idx]={...boards[idx],...b};
     const url=location.origin+'/workshop.html?join='+b.share_token;
     document.getElementById('shareLink').textContent=url;
     document.getElementById('shareLinkWrap').style.display='block';
     document.getElementById('shareGenWrap').style.display='none';
+    renderBoards();
   }catch(e){alert(e.detail||'Ошибка')}}
 
 async function revokeLink(){
@@ -280,9 +409,10 @@ async function revokeLink(){
   if(!confirm('Отозвать ссылку? Доступ по ней будет закрыт.')) return;
   try{
     const b=await apiDelete('/api/personal-boards/'+curBoardId+'/share');
-    const idx=boards.findIndex(x=>x.id===curBoardId);if(idx>=0) boards[idx]=b;
+    const idx=boards.findIndex(x=>x.id===curBoardId);if(idx>=0) boards[idx]={...boards[idx],...b};
     document.getElementById('shareLinkWrap').style.display='none';
     document.getElementById('shareGenWrap').style.display='block';
+    renderBoards();
   }catch(e){alert(e.detail||'Ошибка')}}
 
 function copyLink(){
@@ -292,8 +422,10 @@ function copyLink(){
 async function shareWithContact(uid,name){
   if(!curBoardId) return;
   try{
-    await apiPost('/api/personal-boards/'+curBoardId+'/share-with/'+uid,{});
-    alert(`Доска открыта для ${name}`);
+    const res=await apiPost('/api/personal-boards/'+curBoardId+'/invite/'+uid,{});
+    if(res.status==='already_member') alert(`${name} уже является участником этой доски.`);
+    else if(res.status==='already_invited') alert(`Приглашение для ${name} уже отправлено.`);
+    else alert(`Приглашение отправлено ${name}`);
   }catch(e){alert(e.detail||'Ошибка')}}
 
 // ── JOIN BY TOKEN (from URL) ─────────────────────────────────────────
@@ -303,19 +435,18 @@ async function checkJoin(){
   if(!token) return false;
   try{
     const b=await get('/api/personal-boards/by-token/'+token);
-    // Redirect to board
     location.replace('/board.html?personal='+b.id);
     return true;
   }catch(e){
     alert('Доска не найдена или ссылка устарела');
     return false}}
 
-// ── HELPERS for api.js-style calls ────────────────────────────────────
+// ── HELPERS ────────────────────────────────────────────────────────────
 function apiPost(url,data){return fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('token')},body:JSON.stringify(data)}).then(async r=>{const j=await r.json();if(!r.ok)throw j;return j})}
-function apiDelete(url){return fetch(url,{method:'DELETE',headers:{'Authorization':'Bearer '+localStorage.getItem('token')}}).then(async r=>{const j=await r.json();if(!r.ok)throw j;return j})}
+function apiDelete(url){return fetch(url,{method:'DELETE',headers:{'Authorization':'Bearer '+localStorage.getItem('token')}}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw j;return j})}
 
 (async()=>{
   const joined=await checkJoin();
-  if(!joined) load();
+  if(!joined){await Promise.all([load(),loadInvites()]);}
 })();
 </script></body></html>

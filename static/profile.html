@@ -100,10 +100,9 @@ input:focus{border-color:var(--blue)}
 </style></head><body>
 
 <div class="topbar">
-  <div class="topbar-logo">
-    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-    </svg>HBM — Профиль
+  <div class="topbar-logo" onclick="history.back()" style="cursor:pointer;user-select:none" title="Назад">
+    <svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg>
+    HBM — Профиль
   </div>
   <div class="topbar-r">
     <a class="link-btn" id="backLink" href="/">← Назад</a>
@@ -356,6 +355,140 @@ function render(){
   }
 
   document.getElementById('main').innerHTML=html;
+  if(isOwnerViewing&&p.role==='tutor') loadTutorFinances(p.id);
+}
+
+async function loadTutorFinances(uid){
+  const [slots,bills,sessions]=await Promise.all([
+    get('/api/schedule/tutor/'+uid).catch(()=>[]),
+    get('/api/bills/tutor/'+uid).catch(()=>[]),
+    get('/api/lesson-sessions?tutor_id='+uid).catch(()=>[])
+  ]);
+  const main=document.getElementById('main');
+
+  // Schedule section
+  const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  function slotTime(i){const h=Math.floor(i/2),m=i%2?'30':'00';return String(h).padStart(2,'0')+':'+m}
+  let shtml='';
+  if(slots.length){
+    slots.sort((a,b)=>a.day_of_week-b.day_of_week||a.slot_index-b.slot_index);
+    for(const s of slots){
+      const t=slotTime(s.slot_index)+' – '+slotTime(s.slot_index+s.duration);
+      shtml+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="min-width:24px;font-weight:600;color:var(--blue-t)">${DAYS[s.day_of_week]}</span>
+        <span style="color:var(--muted);font-size:.85em">${t}</span>
+        <span style="flex:1">${esc(s.student_name||'—')}</span>
+        <span style="color:var(--green-t);font-size:.85em">${s.price?s.price+' ₽/ч':'без цены'}</span>
+      </div>`;
+    }
+  } else shtml='<div style="color:var(--muted);font-size:.9em">Расписание не заполнено</div>';
+
+  // Untracked sessions (missed/no_price)
+  const unresolved=sessions.filter(s=>s.status==='missed'||s.status==='no_price');
+  let unresHtml='';
+  if(unresolved.length){
+    for(const s of unresolved){
+      const dt=new Date(s.scheduled_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const issues=[];
+      if(!s.tutor_present) issues.push('преп. отсутствовал');
+      if(!s.student_present) issues.push('ученик отсутствовал');
+      if(s.status==='no_price') issues.push('нет цены');
+      unresHtml+=`<div style="padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.85em;color:var(--muted)">${dt} · ${esc(s.student_name||'?')}</span>
+          <span style="color:var(--red-t);font-size:.8em">${issues.join(', ')}</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input type="number" placeholder="Цена ₽" id="sp_${s.id}" style="width:90px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 6px;font-size:.82em" value="${s.price||''}">
+          <button class="btn btn-s" style="font-size:.78em" onclick="manualSession('${s.id}','add_to_bill',document.getElementById('sp_${s.id}').value)">+ В счёт</button>
+          <button class="btn btn-s" style="font-size:.78em;background:var(--surface-2)" onclick="manualSession('${s.id}','skip','')">Пропустить</button>
+        </div>
+      </div>`;
+    }
+  }
+
+  // Bills section
+  let bhtml=`<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-p" style="font-size:.82em" onclick="openManualBill('${uid}')">+ Создать счёт вручную</button>
+  </div>`;
+  const activeBills=bills.filter(b=>b.status!=='archived');
+  if(!activeBills.length) bhtml+='<div style="color:var(--muted);font-size:.9em">Нет открытых счетов</div>';
+  for(const b of activeBills){
+    const STATUS={open:'Открыт',reported:'Оплата заявлена',closed:'Закрыт',archived:'В архиве'};
+    const SC={open:'#1f6feb',reported:'#d29922',closed:'#1a7f37',archived:'#7d8590'};
+    bhtml+=`<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px" id="bill_${b.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <span style="font-weight:600">Счёт от ${new Date(b.created_at).toLocaleDateString('ru-RU')}</span>
+          <span style="margin-left:8px;font-size:.8em;padding:2px 8px;border-radius:10px;background:${SC[b.status]}22;color:${SC[b.status]}">${STATUS[b.status]||b.status}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:600;color:var(--green-t)">${b.total_lessons.toFixed(2)} ₽</div>
+          <div style="font-size:.8em;color:var(--muted)">комиссия: ${b.total_commission.toFixed(2)} ₽</div>
+        </div>
+      </div>
+      ${b.tutor_note?`<div style="font-size:.83em;color:var(--muted);margin-bottom:6px">💬 Преподаватель: ${esc(b.tutor_note)}</div>`:''}
+      <details style="margin-top:6px"><summary style="cursor:pointer;font-size:.83em;color:var(--muted)">Занятия (${(b.sessions||[]).length})</summary>
+      <div style="margin-top:6px">${(b.sessions||[]).map(s=>{
+        const dt=new Date(s.scheduled_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        return `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.82em;border-bottom:1px solid var(--border)"><span>${dt} · ${esc(s.student_name||'?')}</span><span style="color:var(--green-t)">${(s.price||0).toFixed(2)} ₽ / ${(s.commission||0).toFixed(2)} ком.</span></div>`;
+      }).join('')}</div></details>
+      ${b.status==='reported'?`<div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <textarea id="on_${b.id}" placeholder="Комментарий..." style="flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:.82em;resize:vertical;min-height:40px"></textarea>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <button class="btn btn-p" style="font-size:.8em" onclick="respondBill('${b.id}','close')">✅ Закрыть</button>
+          <button class="btn btn-s" style="font-size:.8em" onclick="respondBill('${b.id}','reopen')">↩ Переоткрыть</button>
+        </div>
+      </div>`:''}
+      ${b.status==='closed'?`<button class="btn btn-s" style="font-size:.8em;margin-top:8px" onclick="respondBill('${b.id}','archive')">📦 В архив</button>`:''}
+    </div>`;
+  }
+
+  // Archived bills
+  const archived=bills.filter(b=>b.status==='archived');
+  let archHtml='';
+  if(archived.length){
+    archHtml=`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:.85em;color:var(--muted)">📦 Архив (${archived.length})</summary><div style="margin-top:6px">${archived.map(b=>`<div style="font-size:.83em;color:var(--muted);padding:4px 0">${new Date(b.created_at).toLocaleDateString('ru-RU')} — ${b.total_commission.toFixed(2)} ₽ ком. (${b.total_lessons.toFixed(2)} ₽ уроков)</div>`).join('')}</div></details>`;
+  }
+
+  const fin=document.createElement('div');
+  fin.innerHTML=`
+<div class="section" style="margin-top:0">
+  <div class="section-head"><span class="section-title">📅 Расписание преподавателя</span></div>
+  ${shtml}
+</div>
+${unresolved.length?`<div class="section"><div class="section-head"><span class="section-title" style="color:var(--red-t)">⚠ Нерешённые занятия (${unresolved.length})</span></div>${unresHtml}</div>`:''}
+<div class="section">
+  <div class="section-head"><span class="section-title">💰 Счета комиссии</span></div>
+  ${bhtml}${archHtml}
+</div>`;
+  main.appendChild(fin);
+}
+
+
+window.openManualBill = async function(tutorId) {
+  try {
+    await post('/api/bills', {tutor_id: tutorId});
+    showToast('Счёт создан');
+    await load();
+  } catch(e) { alert(e.detail || 'Ошибка'); }
+};
+window.manualSession=async function(sid,action,price){
+  try{
+    const d={action};
+    if(action==='add_to_bill'&&price){d.action='set_price';d.price=parseFloat(price);await post('/api/lesson-sessions/'+sid+'/manual',d);d.action='add_to_bill';}
+    await post('/api/lesson-sessions/'+sid+'/manual',d);
+    showToast('Готово');
+    await load();
+  }catch(e){alert(e.detail||'Ошибка')}
+}
+window.respondBill=async function(bid,action){
+  const note=(document.getElementById('on_'+bid)||{}).value||'';
+  try{
+    await post('/api/bills/'+bid+'/respond',{action,note});
+    showToast(action==='close'?'Счёт закрыт':action==='archive'?'В архиве':'Переоткрыт');
+    await load();
+  }catch(e){alert(e.detail||'Ошибка')}
 }
 
 function avatarBg(uid){

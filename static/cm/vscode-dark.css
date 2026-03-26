@@ -1,0 +1,35 @@
+/* VSCode Dark+ theme for CodeMirror 5 */
+.CodeMirror {
+  background: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  font-family: 'Consolas', 'Courier New', monospace !important;
+  font-size: 13px !important;
+  height: auto !important;
+  border: none !important;
+}
+.CodeMirror-scroll { background: #1e1e1e; }
+.CodeMirror-gutters { background: #1e1e1e !important; border-right: 1px solid #333 !important; }
+.CodeMirror-linenumber { color: #858585 !important; }
+.CodeMirror-cursor { border-left: 2px solid #aeafad !important; }
+.CodeMirror-selected,
+.CodeMirror-focused .CodeMirror-selected { background: #264f78 !important; }
+.CodeMirror-matchingbracket { color: #d4d4d4 !important; border-bottom: 1px solid #d4d4d4; background: #0d3a58; }
+
+/* Syntax — VSCode Dark+ */
+.cm-keyword   { color: #569cd6 !important; }   /* if, for, while, return, import */
+.cm-builtin   { color: #569cd6 !important; }   /* print, len, range */
+.cm-def       { color: #dcdcaa !important; }   /* function name after def/function */
+.cm-variable  { color: #9cdcfe !important; }   /* variables */
+.cm-variable-2{ color: #9cdcfe !important; }
+.cm-property  { color: #9cdcfe !important; }
+.cm-atom      { color: #569cd6 !important; }   /* True, False, None */
+.cm-number    { color: #b5cea8 !important; }   /* numbers */
+.cm-string    { color: #ce9178 !important; }   /* strings */
+.cm-string-2  { color: #ce9178 !important; }
+.cm-comment   { color: #6a9955 !important; font-style: italic; }
+.cm-operator  { color: #d4d4d4 !important; }
+.cm-punctuation { color: #d4d4d4 !important; }
+.cm-tag       { color: #4ec9b0 !important; }
+.cm-type      { color: #4ec9b0 !important; }
+.cm-meta      { color: #d7ba7d !important; }   /* decorators */
+.cm-error     { color: #f44747 !important; }

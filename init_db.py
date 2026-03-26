@@ -36,6 +36,27 @@ def migrate(db):
         "CREATE TABLE IF NOT EXISTS schedule_slots (id varchar(12) PRIMARY KEY, tutor_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, student_id varchar(12) REFERENCES students(id) ON DELETE CASCADE, day_of_week integer NOT NULL, slot_index integer NOT NULL, duration integer NOT NULL DEFAULT 2, note varchar(300), color varchar(20), created_at timestamptz DEFAULT now())",
         # v3.9: duration field
         "ALTER TABLE schedule_slots ADD COLUMN IF NOT EXISTS duration integer NOT NULL DEFAULT 2",
+        # v4.0: student note on schedule slots
+        "ALTER TABLE schedule_slots ADD COLUMN IF NOT EXISTS student_note varchar(500)",
+        # v4.1: rewards toggle per student
+        "ALTER TABLE students ADD COLUMN IF NOT EXISTS rewards_enabled boolean NOT NULL DEFAULT true",
+        # v4.2: extended student model — level + expanded goals
+        "ALTER TABLE students ADD COLUMN IF NOT EXISTS level varchar(20) NOT NULL DEFAULT 'school'",
+        "ALTER TABLE students ALTER COLUMN grade DROP NOT NULL",
+        "ALTER TYPE goaltype ADD VALUE IF NOT EXISTS 'oge'",
+        "ALTER TYPE goaltype ADD VALUE IF NOT EXISTS 'improve_grades'",
+        "ALTER TYPE goaltype ADD VALUE IF NOT EXISTS 'deepening'",
+        "ALTER TYPE goaltype ADD VALUE IF NOT EXISTS 'extra_education'",
+        # v4.3: personal boards & shares (idempotent, in case create_all missed them)
+        "CREATE TABLE IF NOT EXISTS personal_boards (id varchar(12) PRIMARY KEY, owner_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, title varchar(300) NOT NULL DEFAULT 'Новая доска', strokes text DEFAULT '[]', share_token varchar(32) UNIQUE, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())",
+        "CREATE TABLE IF NOT EXISTS personal_board_shares (board_id varchar(12) NOT NULL REFERENCES personal_boards(id) ON DELETE CASCADE, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, PRIMARY KEY (board_id, user_id))",
+        "CREATE TABLE IF NOT EXISTS board_invites (id varchar(12) PRIMARY KEY, board_id varchar(12) NOT NULL REFERENCES personal_boards(id) ON DELETE CASCADE, from_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, to_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, status varchar(20) NOT NULL DEFAULT 'pending', created_at timestamptz DEFAULT now())",
+        "CREATE TABLE IF NOT EXISTS notifications (id varchar(12) PRIMARY KEY, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, text text NOT NULL, is_read boolean NOT NULL DEFAULT false, created_at timestamptz DEFAULT now(), link varchar(500), notif_type varchar(50))",
+        # v4.4: financial tracking
+        "ALTER TABLE schedule_slots ADD COLUMN IF NOT EXISTS price numeric(10,2)",
+        "CREATE TABLE IF NOT EXISTS board_presence_logs (id varchar(12) PRIMARY KEY, student_id varchar(12) NOT NULL REFERENCES students(id) ON DELETE CASCADE, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, user_role varchar(20) NOT NULL, connected_at timestamptz DEFAULT now(), disconnected_at timestamptz)",
+        "CREATE TABLE IF NOT EXISTS commission_bills (id varchar(12) PRIMARY KEY, tutor_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, total_lessons numeric(10,2) NOT NULL DEFAULT 0, total_commission numeric(10,2) NOT NULL DEFAULT 0, status varchar(20) NOT NULL DEFAULT 'open', tutor_note varchar(1000), owner_note varchar(1000), reported_at timestamptz, closed_at timestamptz, created_at timestamptz DEFAULT now())",
+        "CREATE TABLE IF NOT EXISTS lesson_sessions (id varchar(12) PRIMARY KEY, schedule_slot_id varchar(12) REFERENCES schedule_slots(id) ON DELETE SET NULL, bill_id varchar(12) REFERENCES commission_bills(id) ON DELETE SET NULL, tutor_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, student_id varchar(12) NOT NULL REFERENCES students(id) ON DELETE CASCADE, scheduled_at timestamptz NOT NULL, price numeric(10,2), commission numeric(10,2), tutor_present boolean NOT NULL DEFAULT false, student_present boolean NOT NULL DEFAULT false, status varchar(20) NOT NULL DEFAULT 'auto', note varchar(500), created_at timestamptz DEFAULT now())",
     ]
     for sql in steps:
         try:

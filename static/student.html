@@ -78,10 +78,17 @@ textarea{resize:vertical}
 .subblocks{margin-top:3px;margin-left:30px}
 .subblock{padding:4px 8px;background:var(--bg);border-radius:4px;margin-bottom:2px;border-left:2px solid var(--border);font-size:.82em;color:var(--muted);white-space:pre-wrap;word-break:break-word}
 .subblock.sb-media{border-left-color:#6e40c9}
+.subblock.sb-edit{padding:0;overflow:hidden;display:flex;align-items:flex-start;gap:0}
 .subblock a{font-size:.9em;color:var(--green-t)}
 .add-sub{display:flex;gap:4px;margin-top:4px;margin-left:30px}
 .add-sub .btn{padding:2px 9px;font-size:.78em}
 .add-sub label.btn{cursor:pointer}
+.sb-ta{width:100%;padding:4px 8px;font-size:.82em;resize:vertical;min-height:32px;background:var(--surface-2);border:none;border-radius:4px;color:var(--text);font-family:inherit}
+.sb-ta:focus{outline:1px solid var(--green-t)}
+/* Code item */
+.code-item{margin-top:6px;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.code-item-label{font-size:.73em;color:var(--muted);padding:3px 8px;background:var(--surface)}
+.code-ta-st{width:100%;min-height:80px;background:#1e1e1e;color:#d4d4d4;font-family:Consolas,'Courier New',monospace;font-size:13px;padding:6px 8px;border:none;resize:vertical;display:block}
 
 /* Add item row */
 .add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
@@ -96,10 +103,18 @@ textarea{resize:vertical}
 .modal h2{font-size:1.1em;margin-bottom:16px;font-weight:600}
 .modal label{display:block;color:var(--muted);font-size:.85em;margin:8px 0 4px}
 .modal input,.modal select,.modal textarea{width:100%;margin-bottom:4px}
-</style></head><body>
+</style>
+<link rel="stylesheet" href="/cm/codemirror.min.css">
+<link rel="stylesheet" href="/cm/vscode-dark.css">
+<script src="/cm/codemirror.min.js"></script>
+<script src="/cm/mode/python/python.min.js"></script>
+<script src="/cm/mode/javascript/javascript.min.js"></script>
+<script src="/cm/addon/edit/closebrackets.min.js"></script>
+<script src="/cm/addon/edit/matchbrackets.min.js"></script>
+</head><body>
 
 <div class="top">
-  <h1 id="pn">📐 Ученик</h1>
+  <h1 id="pn">Ученик</h1>
   <div class="row" style="margin:0;gap:12px">
     <a href="#" id="bL" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.85em;text-decoration:none;transition:border-color .15s" onmouseover="this.style.borderColor='var(--green-t)'" onmouseout="this.style.borderColor='var(--border)'">🎨 Доска</a>
     <a href="/hbm_tutor.html">← Панель</a>
@@ -186,6 +201,7 @@ const openSecs=new Set();
 
 // ─── PRICING ─────────────────────────────────────────────────────────────
 function calcPrice(st){
+  if(!st.rewards_enabled) return{base:st.base_rate,discount:0,current:st.base_rate,pct:0};
   const n=st.sections.length;
   if(!n)return{base:st.base_rate,discount:0,current:st.base_rate,pct:0};
   const share=st.base_rate*0.30/n;
@@ -204,6 +220,19 @@ function renderPriceBlock(st){
   const p=calcPrice(st);
   const el=document.getElementById('priceBlock');
   el.style.display='flex';
+  const rewardToggle=`<label class="toggle" style="margin-left:auto;white-space:nowrap">
+    <input type="checkbox" id="rewardsChk" ${st.rewards_enabled?'checked':''} onchange="toggleRewards(this.checked)">
+    <span style="font-size:.82em;color:var(--muted)">Скидки за успеваемость</span>
+  </label>`;
+  if(!st.rewards_enabled){
+    el.innerHTML=`<div>
+      <div class="price-cur">${p.base} ₽ / ч</div>
+      <div class="meta" style="color:var(--muted)">Фиксированная ставка</div>
+    </div>
+    <div class="meta" style="color:var(--muted);font-size:.8em">Система поощрений отключена</div>
+    ${rewardToggle}`;
+    return;
+  }
   el.innerHTML=`<div>
     <div class="price-cur">${p.current} ₽ / ч</div>
     <div class="price-base">${p.base} ₽</div>
@@ -216,17 +245,29 @@ function renderPriceBlock(st){
     <div class="meta">${p.pct}%</div>
     <div class="price-prog" style="flex:1"><div class="price-prog-fill" style="width:${p.pct*100/30}%"></div></div>
     <div class="meta">30%</div>
-  </div>`}
+  </div>
+  ${rewardToggle}`}
+
+async function toggleRewards(val){
+  try{
+    await patch('/api/students/'+SID,{rewards_enabled:val});
+    S.rewards_enabled=val;
+    renderPriceBlock(S);
+  }catch(e){alert(e.detail||'Ошибка');}}
 
 // ─── MAIN RENDER ──────────────────────────────────────────────────────────
 async function ld(){
   try{S=await get('/api/students/'+SID)}catch(e){alert('Не найден');location.href='/hbm_tutor.html';return}
   subjects=await get('/api/subjects').catch(()=>[]);
-  document.getElementById('pn').textContent='📐 '+S.name;
-  const g={ege:'ЕГЭ',olymp:'Олимп',base:'База'};
+  document.getElementById('pn').textContent=S.name;
+  const g={ege:'ЕГЭ',oge:'ОГЭ',olymp:'Олимпиады',improve_grades:'Улучшение оценок',deepening:'Углубление',extra_education:'Доп. образование'};
+  const GOAL_CSS={ege:'goal-ege',oge:'goal-ege',olymp:'goal-olymp',improve_grades:'goal-base',deepening:'goal-base',extra_education:'goal-base'};
+  const LEVEL_LABEL={school:'Школьник',university:'Студент',additional:'Доп. образование'};
+  const lvl=LEVEL_LABEL[S.level||'school']||S.level;
+  const gradeStr=S.level==='school'&&S.grade?S.grade+' кл · ':'';
   const subj=subjects.find(s=>s.id===S.subject_id);
   document.getElementById('si').innerHTML=`
-    <div><strong>${S.name}</strong> · ${S.grade} кл · <span class="goal goal-${S.goal}">${g[S.goal]||S.goal}</span> · ${S.format} ${subj?'· '+subj.icon+' '+subj.name:''}</div>
+    <div><strong>${S.name}</strong> · ${gradeStr}<span style="opacity:.75">${lvl}</span> · <span class="goal ${GOAL_CSS[S.goal]||'goal-base'}">${g[S.goal]||S.goal}</span> · ${S.format} ${subj?'· '+subj.icon+' '+subj.name:''}</div>
     <div class="row" style="margin:0;gap:6px">
       <button class="btn btn-s btn-sm" onclick="openEditSt()">✏️</button>
       <button class="btn btn-d btn-sm" onclick="delS()">Удалить</button>
@@ -237,7 +278,47 @@ async function ld(){
 function rSecs(){
   const el=document.getElementById('secs');
   if(!S.sections.length){el.innerHTML='<div style="text-align:center;color:#7aaa8a;padding:40px">Пусто — примените курс, шаблон или добавьте раздел</div>';return}
-  el.innerHTML=S.sections.map(sec=>renderSection(sec)).join('')}
+  el.innerHTML=S.sections.map(sec=>renderSection(sec)).join('');
+  requestAnimationFrame(()=>setTimeout(initCodeEditors,80));}
+
+const _cmSt=new Map();
+function initCodeEditors(){
+  document.querySelectorAll('.code-ta-st:not([data-cm-inited])').forEach(ta=>{
+    if(ta.offsetParent===null) return; // скрыт — пропустить
+    ta.setAttribute('data-cm-inited','1');
+    const lang=ta.dataset.lang||'python';
+    const mode=lang==='javascript'?{name:'javascript'}:lang==='text'?null:lang;
+    const cm=CodeMirror.fromTextArea(ta,{
+      mode,lineNumbers:true,indentUnit:4,tabSize:4,indentWithTabs:false,
+      autoCloseBrackets:true,matchBrackets:true,viewportMargin:Infinity,
+      extraKeys:{Tab:cm=>cm.execCommand('indentMore'),'Shift-Tab':cm=>cm.execCommand('indentLess')}
+    });
+    cm.setSize('100%',180);
+    _cmSt.set(ta.dataset.iid+'_'+ta.dataset.field, cm);
+    cm.on('change',()=>{ta.value=cm.getValue();});
+  });}
+
+async function runStCode(id){
+  const cm=_cmSt.get(id+'_sta');
+  const code=cm?cm.getValue():(document.getElementById('sta_'+id)?.value||'');
+  const lang=document.querySelector('[data-iid="'+id+'"][data-field="sta"]')?.dataset?.lang||'python';
+  const outEl=document.getElementById('strun_'+id);
+  if(!outEl) return;
+  outEl.style.display='block'; outEl.textContent='Запуск...';
+  try{
+    if(lang==='javascript'){
+      const logs=[];const orig=console.log;
+      console.log=(...a)=>logs.push(a.map(String).join(' '));
+      try{new Function(code)();}finally{console.log=orig;}
+      outEl.textContent=logs.join('\n')||'(нет вывода)';
+      outEl.style.color='#c9d1d9';
+    } else {
+      const r=await post('/api/run_code',{code});
+      const txt=(r.stdout||'')+(r.stderr?'\n'+r.stderr:'');
+      outEl.textContent=txt||'(нет вывода)';
+      outEl.style.color=r.ok?'#c9d1d9':'#f87171';
+    }
+  }catch(e){outEl.textContent='Ошибка: '+(e.message||String(e));outEl.style.color='#f87171';}}
 
 function renderSection(sec){
   const isLocked=sec.locked;
@@ -265,32 +346,32 @@ function renderSection(sec){
       <option value="topic">📌 Тема</option>
       <option value="hw">📋 ДЗ</option>
       <option value="media">🗂 Медиа</option>
+      <option value="code">💻 Код</option>
     </select>
     <input id="nn_${sec.id}" placeholder="Название" onkeydown="if(event.key==='Enter')addItem('${sec.id}')">
     <input id="ntot_${sec.id}" type="number" placeholder="Задач" min="1" style="width:80px;display:none">
-    <select id="nsel_${sec.id}" onchange="onNTypeChange('${sec.id}')"></select>
     <button class="btn btn-s btn-sm" onclick="addItem('${sec.id}')">+ Добавить</button>
   </div>`:''}
   ${renderBottomPanels(sec,isLocked)}
 </div>
 </div>`}
 
-function onNTypeChange(secId){
-  // actually called on select change for type
-}
-
 function renderSubs(it,locked){
   const sbs=(it.subblocks||[]).map(sb=>{
     if(sb.type==='media'){
       const url=sb.file_path?'/'+sb.file_path.replace(/\\/g,'/'):null;
       return`<div class="subblock sb-media">${url?`<a href="${url}" target="_blank">📎 ${esc(sb.name||'файл')}</a>`:'<span class="meta">медиа</span>'}${!locked?` <button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em" onclick="delItSub('${sb.id}')">✕</button>`:''}</div>`}
-    return`<div class="subblock">${esc(sb.content||'')}${!locked?` <button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em" onclick="delItSub('${sb.id}')">✕</button>`:''}</div>`
+    if(!locked) return`<div class="subblock sb-edit"><textarea class="sb-ta" rows="2" placeholder="Текст комментария..." onblur="saveItSub('${sb.id}',this.value)">${esc(sb.content||'')}</textarea><button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em;flex-shrink:0;margin:3px 3px 0 0" onclick="delItSub('${sb.id}')">✕</button></div>`
+    return`<div class="subblock">${esc(sb.content||'')}</div>`
   }).join('');
   const addBtns=!locked?`<div class="add-sub">
     <button class="btn btn-s" onclick="addItSub('${it.id}')">+ Текст</button>
     <label class="btn btn-s">+ Медиа<input type="file" style="display:none" onchange="addItSubMedia('${it.id}',this)"></label>
   </div>`:''
   return(sbs||addBtns)?`<div class="subblocks">${sbs}</div>${addBtns}`:'';}
+
+async function saveItSub(sbid,content){
+  try{await patch('/api/item-subblocks/'+sbid,{content})}catch(e){}}
 
 function renderItem(it,sec){
   const locked=sec.locked;
@@ -310,11 +391,19 @@ ${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</butto
   if(it.type==='hw'){
     const g=it.grade||0;
     const gcls=g===5?'grade-5':g===4?'grade-4':g===3?'grade-3':g===2?'grade-2':g===1?'grade-1':'grade-0';
+    const studentAtts=(it.attachments||[]).map(a=>{
+      const url=a.file_path?'/'+a.file_path.replace(/\\/g,'/'):null;
+      return`<a href="${url||'#'}" target="_blank" style="font-size:.78em;color:var(--green-t)">📎 ${esc(a.name)}</a>`}).join(' ');
+    const answerBlock=(it.student_answer||studentAtts)?`<div style="margin:4px 0 0 0;padding:5px 8px;background:var(--bg);border-radius:4px;border-left:2px solid #6e40c9">
+  ${it.student_answer?`<div style="font-size:.8em;white-space:pre-wrap;word-break:break-word">${esc(it.student_answer)}</div>`:''}
+  ${studentAtts?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:6px">${studentAtts}</div>`:''}
+</div>`:'';
     return`<div class="item-row">
 <span class="item-icon">${icon}</span>
 <div class="item-content">
   <div class="item-name">${esc(it.name||'ДЗ')}${it.total?` <span class="meta">(${it.total} зад.)</span>`:''}</div>
   ${it.text?`<div class="item-sub">${esc(it.text)}</div>`:''}
+  ${answerBlock}
 </div>
 <select class="grade-sel ${gcls}" onchange="uIt('${it.id}',{grade:+this.value})" ${locked?'disabled':''}>
   <option value="0" ${g===0?'selected':''}>— оценка</option>
@@ -337,6 +426,31 @@ ${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</butto
     !locked?`<div style="margin-top:4px"><label style="cursor:pointer;font-size:.78em;color:#a78bfa">📎 Прикрепить файл<input type="file" style="display:none" onchange="uploadMedia('${it.id}',this)"></label></div>`:''}
 </div>
 ${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</button>`:''}
+</div>${renderSubs(it,locked)}`}
+
+  if(it.type==='code'){
+    const langOpts=['python','javascript','text'].map(l=>`<option value="${l}"${(it.lang||'python')===l?' selected':''}>${l}</option>`).join('');
+    return`<div class="item-row" style="flex-wrap:wrap">
+<span class="item-icon">💻</span>
+<div class="item-content" style="flex:1">
+  <div class="item-name">${esc(it.name||'Задание: код')}</div>
+  <div class="code-item">
+    <div class="code-item-label">Стартовый код (виден ученику)
+      <select style="margin-left:8px;padding:1px 4px;font-size:.85em" onchange="updItField('${it.id}','lang',this.value)">${langOpts}</select>
+    </div>
+    <textarea class="code-ta-st" id="sta_${it.id}" data-iid="${it.id}" data-field="sta" data-lang="${it.lang||'python'}">${esc(it.text||'')}</textarea>
+  </div>
+  <div class="code-item" style="margin-top:4px">
+    <div class="code-item-label" style="color:#f87171">Эталонный ответ (скрыт от ученика)</div>
+    <textarea class="code-ta-st" id="sol_${it.id}" data-iid="${it.id}" data-field="sol" data-lang="${it.lang||'python'}">${esc(it.note||'')}</textarea>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+    <button class="btn btn-s btn-sm" onclick="runStCode('${it.id}')">▶ Запустить</button>
+    <button class="btn btn-s btn-sm" onclick="saveCodeItem('${it.id}')">💾 Сохранить</button>
+    ${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</button>`:''}
+  </div>
+  <pre id="strun_${it.id}" style="display:none;margin-top:4px;padding:6px 10px;background:#010409;border:1px solid #30363d;border-radius:4px;font-family:monospace;font-size:.8em;color:#c9d1d9;white-space:pre-wrap;max-height:180px;overflow:auto"></pre>
+</div>
 </div>${renderSubs(it,locked)}`}
 
   // generic / note
@@ -382,7 +496,14 @@ ${sec.idz_enabled?`<div class="panel">
 function tog(id){
   if(openSecs.has(id)) openSecs.delete(id); else openSecs.add(id);
   const el=document.getElementById('s_'+id);
-  if(el) el.classList.toggle('open',openSecs.has(id))}
+  if(el) el.classList.toggle('open',openSecs.has(id));
+  if(openSecs.has(id)){
+    requestAnimationFrame(()=>{
+      initCodeEditors();
+      _cmSt.forEach(cm=>{try{cm.refresh();}catch(e){}});
+    });
+  }
+}
 
 // ─── SECTION TYPE TOGGLE IN ADD-ROW ──────────────────────────────────────
 document.addEventListener('change',e=>{
@@ -400,6 +521,18 @@ async function uSec(id,d){
 async function uIt(id,d){
   try{await patch('/api/items/'+id,d);await ld()}catch(e){alert(e.detail||'Ошибка')}}
 
+document.addEventListener('blur',e=>{
+  if(!e.target.classList.contains('item-text-inp')) return;
+  const v=e.target.value.trim()||null;
+  patch('/api/items/'+e.target.dataset.iid,{text:v}).catch(()=>{});
+},true);
+
+document.addEventListener('blur',e=>{
+  if(!e.target.classList.contains('item-text-inp')) return;
+  const v=e.target.value.trim()||null;
+  patch('/api/items/'+e.target.dataset.iid,{text:v}).catch(()=>{});
+},true);
+
 async function addItem(secId){
   const t=document.getElementById('nt_'+secId).value;
   const n=document.getElementById('nn_'+secId).value.trim();
@@ -413,6 +546,15 @@ async function addItem(secId){
     await ld()}catch(e){alert(e.detail||'Ошибка')}}
 
 async function dIt(id){try{await del('/api/items/'+id);await ld()}catch(e){alert(e.detail||'Ошибка')}}
+
+async function updItField(id,field,val){
+  try{await patch('/api/items/'+id,{[field]:val})}catch(e){}}
+
+async function saveCodeItem(id){
+  const cmSta=_cmSt.get(id+'_sta'), cmSol=_cmSt.get(id+'_sol');
+  const text=cmSta?cmSta.getValue():(document.getElementById('sta_'+id)?.value??'');
+  const note=cmSol?cmSol.getValue():(document.getElementById('sol_'+id)?.value??'');
+  try{await patch('/api/items/'+id,{text,note});alert('Сохранено')}catch(e){alert(e.detail||'Ошибка')}}
 async function dSec(id){if(confirm('Удалить раздел?')){await del('/api/sections/'+id);await ld()}}
 
 async function uploadMedia(itemId,inp){

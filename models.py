@@ -5,17 +5,20 @@ import enum, uuid
 from database import Base
 
 class GoalType(str, enum.Enum):
-    ege="ege"; olymp="olymp"; base="base"
+    ege="ege"; oge="oge"; olymp="olymp"
+    improve_grades="improve_grades"; deepening="deepening"; extra_education="extra_education"
+class StudentLevelType(str, enum.Enum):
+    school="school"; university="university"; additional="additional"
 class FormatType(str, enum.Enum):
     online="online"; offline="offline"
 class ItemType(str, enum.Enum):
-    topic="topic"; hw="hw"; note="note"; media="media"; control="control"; idz="idz"
+    topic="topic"; hw="hw"; note="note"; media="media"; control="control"; idz="idz"; code="code"
 class TopicStatus(str, enum.Enum):
     none="none"; progress="progress"; done="done"
 class ControlStatus(str, enum.Enum):
     none="none"; passed="passed"; failed="failed"
 class UserRole(str, enum.Enum):
-    owner="owner"; tutor="tutor"; parent="parent"; student="student"
+    owner="owner"; tutor="tutor"; parent="parent"; student="student"; board_user="board_user"
 class CourseAccess(str, enum.Enum):
     public="public"; internal="internal"; private="private"
 
@@ -82,7 +85,7 @@ class CourseSectionItem(Base):
     section_id=Column(String(12),ForeignKey("course_sections.id",ondelete="CASCADE"),nullable=False)
     type=Column(String(50),nullable=False,default="topic")
     position=Column(Integer,nullable=False,default=0); name=Column(String(300),nullable=False,default="")
-    total=Column(Integer,nullable=True); text=Column(Text,nullable=True)
+    total=Column(Integer,nullable=True); text=Column(Text,nullable=True); note=Column(Text,nullable=True); lang=Column(String(20),nullable=True)
     file_path=Column(String(1000),nullable=True); mime=Column(String(200),nullable=True); size=Column(Integer,nullable=True)
     section=relationship("CourseSection",back_populates="items")
     subblocks=relationship("CourseItemSubblock",back_populates="item",cascade="all,delete-orphan",order_by="CourseItemSubblock.position")
@@ -90,8 +93,10 @@ class CourseSectionItem(Base):
 class Student(Base):
     __tablename__="students"
     id=Column(String(12),primary_key=True,default=gen_id); name=Column(String(200),nullable=False)
-    grade=Column(String(20),nullable=False,default="9"); goal=Column(PgEnum(GoalType),nullable=False,default=GoalType.ege)
+    level=Column(PgEnum(StudentLevelType),nullable=False,default=StudentLevelType.school)
+    grade=Column(String(20),nullable=True,default="9"); goal=Column(PgEnum(GoalType),nullable=False,default=GoalType.ege)
     base_rate=Column(Integer,nullable=False,default=1500); format=Column(PgEnum(FormatType),nullable=False,default=FormatType.online)
+    rewards_enabled=Column(Boolean,default=True,server_default='true')
     subject_id=Column(String(12),ForeignKey("subjects.id",ondelete="SET NULL"),nullable=True)
     created_by=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
     created_at=Column(DateTime(timezone=True),server_default=func.now())
@@ -136,6 +141,7 @@ class Item(Base):
     total=Column(Integer); done=Column(Integer); closed=Column(Boolean,default=False)
     date=Column(String(20)); closed_date=Column(String(20)); note=Column(Text); text=Column(Text)
     grade=Column(Integer,nullable=True); student_answer=Column(Text,nullable=True)
+    lang=Column(String(20),nullable=True)
     section=relationship("Section",back_populates="items")
     attachments=relationship("Attachment",back_populates="item",cascade="all, delete-orphan")
     subblocks=relationship("ItemSubblock",back_populates="item",cascade="all,delete-orphan",order_by="ItemSubblock.position")
@@ -227,6 +233,18 @@ class ChangeRequest(Base):
     status=Column(String(20),default='pending')
     created_at=Column(DateTime(timezone=True),server_default=func.now())
     req_user=relationship("User",foreign_keys=[user_id])
+
+class BoardInvite(Base):
+    __tablename__="board_invites"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    board_id=Column(String(12),ForeignKey("personal_boards.id",ondelete="CASCADE"),nullable=False)
+    from_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    to_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    status=Column(String(20),default='pending',nullable=False)  # pending/accepted/declined
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    board=relationship("PersonalBoard",foreign_keys=[board_id])
+    from_user=relationship("User",foreign_keys=[from_id])
+    to_user=relationship("User",foreign_keys=[to_id])
 
 class ScheduleSlot(Base):
     __tablename__="schedule_slots"

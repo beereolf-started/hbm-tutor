@@ -75,10 +75,10 @@ class CourseSectionItemCreate(BaseModel):
     total: Optional[int]=None; text: Optional[str]=None
 class CourseSectionItemUpdate(BaseModel):
     name: Optional[str]=None; type: Optional[str]=None
-    total: Optional[int]=None; text: Optional[str]=None
+    total: Optional[int]=None; text: Optional[str]=None; note: Optional[str]=None; lang: Optional[str]=None
 class CourseSectionItemOut(BaseModel):
     id: str; section_id: str; type: str; position: int; name: str
-    total: Optional[int]=None; text: Optional[str]=None
+    total: Optional[int]=None; text: Optional[str]=None; note: Optional[str]=None; lang: Optional[str]=None
     file_path: Optional[str]=None; mime: Optional[str]=None; size: Optional[int]=None
     subblocks: list[CourseItemSubblockOut] = []
     model_config = {"from_attributes": True}
@@ -125,13 +125,13 @@ class ItemUpdate(BaseModel):
     name: Optional[str]=None; status: Optional[str]=None; total: Optional[int]=None
     done: Optional[int]=None; closed: Optional[bool]=None; closed_date: Optional[str]=None
     note: Optional[str]=None; text: Optional[str]=None; grade: Optional[int]=None
-    student_answer: Optional[str]=None
+    student_answer: Optional[str]=None; lang: Optional[str]=None
 class ItemOut(BaseModel):
     id: str; section_id: str; type: str; position: int
     name: Optional[str]=None; status: Optional[str]=None; total: Optional[int]=None
     done: Optional[int]=None; closed: Optional[bool]=None; date: Optional[str]=None
     closed_date: Optional[str]=None; note: Optional[str]=None; text: Optional[str]=None
-    grade: Optional[int]=None; student_answer: Optional[str]=None
+    grade: Optional[int]=None; student_answer: Optional[str]=None; lang: Optional[str]=None
     attachments: list[AttachmentOut] = []
     subblocks: list[ItemSubblockOut] = []
     model_config = {"from_attributes": True}
@@ -161,19 +161,23 @@ class StudentCourseOut(BaseModel):
     model_config = {"from_attributes": True}
 
 class StudentCreate(BaseModel):
-    name: str; grade: str="9"; goal: str="ege"; base_rate: int=1500; format: str="online"
+    name: str; level: str="school"; grade: Optional[str]=None; goal: str="ege"
+    base_rate: int=1500; format: str="online"
     subject_id: Optional[str]=None
 class StudentUpdate(BaseModel):
-    name: Optional[str]=None; grade: Optional[str]=None; goal: Optional[str]=None
-    base_rate: Optional[int]=None; format: Optional[str]=None; subject_id: Optional[str]=None
+    name: Optional[str]=None; level: Optional[str]=None; grade: Optional[str]=None
+    goal: Optional[str]=None; base_rate: Optional[int]=None; format: Optional[str]=None
+    subject_id: Optional[str]=None; rewards_enabled: Optional[bool]=None
 class StudentOut(BaseModel):
-    id: str; name: str; grade: str; goal: str; base_rate: int; format: str
+    id: str; name: str; level: str="school"; grade: Optional[str]=None; goal: str; base_rate: int; format: str
+    rewards_enabled: bool=True
     subject_id: Optional[str]=None; created_by: Optional[str]=None; created_at: Optional[datetime]=None
     sections: list[SectionOut] = []
     courses: list[StudentCourseOut] = []
     model_config = {"from_attributes": True}
 class StudentListItem(BaseModel):
-    id: str; name: str; grade: str; goal: str; base_rate: int; format: str
+    id: str; name: str; level: str="school"; grade: Optional[str]=None; goal: str; base_rate: int; format: str
+    rewards_enabled: bool=True
     subject_id: Optional[str]=None; created_by: Optional[str]=None; created_at: Optional[datetime]=None
     model_config = {"from_attributes": True}
 
@@ -210,4 +214,16 @@ class PersonalBoardOut(BaseModel):
 class PersonalBoardListItem(BaseModel):
     id: str; owner_id: str; title: str; share_token: Optional[str]=None
     created_at: Optional[dt_type]=None; updated_at: Optional[dt_type]=None
+    is_owner: bool = True
+    owner_name: Optional[str] = None
+    member_count: int = 0
+    model_config = {"from_attributes": True}
+
+class BoardMemberOut(BaseModel):
+    id: str; name: str; role: str
+    model_config = {"from_attributes": True}
+
+class BoardInviteOut(BaseModel):
+    id: str; board_id: str; board_title: str; from_id: str; from_name: str
+    created_at: Optional[dt_type] = None
     model_config = {"from_attributes": True}

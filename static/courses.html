@@ -10,7 +10,8 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min
 a{color:var(--green-t);text-decoration:none;font-size:.9em}a:hover{text-decoration:underline}
 
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
-.topbar-logo{font-weight:700;font-size:1em}
+.topbar-logo{font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px}
+.topbar-logo svg{width:20px;height:20px;fill:none}
 .wrap{max-width:960px;margin:0 auto;padding:24px 20px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 
@@ -57,7 +58,7 @@ textarea{resize:vertical;min-height:52px;width:100%}
 .subblock{display:flex;align-items:flex-start;gap:6px;padding:5px 7px;background:var(--bg);border-radius:5px;margin-bottom:3px;border:1px solid var(--border)}
 .sb-badge{font-size:.68em;padding:2px 5px;border-radius:3px;font-weight:600;flex-shrink:0;margin-top:2px}
 .sb-text{background:var(--surface-2);color:var(--muted)}.sb-media{background:#1a1040;color:#a78bfa}
-.sb-ta{width:100%;padding:3px 6px;font-size:.82em;resize:none;min-height:34px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text)}
+.sb-ta{width:100%;padding:4px 8px;font-size:.85em;resize:vertical;min-height:40px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:text}
 .sb-ta:focus{border-color:var(--green-t)}
 .add-sub{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
 .add-sub .btn{padding:2px 9px;font-size:.78em}
@@ -77,8 +78,16 @@ textarea{resize:vertical;min-height:52px;width:100%}
 .add-row select{padding:4px 8px;font-size:.82em}
 .add-row input{padding:4px 8px;font-size:.82em;flex:1;min-width:120px}
 .add-row .btn{padding:4px 10px;font-size:.8em}
-</style></head><body>
-<div class="topbar"><span class="topbar-logo">📐 Курсы</span><a href="/hbm_tutor.html">← Панель</a></div>
+</style>
+<link rel="stylesheet" href="/cm/codemirror.min.css">
+<link rel="stylesheet" href="/cm/vscode-dark.css">
+<script src="/cm/codemirror.min.js"></script>
+<script src="/cm/mode/python/python.min.js"></script>
+<script src="/cm/mode/javascript/javascript.min.js"></script>
+<script src="/cm/addon/edit/closebrackets.min.js"></script>
+<script src="/cm/addon/edit/matchbrackets.min.js"></script>
+</head><body>
+<div class="topbar"><span class="topbar-logo"><svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg> Курсы</span><a href="/hbm_tutor.html">← Панель</a></div>
 <div class="wrap">
 <div id="listView">
   <div class="row">
@@ -216,13 +225,32 @@ async function openCourse(id){
 function backToList(){document.getElementById('listView').style.display='';document.getElementById('editView').style.display='none';curCourse=null;load()}
 
 // ─── ITEMS ────────────────────────────────────────────────────────────────
-const TYPE_ICON={topic:'📌',hw:'📋',media:'🗂',note:'📝'};
-const TYPE_LABEL={topic:'Тема',hw:'ДЗ',media:'Медиа',note:'Заметка'};
+const TYPE_ICON={topic:'📌',hw:'📋',media:'🗂',note:'📝',code:'💻'};
+const TYPE_LABEL={topic:'Тема',hw:'ДЗ',media:'Медиа',note:'Заметка',code:'Код'};
+const _cmCourseInstances=new Map();
+function initCodeEditors(){
+  document.querySelectorAll('.code-ta:not([data-cm-inited])').forEach(ta=>{
+    ta.setAttribute('data-cm-inited','1');
+    const itemId=ta.dataset.item,field=ta.dataset.field,secId=ta.dataset.sec;
+    const langRaw=(ta.dataset.lang||'python');
+    const mode=langRaw==='javascript'?{name:'javascript'}:langRaw;
+    const cm=CodeMirror.fromTextArea(ta,{
+      mode,lineNumbers:true,indentUnit:4,tabSize:4,indentWithTabs:false,
+      autoCloseBrackets:true,matchBrackets:true,viewportMargin:Infinity,
+      extraKeys:{Tab:cm=>cm.execCommand('indentMore'),'Shift-Tab':cm=>cm.execCommand('indentLess')}
+    });
+    cm.setSize('100%',140);
+    _cmCourseInstances.set(ta,cm);
+    let _t=null;
+    cm.on('change',()=>{clearTimeout(_t);_t=setTimeout(()=>updItemField(itemId,secId,field,cm.getValue()||null),800);});
+  });
+}
 
 function renderSections(){
   const el=document.getElementById('sectionsList');
   if(!curCourse.sections.length){el.innerHTML='<div class="empty">Добавьте разделы</div>';return}
-  el.innerHTML=curCourse.sections.map(sec=>renderSection(sec)).join('')}
+  el.innerHTML=curCourse.sections.map(sec=>renderSection(sec)).join('');
+  requestAnimationFrame(()=>setTimeout(initCodeEditors,80));}
 
 function renderSection(sec){
   const items=sec.items.map(it=>renderCItem(it,sec.id)).join('');
@@ -238,9 +266,9 @@ function renderSection(sec){
       <option value="topic">📌 Тема</option>
       <option value="hw">📋 ДЗ</option>
       <option value="media">🗂 Медиа</option>
+      <option value="code">💻 Код</option>
     </select>
     <input id="nn_${sec.id}" placeholder="Название" style="flex:1" onkeydown="if(event.key==='Enter')addItem('${sec.id}')">
-    <input id="ntot_${sec.id}" type="number" placeholder="Кол-во задач" min="1" style="width:120px;display:none" title="Количество заданий">
     <label class="btn btn-s btn-sm" id="nmf_${sec.id}" style="display:none;cursor:pointer">📎 Файл<input type="file" style="display:none" onchange="addMediaItem('${sec.id}',this)"></label>
     <button class="btn btn-s btn-sm" onclick="addItem('${sec.id}')">+ Добавить</button>
   </div>
@@ -263,6 +291,25 @@ function renderCItem(it,secId){
     <input type="text" value="${esc(it.text||'')}" placeholder="Описание ДЗ" style="flex:1;min-width:120px;padding:3px 6px;font-size:.8em" onblur="updItemField('${it.id}','${secId}','text',this.value||null)">
   </div>`:''}
   ${it.type==='topic'||it.type==='note'?`<div style="margin-top:2px"><input type="text" value="${esc(it.text||'')}" placeholder="Описание (опционально)" style="width:100%;padding:3px 6px;font-size:.8em" onblur="updItemField('${it.id}','${secId}','text',this.value||null)"></div>`:''}
+  ${it.type==='code'?`<div style="margin-top:6px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+      <span style="font-size:.75em;color:var(--muted)">Язык:</span>
+      <select id="lang_${it.id}" style="padding:1px 6px;font-size:.8em" onchange="updItemField('${it.id}','${secId}','lang',this.value)">
+        <option value="python"${(it.lang||'python')==='python'?' selected':''}>Python</option>
+        <option value="javascript"${it.lang==='javascript'?' selected':''}>JavaScript</option>
+        <option value="text"${it.lang==='text'?' selected':''}>Текст</option>
+      </select>
+    </div>
+    <div style="font-size:.75em;color:var(--muted);margin-bottom:3px">Стартовый код (виден ученику):</div>
+    <textarea class="code-ta" data-item="${it.id}" data-field="text" data-lang="${it.lang||'python'}" data-sec="${secId}">${esc(it.text||'')}</textarea>
+    <div style="font-size:.75em;color:var(--muted);margin:6px 0 3px">Эталонный ответ <span style="color:#f87171">(скрыт от ученика)</span>:</div>
+    <textarea class="code-ta" data-item="${it.id}" data-field="note" data-lang="${it.lang||'python'}" data-sec="${secId}">${esc(it.note||'')}</textarea>
+    <div style="margin-top:6px;display:flex;gap:8px;align-items:center">
+      <button class="btn btn-s btn-sm" onclick="runCourseCode('${it.id}')">▶ Запустить</button>
+      <span style="font-size:.75em;color:var(--muted)">стартовый код</span>
+    </div>
+    <pre class="code-out" id="cout_${it.id}" style="display:none;margin-top:6px;padding:8px 10px;background:#010409;border:1px solid #30363d;border-radius:6px;font-family:monospace;font-size:.82em;color:#c9d1d9;white-space:pre-wrap;max-height:200px;overflow:auto"></pre>
+  </div>`:''}
   ${mediaFile}
   <div class="subblocks" id="csb_${it.id}">${sbHtml}</div>
   <div class="add-sub">
@@ -313,10 +360,10 @@ function renderBottomPanels(sec){
 
 function onTypeChange(secId){
   const t=document.getElementById('nt_'+secId).value;
-  const totEl=document.getElementById('ntot_'+secId);
   const mfEl=document.getElementById('nmf_'+secId);
-  if(totEl) totEl.style.display=t==='hw'?'':'none';
-  if(mfEl) mfEl.style.display=t==='media'?'':'none'}
+  const nnEl=document.getElementById('nn_'+secId);
+  if(mfEl) mfEl.style.display=t==='media'?'':'none';
+  if(nnEl) nnEl.placeholder=t==='code'?'Название задания':'Название'}
 
 async function renameSec(id,v){
   if(!v.trim())return;
@@ -343,8 +390,7 @@ async function updItemField(id,secId,field,v){
 async function addItem(secId){
   const t=document.getElementById('nt_'+secId).value;
   const n=document.getElementById('nn_'+secId).value.trim();
-  const totEl=document.getElementById('ntot_'+secId);
-  const tot=totEl&&t==='hw'?+totEl.value||null:null;
+  const tot=null;
   if(t==='media'){
     // For media items without a file, just create with the name
     if(!n){alert('Введите название');return}
@@ -411,4 +457,64 @@ async function delCourse(){if(!confirm('Удалить курс?'))return;await 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 
 load();
+
+// ─── CODE EXECUTION ─────────────────────────────────────────────────────────
+let _pyodide=null, _pyodideLoading=false, _pyodideQueue=[];
+async function loadPyodide(){
+  if(_pyodide)return _pyodide;
+  if(_pyodideLoading){return new Promise(r=>_pyodideQueue.push(r))}
+  _pyodideLoading=true;
+  if(!window.loadPyodide){
+    await new Promise((res,rej)=>{const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js';
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  _pyodide=await window.loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/'});
+  _pyodideQueue.forEach(r=>r(_pyodide));_pyodideQueue=[];
+  return _pyodide;
+}
+async function runCourseCode(iid){
+  const outEl=document.getElementById('cout_'+iid);
+  // Find CodeMirror for the text (starter) field of this item
+  let code='';
+  document.querySelectorAll('.code-ta[data-item="'+iid+'"][data-field="text"]').forEach(ta=>{
+    const cm=_cmCourseInstances.get(ta);
+    code=cm?cm.getValue():(ta.value||code);
+  });
+  // Fallback: if code still empty, try reading from any matching CM by item data
+  if(!code){
+    for(const[ta2,cm2] of _cmCourseInstances){
+      if(ta2.dataset&&ta2.dataset.item===iid&&ta2.dataset.field==='text'){code=cm2.getValue();break;}
+    }
+  }
+  const lang=(document.getElementById('lang_'+iid)?.value)||
+    document.querySelector('.code-ta[data-item="'+iid+'"]')?.dataset?.lang||'python';
+  outEl.style.display='block';
+  outEl.textContent='Запуск...';
+  try{
+    let out='';
+    if(lang==='javascript'){
+      const logs=[];
+      const origLog=console.log;
+      console.log=(...a)=>logs.push(a.map(String).join(' '));
+      try{new Function(code)()}finally{console.log=origLog}
+      out=logs.join('\n')||'(нет вывода)';
+    } else if(lang==='python'){
+      const py=await loadPyodide();
+      const captured=[];
+      py.globals.set('__print_buf__',captured);
+      const wrapped=`import sys\nclass _Cap:\n  def write(self,s):__print_buf__.append(s)\n  def flush(self):pass\nsys.stdout=sys.stderr=_Cap()\n${code}`;
+      await py.runPythonAsync(wrapped);
+      out=captured.join('')||'(нет вывода)';
+    } else {
+      out='Запуск текстовых блоков не поддерживается';
+    }
+    outEl.textContent=out;
+    outEl.style.color='#c9d1d9';
+  }catch(e){
+    outEl.textContent='Ошибка: '+(e.message||String(e));
+    outEl.style.color='#f87171';
+  }
+}
+
 </script></body></html>

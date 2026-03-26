@@ -1,21 +1,49 @@
 from fastapi import FastAPI,Depends,HTTPException,UploadFile,File,WebSocket,WebSocketDisconnect,Request,Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session,joinedload
-import os,json,jwt,secrets
+import os,json,jwt,secrets,subprocess
 from datetime import datetime,timezone
 from collections import defaultdict
-from database import get_db,SessionLocal
+from database import get_db,SessionLocal,engine,Base
 from models import *
 from schemas import *
 from auth import (hash_password,verify_password,create_token,get_current_user,
     require_owner,require_tutor_or_owner,decode_token,SECRET_KEY,ALGORITHM)
 
 app=FastAPI(title="HBM Репетитор API",version="2.0")
+app.add_middleware(GZipMiddleware,minimum_size=512)
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_methods=["*"],allow_headers=["*"])
+
+from sqlalchemy import text as _sa_text
+@app.on_event("startup")
+async def _startup_migrate():
+    """Ensure all tables exist (safe, idempotent)"""
+    try: Base.metadata.create_all(bind=engine)
+    except: pass
+    _steps=[
+        "CREATE TABLE IF NOT EXISTS personal_boards (id varchar(12) PRIMARY KEY, owner_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, title varchar(300) NOT NULL DEFAULT 'Новая доска', strokes text DEFAULT '[]', share_token varchar(32) UNIQUE, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())",
+        "CREATE TABLE IF NOT EXISTS personal_board_shares (board_id varchar(12) NOT NULL REFERENCES personal_boards(id) ON DELETE CASCADE, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, PRIMARY KEY (board_id, user_id))",
+        "CREATE TABLE IF NOT EXISTS board_invites (id varchar(12) PRIMARY KEY, board_id varchar(12) NOT NULL REFERENCES personal_boards(id) ON DELETE CASCADE, from_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, to_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, status varchar(20) NOT NULL DEFAULT 'pending', created_at timestamptz DEFAULT now())",
+        "CREATE TABLE IF NOT EXISTS notifications (id varchar(12) PRIMARY KEY, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, text text NOT NULL, is_read boolean NOT NULL DEFAULT false, created_at timestamptz DEFAULT now(), link varchar(500), notif_type varchar(50))",
+        "ALTER TABLE course_section_items ADD COLUMN IF NOT EXISTS note TEXT",
+        "ALTER TABLE course_section_items ADD COLUMN IF NOT EXISTS lang VARCHAR(20)",
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS lang VARCHAR(20)",
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='code' AND enumtypid=(SELECT oid FROM pg_type WHERE typname='itemtype')) THEN ALTER TYPE itemtype ADD VALUE 'code'; END IF; END $$",
+    ]
+    _db=SessionLocal()
+    for _sql in _steps:
+        try: _db.execute(_sa_text(_sql)); _db.commit()
+        except: _db.rollback()
+    _db.close()
 BASE_DIR=os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR=os.path.join(BASE_DIR,"uploads"); os.makedirs(UPLOAD_DIR,exist_ok=True)
 def _up(aid,ext): return os.path.join(UPLOAD_DIR,f"{aid}{ext}"),f"uploads/{aid}{ext}"
+def _abs(rel): return os.path.join(BASE_DIR,rel.replace("/",os.sep)) if rel else None
+def _rm(rel):
+    fp=_abs(rel)
+    if fp and os.path.exists(fp): os.remove(fp)
 def is_tr(u): return u.role in ("owner","tutor")
 
 # ═══ LAST SEEN MIDDLEWARE ═══
@@ -81,7 +109,8 @@ def list_users(u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)
 @app.post("/api/users",response_model=UserOut,status_code=201)
 def create_user(d:UserCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     if d.role=="tutor" and u.role!="owner": raise HTTPException(403,"Только владелец может создавать преподавателей")
-    if d.role not in ("tutor","student","parent"): raise HTTPException(400,"Роль: tutor/student/parent")
+    if d.role=="board_user" and u.role!="owner": raise HTTPException(403,"Только владелец может создавать пользователей доски")
+    if d.role not in ("tutor","student","parent","board_user"): raise HTTPException(400,"Роль: tutor/student/parent/board_user")
     if db.query(User).filter(User.login==d.login).first(): raise HTTPException(409,"Логин занят")
     if len(d.password)<6: raise HTTPException(400,"Минимум 6 символов")
     # Tutor can only link parent to their own students
@@ -141,7 +170,12 @@ def del_user(uid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(g
         student_uids={r.id for r in db.query(User.id).filter(User.student_id.in_(stids)).all()} if stids else set()
         parent_ids={r.parent_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(stids))).fetchall()} if stids else set()
         if t.id not in student_uids|parent_ids: raise HTTPException(403,"Нет доступа")
-    db.delete(t); db.commit()
+    stid=t.student_id if t.role=="student" else None
+    db.delete(t); db.flush()
+    if stid and not db.query(User).filter(User.student_id==stid).count():
+        s=db.query(Student).filter(Student.id==stid).first()
+        if s: _cln_stu(s,db); db.delete(s)
+    db.commit()
 
 # ═══ TUTOR SUBJECTS ═══
 @app.get("/api/users/{uid}/subjects")
@@ -372,7 +406,7 @@ def del_citem(iid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(
 async def upload_citem_media(iid:str,file:UploadFile=File(...),u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     it=db.query(CourseSectionItem).options(joinedload(CourseSectionItem.subblocks)).filter(CourseSectionItem.id==iid).first()
     if not it: raise HTTPException(404)
-    if it.file_path and os.path.exists(it.file_path): os.remove(it.file_path)
+    _rm(it.file_path)
     aid=gen_id(); ext=os.path.splitext(file.filename)[1] if file.filename else ""
     content=await file.read(); fp,dbp=_up(aid,ext)
     if len(content)>50*1024*1024: raise HTTPException(413)
@@ -411,8 +445,7 @@ def upd_course_subblock(sbid:str,d:SubblockCreate,u:User=Depends(require_tutor_o
 def del_course_subblock(sbid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     sb=db.query(CourseItemSubblock).filter(CourseItemSubblock.id==sbid).first()
     if not sb: raise HTTPException(404)
-    if sb.file_path and os.path.exists(sb.file_path): os.remove(sb.file_path)
-    db.delete(sb); db.commit()
+    _rm(sb.file_path); db.delete(sb); db.commit()
 
 # ═══ STUDENT ITEM SUBBLOCKS ═══
 @app.post("/api/items/{iid}/subblocks",response_model=ItemSubblockOut,status_code=201)
@@ -450,8 +483,22 @@ def upd_item_subblock(sbid:str,d:SubblockCreate,u:User=Depends(require_tutor_or_
 def del_item_subblock(sbid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     sb=db.query(ItemSubblock).filter(ItemSubblock.id==sbid).first()
     if not sb: raise HTTPException(404)
-    if sb.file_path and os.path.exists(sb.file_path): os.remove(sb.file_path)
-    db.delete(sb); db.commit()
+    _rm(sb.file_path); db.delete(sb); db.commit()
+
+class CodeCheckRequest(BaseModel):
+    code: str
+
+@app.post("/api/items/{iid}/check-code")
+def check_code_item(iid:str,d:CodeCheckRequest,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    it=db.query(Item).filter(Item.id==iid).first()
+    if not it: raise HTTPException(404)
+    if it.type!="code": raise HTTPException(400,"Не кодовый блок")
+    if not it.note: raise HTTPException(400,"Нет эталонного ответа")
+    def norm(s): return "\n".join(l.rstrip() for l in s.strip().splitlines())
+    correct=norm(d.code)==norm(it.note)
+    if correct:
+        it.student_answer=d.code; it.status="done"; db.commit()
+    return {"correct":correct}
 
 # ═══ ACCESS CHECK ═══
 def chk_acc(stid,u,db):
@@ -518,7 +565,7 @@ def get_contacts(stid:str,u:User=Depends(get_current_user),db:Session=Depends(ge
 
 @app.post("/api/students",response_model=StudentOut,status_code=201)
 def create_student(d:StudentCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
-    s=Student(name=d.name,grade=d.grade,goal=d.goal,base_rate=d.base_rate,format=d.format,subject_id=d.subject_id,created_by=u.id)
+    s=Student(name=d.name,level=d.level,grade=d.grade,goal=d.goal,base_rate=d.base_rate,format=d.format,subject_id=d.subject_id,created_by=u.id)
     db.add(s); db.flush()
     if u.role=="tutor": db.execute(tutor_student_link.insert().values(tutor_id=u.id,student_id=s.id))
     db.commit(); db.refresh(s); return s
@@ -534,7 +581,10 @@ def upd_student(stid:str,d:StudentUpdate,u:User=Depends(require_tutor_or_owner),
 def del_student(stid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     chk_acc(stid,u,db); s=db.query(Student).filter(Student.id==stid).first()
     if not s: raise HTTPException(404)
-    _cln_stu(s,db); db.delete(s); db.commit()
+    _cln_stu(s,db)
+    db.query(User).filter(User.student_id==stid).delete(synchronize_session=False)
+    db.flush()
+    db.delete(s); db.commit()
 
 @app.post("/api/students/{stid}/assign-tutor/{tid}",status_code=200)
 def assign_tutor(stid:str,tid:str,o:User=Depends(require_owner),db:Session=Depends(get_db)):
@@ -684,9 +734,12 @@ def reorder(sid:str,ids:list[str],u:User=Depends(require_tutor_or_owner),db:Sess
 
 # ═══ ATTACHMENTS ═══
 @app.post("/api/items/{iid}/attachments",response_model=AttachmentOut,status_code=201)
-async def upload_att(iid:str,file:UploadFile=File(...),u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+async def upload_att(iid:str,file:UploadFile=File(...),u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     it=db.query(Item).filter(Item.id==iid).first()
     if not it: raise HTTPException(404)
+    sec=db.query(Section).filter(Section.id==it.section_id).first()
+    if sec: chk_acc(sec.student_id,u,db)
+    if u.role=="student" and it.type!="hw": raise HTTPException(403,"Ученики могут прикреплять файлы только к ДЗ")
     aid=gen_id(); ext=os.path.splitext(file.filename)[1] if file.filename else ""
     content=await file.read(); fp,dbp=_up(aid,ext)
     if len(content)>50*1024*1024: raise HTTPException(413)
@@ -694,12 +747,29 @@ async def upload_att(iid:str,file:UploadFile=File(...),u:User=Depends(require_tu
     att=Attachment(id=aid,item_id=iid,name=file.filename or "file",mime=file.content_type or "application/octet-stream",size=len(content),file_path=dbp)
     db.add(att); db.commit(); db.refresh(att); return att
 
+
+@app.post("/api/items/{iid}/check-code")
+async def check_code(iid:str,body:dict,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    it=db.query(Item).filter(Item.id==iid).first()
+    if not it or it.type!='code': raise HTTPException(404)
+    sec=db.query(Section).filter(Section.id==it.section_id).first()
+    if sec: chk_acc(sec.student_id,u,db)
+    answer=(it.note or '').strip(); submitted=(body.get('code') or '').strip()
+    if not answer: return {"match":False,"error":"no_answer"}
+    match=submitted==answer
+    if match:
+        it.student_answer=submitted; it.status='done'; db.commit()
+    return {"match":match}
+
 @app.delete("/api/attachments/{aid}",status_code=204)
-def del_att(aid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+def del_att(aid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     a=db.query(Attachment).filter(Attachment.id==aid).first()
     if not a: raise HTTPException(404)
-    if a.file_path and os.path.exists(a.file_path): os.remove(a.file_path)
-    db.delete(a); db.commit()
+    it=db.query(Item).filter(Item.id==a.item_id).first()
+    if it:
+        sec=db.query(Section).filter(Section.id==it.section_id).first()
+        if sec: chk_acc(sec.student_id,u,db)
+    _rm(a.file_path); db.delete(a); db.commit()
 
 # ═══ TEMPLATES (legacy) ═══
 TPL={"oge":[("Алгебра. База",1,1,["Числа","Степени и корни","Уравнения","Неравенства","Функции","Прогрессии"]),("Геометрия",1,1,["Треугольники","Четырёхугольники","Окружность","Подобие","Площади"]),("Статистика",1,1,["Таблицы","Вероятности"]),("Задачи 2-й части",0,0,["Задача 19","Задача 20","Задача 21"])],
@@ -721,10 +791,8 @@ def apply_tpl(stid:str,tkey:str,u:User=Depends(require_tutor_or_owner),db:Sessio
 
 # ═══ HELPERS ═══
 def _cln_it(it,db):
-    for a in it.attachments:
-        if a.file_path and os.path.exists(a.file_path): os.remove(a.file_path)
-    for sb in it.subblocks:
-        if sb.file_path and os.path.exists(sb.file_path): os.remove(sb.file_path)
+    for a in it.attachments: _rm(a.file_path)
+    for sb in it.subblocks: _rm(sb.file_path)
 def _cln_sec(sec,db):
     for it in db.query(Item).filter(Item.section_id==sec.id).all(): _cln_it(it,db)
 def _cln_stu(st,db):
@@ -758,6 +826,68 @@ async def _bcast(stid,msg,sender):
             try: await c.send_text(msg)
             except: dead.add(c)
     if dead and stid in brd_conns: brd_conns[stid]-=dead
+
+@app.post("/api/run_code")
+async def run_code(body:dict=Body(...),u:User=Depends(get_current_user)):
+    code=body.get("code","")
+    if not code.strip(): return {"stdout":"","stderr":"","ok":True}
+    try:
+        r=subprocess.run(["python3","-c",code],capture_output=True,text=True,timeout=10)
+        return {"stdout":r.stdout,"stderr":r.stderr,"ok":r.returncode==0}
+    except subprocess.TimeoutExpired:
+        return {"stdout":"","stderr":"Превышено время выполнения (10 с)","ok":False}
+    except Exception as e:
+        return {"stdout":"","stderr":str(e),"ok":False}
+
+class RunCodeIn(BaseModel):
+    code: str
+    lang: str = "python"
+
+@app.post("/api/run_code")
+async def run_code(body: RunCodeIn, u: User = Depends(get_current_user)):
+    import subprocess, tempfile, os
+    if u.role not in ("owner", "tutor", "student"):
+        raise HTTPException(403, "Forbidden")
+    code = body.code
+    if len(code) > 20000:
+        raise HTTPException(400, "Code too large")
+    lang = body.lang
+    if lang == "javascript":
+        # Run with node if available, otherwise return error
+        try:
+            r = subprocess.run(
+                ["node", "--input-type=module"],
+                input=code.encode(), capture_output=True, timeout=10
+            )
+            return {"stdout": r.stdout.decode("utf-8","replace"),
+                    "stderr": r.stderr.decode("utf-8","replace"),
+                    "ok": r.returncode == 0}
+        except FileNotFoundError:
+            return {"stdout": "", "stderr": "Node.js не установлен на сервере", "ok": False}
+        except subprocess.TimeoutExpired:
+            return {"stdout": "", "stderr": "Превышено время выполнения (10с)", "ok": False}
+    else:
+        # Python execution
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w", encoding="utf-8") as f:
+                f.write(code)
+                fname = f.name
+            try:
+                r = subprocess.run(
+                    ["python3", fname],
+                    capture_output=True, timeout=10,
+                    cwd=tempfile.gettempdir()
+                )
+                return {"stdout": r.stdout.decode("utf-8","replace")[:10000],
+                        "stderr": r.stderr.decode("utf-8","replace")[:5000],
+                        "ok": r.returncode == 0}
+            except subprocess.TimeoutExpired:
+                return {"stdout": "", "stderr": "Превышено время выполнения (10с)", "ok": False}
+            finally:
+                try: os.unlink(fname)
+                except: pass
+        except Exception as e:
+            return {"stdout": "", "stderr": str(e), "ok": False}
 
 @app.websocket("/ws/board/{stid}")
 async def board_ws(ws:WebSocket,stid:str):
@@ -832,6 +962,20 @@ async def board_ws(ws:WebSocket,stid:str):
                 try: b=_get_board(stid,db); c=json.loads(b.strokes); b.strokes=json.dumps([s for s in c if s.get("id")!=eid]); db.commit()
                 finally: db.close()
                 await _bcast(stid,json.dumps({"type":"erase_stroke","id":eid}),ws)
+            elif mt=="stroke_update":
+                sd=msg.get("data",{})
+                eid=sd.get("id")
+                if not eid: continue
+                if not sd.get("user_id"): sd["user_id"]=uid
+                db=SessionLocal()
+                try:
+                    b=_get_board(stid,db); c=json.loads(b.strokes)
+                    idx=next((i for i,s in enumerate(c) if s.get("id")==eid),-1)
+                    if idx>=0: c[idx]=sd
+                    else: c.append(sd)
+                    b.strokes=json.dumps(c); db.commit()
+                finally: db.close()
+                await _bcast(stid,json.dumps({"type":"stroke_update","data":sd}),ws)
             elif mt in ("cursor","view"):
                 msg["uid"]=uid; msg["name"]=uname_board
                 await _bcast(stid,json.dumps(msg),ws)
@@ -871,8 +1015,13 @@ def list_conversations(u:User=Depends(get_current_user),db:Session=Depends(get_d
         partner=m.to_user if m.from_id==u.id else m.from_user
         if partner_id not in seen:
             unread=0 if m.from_id==u.id else (0 if m.is_read else 1)
+            lt=m.text[:80]
+            try:
+                _j=json.loads(m.text)
+                if _j.get("type")=="board_invite": lt=f"📋 Приглашение на доску «{_j.get('board_title','')}»"[:80]
+            except: pass
             seen[partner_id]={"partner_id":partner_id,"partner_name":partner.name if partner else partner_id,
-                "last_text":m.text[:80],"last_at":m.created_at.isoformat() if m.created_at else None,
+                "last_text":lt,"last_at":m.created_at.isoformat() if m.created_at else None,
                 "unread":unread}
         elif not m.is_read and m.to_id==u.id:
             seen[partner_id]["unread"]+=1
@@ -1093,6 +1242,19 @@ def get_contacts(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
                     ids.add(r.tutor_id)
         owner=db.query(User).filter(User.role=="owner").first()
         if owner: ids.add(owner.id)
+    elif u.role=="board_user":
+        # board_user contacts = collaborators on shared boards (owners + co-members) + platform owner
+        shared_rows=db.execute(personal_board_share.select().where(personal_board_share.c.user_id==u.id)).fetchall()
+        board_ids={r.board_id for r in shared_rows}
+        owned=db.query(PersonalBoard).filter(PersonalBoard.owner_id==u.id).all()
+        board_ids|={b.id for b in owned}
+        for bid in board_ids:
+            b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+            if b and b.owner_id!=u.id: ids.add(b.owner_id)
+            for m in db.execute(personal_board_share.select().where(personal_board_share.c.board_id==bid)).fetchall():
+                if m.user_id!=u.id: ids.add(m.user_id)
+        owner=db.query(User).filter(User.role=="owner").first()
+        if owner: ids.add(owner.id)
     ids.discard(u.id)
     users=db.query(User).filter(User.id.in_(ids)).all() if ids else []
     return [{"id":x.id,"name":x.name,"role":x.role,
@@ -1101,7 +1263,19 @@ def get_contacts(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
 # ═══ PERSONAL BOARDS ═══
 @app.get("/api/personal-boards",response_model=list[PersonalBoardListItem])
 def list_personal_boards(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
-    return db.query(PersonalBoard).filter(PersonalBoard.owner_id==u.id).order_by(PersonalBoard.updated_at.desc()).all()
+    result=[]
+    owned=db.query(PersonalBoard).filter(PersonalBoard.owner_id==u.id).order_by(PersonalBoard.updated_at.desc()).all()
+    for b in owned:
+        mc=db.execute(personal_board_share.select().where(personal_board_share.c.board_id==b.id)).fetchall()
+        result.append({**b.__dict__,'is_owner':True,'owner_name':u.name,'member_count':len(mc)})
+    shared_rows=db.execute(personal_board_share.select().where(personal_board_share.c.user_id==u.id)).fetchall()
+    shared_ids=[r.board_id for r in shared_rows]
+    if shared_ids:
+        shared=db.query(PersonalBoard).filter(PersonalBoard.id.in_(shared_ids)).order_by(PersonalBoard.updated_at.desc()).all()
+        for b in shared:
+            owner=db.query(User).filter(User.id==b.owner_id).first()
+            result.append({**b.__dict__,'is_owner':False,'owner_name':owner.name if owner else '?','member_count':0})
+    return result
 
 @app.post("/api/personal-boards",response_model=PersonalBoardOut,status_code=201)
 def create_personal_board(d:PersonalBoardCreate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
@@ -1112,7 +1286,6 @@ def create_personal_board(d:PersonalBoardCreate,u:User=Depends(get_current_user)
 def get_personal_board(bid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
     if not b: raise HTTPException(404)
-    # allow owner or shared users
     if b.owner_id!=u.id:
         shared=db.execute(personal_board_share.select().where(
             (personal_board_share.c.board_id==bid)&(personal_board_share.c.user_id==u.id))).first()
@@ -1145,23 +1318,95 @@ def unshare_personal_board(bid:str,u:User=Depends(get_current_user),db:Session=D
     if not b: raise HTTPException(404)
     b.share_token=None; db.commit(); db.refresh(b); return b
 
-@app.post("/api/personal-boards/{bid}/share-with/{uid}",status_code=200)
-def share_board_with_user(bid:str,uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+@app.post("/api/personal-boards/{bid}/invite/{uid}",status_code=200)
+def invite_to_board(bid:str,uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
     if not b: raise HTTPException(404)
+    if uid==u.id: raise HTTPException(400,"Нельзя пригласить себя")
     target=db.query(User).filter(User.id==uid).first()
     if not target: raise HTTPException(404,"Пользователь не найден")
-    if not db.execute(personal_board_share.select().where(
+    # already a member
+    if db.execute(personal_board_share.select().where(
             (personal_board_share.c.board_id==bid)&(personal_board_share.c.user_id==uid))).first():
-        db.execute(personal_board_share.insert().values(board_id=bid,user_id=uid))
-        db.commit()
+        return {"ok":True,"status":"already_member"}
+    # pending invite already exists
+    existing=db.query(BoardInvite).filter(BoardInvite.board_id==bid,BoardInvite.to_id==uid,BoardInvite.status=='pending').first()
+    if existing: return {"ok":True,"status":"already_invited"}
+    inv=BoardInvite(board_id=bid,from_id=u.id,to_id=uid)
+    db.add(inv); db.flush()
+    notif=Notification(user_id=uid,text=f"{u.name} приглашает вас на доску «{b.title}»",
+                       link='/workshop.html',notif_type='board_invite')
+    db.add(notif)
+    # Send DM so the invite appears in ЛС
+    dm_text=json.dumps({"type":"board_invite","invite_id":inv.id,"board_title":b.title,"board_id":bid},ensure_ascii=False)
+    dm=Message(from_id=u.id,to_id=uid,text=dm_text)
+    db.add(dm)
+    db.commit()
+    return {"ok":True,"status":"invited"}
+
+@app.get("/api/board-invites/pending",response_model=list[BoardInviteOut])
+def get_pending_invites(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    invs=db.query(BoardInvite).filter(BoardInvite.to_id==u.id,BoardInvite.status=='pending').order_by(BoardInvite.created_at.desc()).all()
+    result=[]
+    for inv in invs:
+        b=inv.board; fr=inv.from_user
+        if b and fr:
+            result.append({"id":inv.id,"board_id":inv.board_id,"board_title":b.title,
+                           "from_id":inv.from_id,"from_name":fr.name,"created_at":inv.created_at})
+    return result
+
+@app.post("/api/board-invites/{iid}/accept",status_code=200)
+def accept_board_invite(iid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    inv=db.query(BoardInvite).filter(BoardInvite.id==iid,BoardInvite.to_id==u.id,BoardInvite.status=='pending').first()
+    if not inv: raise HTTPException(404)
+    inv.status='accepted'
+    if not db.execute(personal_board_share.select().where(
+            (personal_board_share.c.board_id==inv.board_id)&(personal_board_share.c.user_id==u.id))).first():
+        db.execute(personal_board_share.insert().values(board_id=inv.board_id,user_id=u.id))
+    db.commit()
+    return {"ok":True}
+
+@app.post("/api/board-invites/{iid}/decline",status_code=200)
+def decline_board_invite(iid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    inv=db.query(BoardInvite).filter(BoardInvite.id==iid,BoardInvite.to_id==u.id,BoardInvite.status=='pending').first()
+    if not inv: raise HTTPException(404)
+    inv.status='declined'; db.commit()
+    return {"ok":True}
+
+@app.get("/api/personal-boards/{bid}/members",response_model=list[BoardMemberOut])
+def get_board_members(bid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
+    if not b: raise HTTPException(403)
+    rows=db.execute(personal_board_share.select().where(personal_board_share.c.board_id==bid)).fetchall()
+    members=[]
+    for r in rows:
+        usr=db.query(User).filter(User.id==r.user_id).first()
+        if usr: members.append({"id":usr.id,"name":usr.name,"role":usr.role.value if hasattr(usr.role,'value') else str(usr.role)})
+    return members
+
+@app.delete("/api/personal-boards/{bid}/members/{uid}",status_code=200)
+def remove_board_member(bid:str,uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid,PersonalBoard.owner_id==u.id).first()
+    if not b: raise HTTPException(403)
+    db.execute(personal_board_share.delete().where(
+        (personal_board_share.c.board_id==bid)&(personal_board_share.c.user_id==uid)))
+    db.commit()
+    return {"ok":True}
+
+@app.delete("/api/personal-boards/{bid}/leave",status_code=200)
+def leave_board(bid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+    if not b: raise HTTPException(404)
+    if b.owner_id==u.id: raise HTTPException(400,"Владелец не может покинуть свою доску")
+    db.execute(personal_board_share.delete().where(
+        (personal_board_share.c.board_id==bid)&(personal_board_share.c.user_id==u.id)))
+    db.commit()
     return {"ok":True}
 
 @app.get("/api/personal-boards/by-token/{token}",response_model=PersonalBoardOut)
 def get_board_by_token(token:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     b=db.query(PersonalBoard).filter(PersonalBoard.share_token==token).first()
     if not b: raise HTTPException(404)
-    # auto-add to shared
     if b.owner_id!=u.id:
         if not db.execute(personal_board_share.select().where(
                 (personal_board_share.c.board_id==b.id)&(personal_board_share.c.user_id==u.id))).first():
@@ -1305,6 +1550,19 @@ def set_student_note(slot_id:str,d:dict=Body(...),u:User=Depends(get_current_use
     db.commit(); return {"ok":True}
 
 # ═══ STUDENT COURSES ═══
+
+@app.get("/api/schedule/parent")
+def get_parent_schedule(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    if u.role!="parent": raise HTTPException(403)
+    child_ids=[r.student_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.parent_id==u.id)).fetchall()]
+    if not child_ids: return []
+    slots=db.query(ScheduleSlot).filter(ScheduleSlot.student_id.in_(child_ids)).order_by(ScheduleSlot.day_of_week,ScheduleSlot.slot_index).all()
+    students={s.id:s for s in db.query(Student).filter(Student.id.in_(child_ids)).all()}
+    return [{"id":s.id,"tutor_id":s.tutor_id,"student_id":s.student_id,
+             "student_name":students[s.student_id].name if s.student_id in students else "?",
+             "day_of_week":s.day_of_week,"slot_index":s.slot_index,"duration":s.duration,
+             "note":s.note,"student_note":s.student_note,"color":s.color} for s in slots]
+
 @app.get("/api/students/{stid}/courses")
 def get_student_courses(stid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     chk_acc(stid,u,db)
@@ -1365,6 +1623,7 @@ def del_student_course(cid:str,u:User=Depends(require_tutor_or_owner),db:Session
 
 # ═══ STATIC ═══
 app.mount("/uploads",StaticFiles(directory=UPLOAD_DIR),name="uploads")
+app.mount("/cm",StaticFiles(directory="static/cm"),name="cm")
 SD="static"
 if os.path.isdir(SD):
     from fastapi.responses import FileResponse,HTMLResponse

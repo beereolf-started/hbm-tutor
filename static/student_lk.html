@@ -12,6 +12,7 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 .topbar-logo{font-weight:700;font-size:1em;display:flex;align-items:center;gap:8px}
+.topbar-logo svg{width:20px;height:20px;fill:none}
 .topbar-r{display:flex;align-items:center;gap:10px}
 .topbar-name{color:var(--muted);font-size:.88em}
 .link-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85em;padding:4px 8px;border-radius:6px}
@@ -114,9 +115,16 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 .st-ans-wrap{margin:5px 0 2px 16px}
 .st-ans-area{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:.82em;resize:vertical;min-height:44px;font-family:inherit;outline:none}
 .st-ans-area:focus{border-color:var(--green-t)}
-.st-ans-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.st-ans-row{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
 .st-ans-btn{padding:4px 10px;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.8em}
 .st-ans-sent{font-size:.78em;color:var(--green-t)}
+.st-att-list{margin-top:5px;display:flex;flex-direction:column;gap:3px}
+.st-att-item{display:flex;align-items:center;gap:6px;font-size:.79em;padding:3px 6px;background:var(--bg);border-radius:4px;border:1px solid var(--border)}
+.st-att-item a{color:var(--green-t);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-att-del{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.9em;padding:0 2px;line-height:1}
+.st-att-del:hover{color:#f87171}
+.st-upload-lbl{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:.79em;color:var(--muted)}
+.st-upload-lbl:hover{border-color:var(--green-t);color:var(--green-t)}
 /* ── SCHEDULE ── */
 .sched-wrap{overflow-x:auto;margin-top:4px}
 .sched-tbl{border-collapse:collapse;width:100%;min-width:500px;font-size:.82em}
@@ -166,10 +174,25 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
 
 /* ── EMPTY ── */
 .empty{text-align:center;color:var(--muted);padding:48px 20px;font-size:.9em}
-</style></head><body>
+/* Code block */
+.code-block{margin-top:6px;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.code-block-label{font-size:.73em;color:var(--muted);padding:3px 8px;background:var(--surface)}
+.code-check-row{padding:6px 8px;display:flex;gap:8px;align-items:center;background:var(--surface)}
+.code-result{font-size:.82em;font-weight:600}
+.code-result.ok{color:#4ade80}.code-result.fail{color:#f87171}
+.code-ta-lk{width:100%;min-height:100px;background:#0d1117;color:#c9d1d9;font-family:'Courier New',Consolas,monospace;font-size:.82em;padding:6px 8px;border:none;resize:vertical;display:block}
+</style>
+<link rel="stylesheet" href="/cm/codemirror.min.css">
+<link rel="stylesheet" href="/cm/vscode-dark.css">
+<script src="/cm/codemirror.min.js"></script>
+<script src="/cm/mode/python/python.min.js"></script>
+<script src="/cm/mode/javascript/javascript.min.js"></script>
+<script src="/cm/addon/edit/closebrackets.min.js"></script>
+<script src="/cm/addon/edit/matchbrackets.min.js"></script>
+</head><body>
 
 <div class="topbar">
-  <div class="topbar-logo">📐 Мой кабинет</div>
+  <div class="topbar-logo"><svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg> Мой кабинет</div>
   <div class="topbar-r">
     <span class="topbar-name" id="uname"></span>
     <a class="link-btn" href="/profile.html" title="Мой профиль">👤</a>
@@ -237,7 +260,7 @@ function goSection(s){
 function render(){
   const m=document.getElementById('main');
   if(curSection===null) renderHome(m);
-  else if(curSection==='courses') renderCourses(m);
+  else if(curSection==='courses'){renderCourses(m);requestAnimationFrame(()=>setTimeout(initStudentCodeEditors,80));}
   else if(curSection==='extra') renderExtra(m);
   else if(curSection==='extra-detail') renderExtraDetail(m);
   else if(curSection==='contacts') renderContacts(m);
@@ -289,6 +312,7 @@ function renderHome(m){
 
 // ── COURSES ──────────────────────────────────────────────────────────────
 function calcPrice(st){
+  if(!st.rewards_enabled) return{base:st.base_rate,discount:0,current:st.base_rate,pct:0};
   const n=st.sections.length;
   if(!n)return{base:st.base_rate,discount:0,current:st.base_rate,pct:0};
   const share=st.base_rate*0.30/n; let disc=0;
@@ -303,6 +327,7 @@ function calcPrice(st){
 }
 
 function renderCourses(m){
+  _cmStInstances.clear();
   if(!student){m.innerHTML='<div class="empty">Загрузка...</div>';return}
   const s=student, p=calcPrice(s);
   const gl=s.goal==='ege'?'ЕГЭ':s.goal==='olymp'?'Олимп':'База';
@@ -321,7 +346,7 @@ function renderCourses(m){
       </div>
       <a href="/board.html?id=${s.id}" class="btn-board">🎨 Доска</a>
     </div>
-    <div class="price-block">
+    ${s.rewards_enabled?`<div class="price-block">
       <div>
         <div class="price-cur">${p.current} ₽<span style="font-size:.45em;color:var(--muted);font-weight:400"> / ч</span></div>
         <div class="price-base">${p.base} ₽/ч</div>
@@ -335,7 +360,10 @@ function renderCourses(m){
         <div class="price-prog"><div class="price-prog-fill" style="width:${Math.min(100,p.pct*100/30)}%"></div></div>
         <span style="font-size:.8em;color:var(--muted)">30%</span>
       </div>
-    </div>
+    </div>`:`<div class="price-block">
+      <div class="price-cur">${p.base} ₽<span style="font-size:.45em;color:var(--muted);font-weight:400"> / ч</span></div>
+      <div style="color:var(--muted);font-size:.82em">Фиксированная ставка</div>
+    </div>`}
   </div>`;
 
   if(studentCourses.length){
@@ -357,7 +385,8 @@ function renderCourses(m){
     if(studentCourses.length) h+=`<div style="color:var(--muted);font-size:.82em;font-weight:600;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.05em">Без курса</div>`;
     h+=orphans.map(sec=>renderSec(sec)).join('');
   }
-  m.innerHTML=h}
+  m.innerHTML=h;
+  requestAnimationFrame(()=>setTimeout(initStudentCodeEditors,80));}
 
 function gradeClass(g){return g===5?'grade-5':g===4?'grade-4':g===3?'grade-3':g===2?'grade-2':g===1?'grade-1':''}
 
@@ -384,9 +413,13 @@ function renderSec(sec){
 </div>`}
 
 function renderItem(it,sec){
-  const locked=sec.locked, icon={topic:'📌',hw:'📋',media:'🗂',note:'📝'}[it.type]||'▪';
+  const locked=sec.locked, icon={topic:'📌',hw:'📋',media:'🗂',note:'📝',code:'💻'}[it.type]||'▪';
   if(it.type==='hw'){
     const g=it.grade||0, gcls=gradeClass(g);
+    const atts=(it.attachments||[]).map(a=>{
+      const url=a.file_path?'/'+a.file_path.replace(/\\/g,'/'):null;
+      return`<div class="st-att-item">${url?`<a href="${url}" target="_blank">📎 ${esc(a.name)}</a>`:`<span>${esc(a.name)}</span>`}
+<button class="st-att-del" title="Удалить" onclick="delStudentAtt('${a.id}','${it.id}')">✕</button></div>`}).join('');
     return`<div class="item"><span>${icon}</span><span style="flex:1">${esc(it.name||'ДЗ')}${it.total?`<span style="color:var(--muted);font-size:.82em"> (${it.total} зад.)</span>`:''}</span>
 ${it.text?`<span style="color:var(--muted);font-size:.78em;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.text)}</span>`:''}
 <select class="grade-sel ${gcls}" disabled>
@@ -400,7 +433,9 @@ ${it.text?`<span style="color:var(--muted);font-size:.78em;max-width:140px;overf
   <div class="st-ans-row">
     <button class="st-ans-btn" onclick="submitAnswer('${it.id}')">Отправить</button>
     ${it.student_answer?`<span class="st-ans-sent">✓ отправлено</span>`:''}
+    <label class="st-upload-lbl">📎 Прикрепить файл<input type="file" style="display:none" onchange="uploadStudentAtt('${it.id}',this)"></label>
   </div>
+  ${atts?`<div class="st-att-list">${atts}</div>`:''}
 </div>${renderSubs(it)}`}
   if(it.type==='topic'){
     const sc={none:'st-none',progress:'st-progress',done:'st-done'};
@@ -415,6 +450,25 @@ ${it.text?`<span style="color:var(--muted);font-size:.78em;max-width:140px;overf
     const url=att&&att.file_path?'/'+att.file_path.replace(/\\/g,'/'):null;
     return`<div class="item"><span>${icon}</span><span style="flex:1">${esc(it.name||'Файл')}</span>
 ${url?`<a href="${url}" target="_blank" style="font-size:.82em">📎 ${esc(att.name)}</a>`:''}
+</div>${renderSubs(it)}`}
+  if(it.type==='code'){
+    const isDone=it.status==='done';
+    const lang=it.lang||'python';
+    const startCode=isDone&&it.student_answer?it.student_answer:(it.text||'');
+    return`<div class="item" style="flex-direction:column;align-items:stretch">
+<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+  <span>💻</span><span style="flex:1;font-weight:500">${esc(it.name||'Задание: код')}</span>
+  ${isDone?`<span style="color:var(--green-t);font-size:.82em">✓ Выполнено</span>`:''}
+</div>
+<div class="code-block">
+  <div class="code-block-label">Ваш код${it.text?` (стартовый шаблон загружен)`:''} <span style="color:var(--muted);font-size:.9em">· ${lang}</span></div>
+  <textarea class="code-ta-st" id="cta_${it.id}" data-iid="${it.id}" data-lang="${lang}" ${isDone?'disabled':''}>${esc(startCode)}</textarea>
+  <div class="code-check-row" style="gap:6px">
+    <button class="btn btn-s btn-sm" onclick="runStudentCode('${it.id}')" ${isDone?'disabled':''}>▶ Запустить</button>
+    <button class="btn btn-p btn-sm" onclick="checkCode('${it.id}')" ${isDone?'disabled':''}>✓ Проверить</button>
+    <span class="code-result" id="cres_${it.id}">${isDone?'✓ Правильно!':''}</span>
+  </div>
+  <pre id="cout_${it.id}" style="display:none;margin:0;padding:6px 10px;background:#010409;font-family:'Courier New',monospace;font-size:.8em;color:#c9d1d9;white-space:pre-wrap;max-height:150px;overflow:auto;border-top:1px solid #30363d"></pre>
 </div>${renderSubs(it)}`}
   return`<div class="item"><span>${icon}</span><span style="flex:1">${esc(it.name||it.text||it.type)}</span></div>${renderSubs(it)}`}
 
@@ -455,11 +509,85 @@ async function setIdz(secId,val){
   try{await patch('/api/sections/'+secId,{idz:val});
     const sec=_allSecs().find(s=>s.id===secId);if(sec)sec.idz=val;
     renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
+const _cmStInstances=new Map();
+function initStudentCodeEditors(){
+  document.querySelectorAll('.code-ta-st:not([data-cm-inited])').forEach(ta=>{
+    ta.setAttribute('data-cm-inited','1');
+    const langRaw=ta.dataset.lang||'python';
+    const mode=langRaw==='javascript'?{name:'javascript'}:langRaw;
+    const cm=CodeMirror.fromTextArea(ta,{
+      mode,lineNumbers:true,indentUnit:4,tabSize:4,
+      indentWithTabs:false,autoCloseBrackets:true,matchBrackets:true,viewportMargin:Infinity,
+      extraKeys:{Tab:cm=>cm.execCommand('indentMore'),'Shift-Tab':cm=>cm.execCommand('indentLess')}
+    });
+    cm.setSize('100%',200);
+    _cmStInstances.set(ta.dataset.iid,cm);
+    if(ta.disabled) cm.setOption('readOnly',true);
+  });
+}
+async function runStudentCode(itemId){
+  const cm=_cmStInstances.get(itemId);
+  const code=cm?cm.getValue():(document.getElementById('cta_'+itemId)?.value||'');
+  const outEl=document.getElementById('cout_'+itemId);
+  const resEl=document.getElementById('cres_'+itemId);
+  if(!code.trim()) return;
+  if(outEl) outEl.style.display='block';
+  if(resEl) resEl.textContent='Запуск...';
+  try{
+    const r=await post('/api/run_code',{code,lang:'python'});
+    const txt=(r.stdout||'')+(r.stderr?'\n'+r.stderr:'');
+    if(outEl){outEl.textContent=txt||'(нет вывода)';outEl.style.color=r.ok?'#c9d1d9':'#f87171';}
+    if(resEl) resEl.textContent='';
+  }catch(e){if(resEl)resEl.textContent='Ошибка: '+(e.detail||e);}
+}
+async function checkCode(itemId){
+  const cm=_cmStInstances.get(itemId);
+  const code=cm?cm.getValue():(document.getElementById('cta_'+itemId)?.value||'');
+  const resEl=document.getElementById('cres_'+itemId);
+  const outEl=document.getElementById('cout_'+itemId);
+  if(!code.trim()){if(resEl)resEl.textContent='Введите код';return}
+  try{
+    const r=await post('/api/items/'+itemId+'/check-code',{code});
+    const match=r.match||r.correct;
+    if(match){
+      if(resEl){resEl.style.color='var(--green-t)';resEl.textContent='✓ Верно! Задание выполнено.'}
+      if(outEl) outEl.style.display='none';
+      _allSecs().forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it){it.status='done';it.student_answer=code;}});
+      renderCourses(document.getElementById('main'));
+      setTimeout(initStudentCodeEditors,0);
+    }else{
+      if(resEl){resEl.style.color='#f87171';resEl.textContent='✗ Не совпадает. Попробуй ещё раз.'}
+    }
+  }catch(e){if(resEl)resEl.textContent='Ошибка: '+(e.detail||e);}
+}
+
 async function submitAnswer(itemId){
   const ta=document.getElementById('ans_'+itemId);if(!ta) return;
   try{await patch('/api/items/'+itemId,{student_answer:ta.value.trim()});
     _allSecs().forEach(s=>{const it=s.items.find(i=>i.id===itemId);if(it)it.student_answer=ta.value.trim()});
     renderCourses(document.getElementById('main'))}catch(e){alert(e.detail||'Ошибка')}}
+
+async function uploadStudentAtt(itemId,input){
+  const file=input.files[0];if(!file) return;
+  input.value='';
+  try{
+    const att=await upload('/api/items/'+itemId+'/attachments',file);
+    _allSecs().forEach(s=>{const it=s.items.find(i=>i.id===itemId);
+      if(it){if(!it.attachments)it.attachments=[];it.attachments.push(att);}});
+    renderCourses(document.getElementById('main'));
+  }catch(e){alert(e.detail||'Ошибка загрузки')}}
+
+async function delStudentAtt(attId,itemId){
+  try{
+    await del('/api/attachments/'+attId);
+    _allSecs().forEach(s=>{const it=s.items.find(i=>i.id===itemId);
+      if(it&&it.attachments)it.attachments=it.attachments.filter(a=>a.id!==attId);});
+    renderCourses(document.getElementById('main'));
+  }catch(e){alert(e.detail||'Ошибка')}}
+
+
+
+
 
 // ── EXTRA COURSES ────────────────────────────────────────────────────────
 function renderExtra(m){
@@ -582,15 +710,40 @@ async function openChatWith(uid,name){
   clearInterval(chatPollTimer);
   chatPollTimer=setInterval(refreshChat,5000);}
 
+function _renderBubble(m,mine){
+  try{
+    const j=JSON.parse(m.text);
+    if(j.type==='board_invite'){
+      if(mine) return`<div class="msg-bubble msg-mine" style="opacity:.8">📋 Приглашение на доску «${esc(j.board_title)}» — отправлено</div>`;
+      return`<div class="msg-bubble msg-their" style="padding:10px 14px;border:1px solid var(--border)">
+  <div style="font-weight:600;margin-bottom:4px">📋 Приглашение на доску</div>
+  <div style="color:var(--green-t);margin-bottom:8px">«${esc(j.board_title)}»</div>
+  <div id="invact_${esc(j.invite_id)}" style="display:flex;gap:6px;flex-wrap:wrap">
+    <button style="padding:4px 12px;background:var(--green);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_acceptBI('${esc(j.invite_id)}','${esc(j.board_title)}',this)">Принять</button>
+    <button style="padding:4px 12px;background:none;color:#ef4444;border:1px solid #ef4444;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_declineBI('${esc(j.invite_id)}',this)">Отклонить</button>
+  </div></div>`;}}catch{}
+  return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}">${esc(m.text)}</div>`;}
+async function _acceptBI(iid,title,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/accept',{});
+    const wrap=document.getElementById('invact_'+iid);
+    if(wrap) wrap.innerHTML=`<span style="color:var(--green-t);font-size:.82em">✓ Принято — доска добавлена в <a href="/workshop.html" style="color:var(--green-t)">Мастерскую</a></span>`;
+  }catch(e){btn.disabled=false;alert(e.detail||'Ошибка');}}
+async function _declineBI(iid,btn){
+  btn.disabled=true;
+  try{
+    await post('/api/board-invites/'+iid+'/decline',{});
+    const wrap=document.getElementById('invact_'+iid);
+    if(wrap) wrap.innerHTML=`<span style="color:var(--muted);font-size:.82em">Отклонено</span>`;
+  }catch(e){btn.disabled=false;}}
 async function refreshChat(){
   if(!msgChatUid) return;
   const msgs=await get('/api/messages/'+msgChatUid).catch(()=>[]);
   const body=document.getElementById('msgBody');
   if(!body) return;
   const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
-  body.innerHTML=msgs.map(m=>{
-    const mine=m.to_id===msgChatUid;
-    return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}">${esc(m.text)}</div>`}).join('');
+  body.innerHTML=msgs.map(m=>{const mine=m.to_id===msgChatUid;return _renderBubble(m,mine)}).join('');
   if(atBottom) body.scrollTop=body.scrollHeight;
   pollNotifs();}
 
