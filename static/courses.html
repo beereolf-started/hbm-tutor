@@ -81,11 +81,19 @@ textarea{resize:vertical;min-height:52px;width:100%}
 </style>
 <link rel="stylesheet" href="/cm/codemirror.min.css">
 <link rel="stylesheet" href="/cm/vscode-dark.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="/cm/codemirror.min.js"></script>
 <script src="/cm/mode/python/python.min.js"></script>
 <script src="/cm/mode/javascript/javascript.min.js"></script>
 <script src="/cm/addon/edit/closebrackets.min.js"></script>
 <script src="/cm/addon/edit/matchbrackets.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+.tex-view{cursor:pointer;padding:2px 4px;border-radius:4px;min-height:1.2em;line-height:1.6;word-break:break-word;transition:background .1s}
+.tex-view:hover{background:rgba(255,255,255,.05);outline:1px dashed var(--border)}
+.katex-display{margin:.25em 0!important}
+</style>
 </head><body>
 <div class="topbar"><span class="topbar-logo"><svg viewBox="0 0 100 100" fill="none" stroke="#3fb950" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="12" x2="16" y2="88"/><line x1="16" y1="50" x2="54" y2="50"/><line x1="54" y1="12" x2="88" y2="12"/><line x1="54" y1="12" x2="88" y2="50"/><line x1="88" y1="50" x2="54" y2="88"/><line x1="54" y1="88" x2="88" y2="88"/></svg> Курсы</span><a href="/hbm_tutor.html">← Панель</a></div>
 <div class="wrap">
@@ -288,9 +296,9 @@ function renderCItem(it,secId){
   <input class="item-edit" value="${esc(it.name)}" title="${TYPE_LABEL[it.type]||it.type}" onblur="renameItem('${it.id}','${secId}',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
   ${it.type==='hw'?`<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
     <input type="number" value="${it.total||''}" placeholder="Кол-во задач" min="1" style="width:110px;padding:3px 6px;font-size:.8em" onblur="updItemField('${it.id}','${secId}','total',+this.value||null)">
-    <input type="text" value="${esc(it.text||'')}" placeholder="Описание ДЗ" style="flex:1;min-width:120px;padding:3px 6px;font-size:.8em" onblur="updItemField('${it.id}','${secId}','text',this.value||null)">
+    <div class="tex-view" style="flex:1;font-size:.8em" data-raw="${esc(it.text||'')}" data-save="updItemField" data-save-args='${JSON.stringify([it.id,secId,'text'])}' onclick="texEdit(this)">${renderTeX(it.text||'')||'<span style="color:var(--muted);font-style:italic">Описание ДЗ (нажмите)</span>'}</div>
   </div>`:''}
-  ${it.type==='topic'||it.type==='note'?`<div style="margin-top:2px"><input type="text" value="${esc(it.text||'')}" placeholder="Описание (опционально)" style="width:100%;padding:3px 6px;font-size:.8em" onblur="updItemField('${it.id}','${secId}','text',this.value||null)"></div>`:''}
+  ${it.type==='topic'||it.type==='note'?`<div style="margin-top:2px"><div class="tex-view" style="font-size:.85em" data-raw="${esc(it.text||'')}" data-save="updItemField" data-save-args='${JSON.stringify([it.id,secId,'text'])}' onclick="texEdit(this)">${renderTeX(it.text||'')||'<span style="color:var(--muted);font-style:italic">Описание (нажмите для ввода)</span>'}</div></div>`:''}
   ${it.type==='code'?`<div style="margin-top:6px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
       <span style="font-size:.75em;color:var(--muted)">Язык:</span>
@@ -331,7 +339,7 @@ function renderCSub(sb){
   if(sb.type==='text'){
     return`<div class="subblock" id="cssb_${sb.id}">
 <span class="sb-badge sb-text">T</span>
-<div style="flex:1"><textarea class="sb-ta" rows="2" onblur="updateSubText('${sb.id}',this.value)">${esc(sb.content||'')}</textarea></div>
+<div class="tex-view" style="flex:1" data-raw="${esc(sb.content||'')}" data-save="updateSubText" data-save-args='${JSON.stringify([sb.id])}' onclick="texEdit(this)">${renderTeX(sb.content||'')||'<span style="color:var(--muted);font-size:.8em;font-style:italic">Нажмите для ввода текста...</span>'}</div>
 <button class="btn btn-d btn-sm" style="flex-shrink:0" onclick="delCSub('${sb.id}')">✕</button>
 </div>`}
   const url=sb.file_path?'/'+sb.file_path.replace(/\\/g,'/'):null;
@@ -455,6 +463,48 @@ async function saveSec(){
 async function delCourse(){if(!confirm('Удалить курс?'))return;await del('/api/courses/'+curCourse.id);backToList()}
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function renderTeX(s){
+  if(!s)return'';
+  if(typeof katex==='undefined')return esc(s);
+  const re=/(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g;
+  let last=0,out='',m;
+  while((m=re.exec(s))!==null){
+    if(m.index>last)out+=esc(s.slice(last,m.index));
+    const raw=m[0],disp=raw.startsWith('$$');
+    const formula=disp?raw.slice(2,-2):raw.slice(1,-1);
+    try{out+=katex.renderToString(formula,{displayMode:disp,throwOnError:false});}
+    catch(e){out+=esc(raw);}
+    last=m.index+raw.length;
+  }
+  if(last<s.length)out+=esc(s.slice(last));
+  return out;
+}
+function texEdit(div){
+  if(div._texEditing)return;
+  div._texEditing=true;
+  const raw=div.dataset.raw||'';
+  const ta=document.createElement('textarea');
+  ta.className='sb-ta';
+  ta.rows=Math.max(2,(raw.match(/\n/g)||[]).length+1);
+  ta.style.width='100%';
+  ta.value=raw;
+  ta.addEventListener('blur',function(){
+    const val=ta.value;
+    div.dataset.raw=val;
+    div.innerHTML=renderTeX(val)||'<span style="color:var(--muted);font-size:.8em;font-style:italic">Нажмите для редактирования...</span>';
+    div.style.display='';
+    ta.remove();
+    div._texEditing=false;
+    const fn=div.dataset.save;
+    if(fn&&window[fn]){
+      const args=JSON.parse(div.dataset.saveArgs||'[]');
+      window[fn](...args,val||null);
+    }
+  });
+  div.style.display='none';
+  div.parentNode.insertBefore(ta,div.nextSibling);
+  ta.focus();
+}
 
 load();
 

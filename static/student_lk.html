@@ -223,6 +223,8 @@ a{color:var(--green-t);text-decoration:none}a:hover{text-decoration:underline}
   </div>
   <div class="msg-body" id="msgBody"></div>
   <div class="msg-foot" id="msgFoot" style="display:none">
+    <input type="file" id="stuMsgFileIn" style="display:none" onchange="sendStuMsgFile()">
+    <button onclick="document.getElementById('stuMsgFileIn').click()" title="Прикрепить файл" style="padding:7px 10px;background:var(--surface-2);color:var(--muted);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:.88em;flex-shrink:0">📎</button>
     <input id="msgIn" placeholder="Написать..." style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface-2);color:var(--text);font-size:.88em;outline:none" onkeydown="if(event.key==='Enter')sendMsg()">
     <button style="padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:600;font-size:.88em" onclick="sendMsg()">→</button>
   </div>
@@ -255,6 +257,7 @@ function goHome(){curSection=null;render()}
 function goSection(s){
   curSection=s;
   if(s==='contacts') get('/api/contacts').then(d=>{apiContacts=d;render()}).catch(()=>render());
+  else if(s==='schedule') get('/api/schedule/my').then(d=>{schedSlots=d;render()}).catch(()=>render());
   else render();}
 
 function render(){
@@ -673,12 +676,15 @@ function renderContacts(m){
 
 // ── MESSAGING ────────────────────────────────────────────────────────────
 let msgChatUid=null, msgOpen=false, chatPollTimer=null, msgChatName='';
+let msgGroups=[], msgGroupId=null, msgGroupName='', msgGroupPollTimer=null;
+let _sMyId=null;
+async function _getSMyId(){if(!_sMyId){try{const r=await get('/api/auth/me');_sMyId=r.id;}catch{}}return _sMyId;}
 
 function toggleMessages(){
   const ov=document.getElementById('msgOverlay');
   msgOpen=!msgOpen;ov.style.display=msgOpen?'flex':'none';
-  if(msgOpen&&!msgChatUid) loadConvos();
-  if(!msgOpen){clearInterval(chatPollTimer);chatPollTimer=null;}}
+  if(msgOpen&&!msgChatUid&&!msgGroupId) loadConvos();
+  if(!msgOpen){clearInterval(chatPollTimer);chatPollTimer=null;clearInterval(msgGroupPollTimer);msgGroupPollTimer=null;}}
 
 function startChat(uid,name){
   msgOpen=true; document.getElementById('msgOverlay').style.display='flex';
@@ -686,20 +692,30 @@ function startChat(uid,name){
 
 async function loadConvos(){
   clearInterval(chatPollTimer);chatPollTimer=null;
-  const convos=await get('/api/messages').catch(()=>[]);
+  clearInterval(msgGroupPollTimer);msgGroupPollTimer=null;
+  const [convos,groups]=await Promise.all([get('/api/messages').catch(()=>[]),get('/api/groups').catch(()=>[])]);
+  msgGroups=groups;
   const body=document.getElementById('msgBody');
   document.getElementById('msgTitle').textContent='💬 Сообщения';
   document.getElementById('msgFoot').style.display='none';
-  msgChatUid=null;
-  if(!convos.length){body.innerHTML='<div class="empty">Нет сообщений</div>';return}
-  body.innerHTML=convos.map(c=>`<div style="padding:10px 6px;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''" onclick="openChatWith('${c.partner_id}','${esc(c.partner_name)}')">
+  msgChatUid=null;msgGroupId=null;
+  let h='';
+  for(const g of groups){
+    h+=`<div style="padding:10px 6px;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''" onclick="openGroupChat('${g.id}','${esc(g.name)}')">
+  <div style="width:34px;height:34px;border-radius:50%;background:#1f3a27;color:var(--green-t);display:flex;align-items:center;justify-content:center;font-size:1.1em;flex-shrink:0">👥</div>
+  <div style="flex:1;min-width:0"><div style="font-size:.88em;font-weight:600">${esc(g.name)}</div><div style="font-size:.78em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.last_msg_text||'')}</div></div>
+  ${g.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.68em;font-weight:700;padding:1px 5px;border-radius:8px">${g.unread}</span>`:''}
+</div>`}
+  for(const c of convos){
+    h+=`<div style="padding:10px 6px;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''" onclick="openChatWith('${c.partner_id}','${esc(c.partner_name)}')">
   <div style="width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9em;flex-shrink:0">${(c.partner_name||'?')[0].toUpperCase()}</div>
   <div style="flex:1;min-width:0">
     <div style="font-size:.88em;font-weight:600">${esc(c.partner_name)}</div>
     <div style="font-size:.78em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.last_text||'')}</div>
   </div>
   ${c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.68em;font-weight:700;padding:1px 5px;border-radius:8px">${c.unread}</span>`:''}
-</div>`).join('')}
+</div>`}
+  body.innerHTML=h||'<div class="empty">Нет сообщений</div>';}
 
 async function openChatWith(uid,name){
   msgChatUid=uid;
@@ -710,7 +726,19 @@ async function openChatWith(uid,name){
   clearInterval(chatPollTimer);
   chatPollTimer=setInterval(refreshChat,5000);}
 
-function _renderBubble(m,mine){
+async function openGroupChat(gid,name){
+  msgGroupId=gid;msgGroupName=name;
+  document.getElementById('msgTitle').innerHTML=`<button onclick="loadConvos()" style="background:none;border:none;cursor:pointer;color:var(--muted);margin-right:4px;font-size:.85em">←</button> 👥 ${esc(name)}`;
+  document.getElementById('msgFoot').style.display='flex';
+  await refreshGroupChatStu();
+  clearInterval(msgGroupPollTimer);
+  msgGroupPollTimer=setInterval(refreshGroupChatStu,5000);}
+
+function _fmtFileSizeStu(bytes){
+  if(bytes<1024) return bytes+' Б';
+  if(bytes<1048576) return (bytes/1024).toFixed(1)+' КБ';
+  return (bytes/1048576).toFixed(1)+' МБ';}
+function _renderBubble(m,mine,showSender){
   try{
     const j=JSON.parse(m.text);
     if(j.type==='board_invite'){
@@ -721,8 +749,17 @@ function _renderBubble(m,mine){
   <div id="invact_${esc(j.invite_id)}" style="display:flex;gap:6px;flex-wrap:wrap">
     <button style="padding:4px 12px;background:var(--green);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_acceptBI('${esc(j.invite_id)}','${esc(j.board_title)}',this)">Принять</button>
     <button style="padding:4px 12px;background:none;color:#ef4444;border:1px solid #ef4444;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_declineBI('${esc(j.invite_id)}',this)">Отклонить</button>
-  </div></div>`;}}catch{}
-  return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}">${esc(m.text)}</div>`;}
+  </div></div>`;}
+    if(j.type==='file'){
+      const url=esc(j.url);const name=esc(j.name||'файл');const sz=_fmtFileSizeStu(j.size||0);
+      if((j.mime||'').startsWith('image/')){
+        return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}" style="padding:6px"><a href="${url}" target="_blank"><img src="${url}" style="max-width:220px;border-radius:6px;display:block"></a><div style="font-size:.72em;opacity:.8;margin-top:2px">${name} · ${sz}</div></div>`;}
+      if((j.mime||'').startsWith('video/')){
+        return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}" style="padding:6px"><video src="${url}" controls style="max-width:220px;border-radius:6px;display:block"></video><div style="font-size:.72em;opacity:.8;margin-top:2px">${name} · ${sz}</div></div>`;}
+      return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}"><a href="${url}" target="_blank" style="color:inherit;text-decoration:none">📎 ${name}</a><div style="font-size:.72em;opacity:.8;margin-top:2px">${sz}</div></div>`;}
+  }catch{}
+  const senderLabel=(!mine&&showSender&&m.from_name)?`<div style="font-size:.72em;color:var(--muted);margin-bottom:2px">${esc(m.from_name)}</div>`:'';
+  return`<div class="msg-bubble ${mine?'msg-mine':'msg-their'}">${senderLabel}${esc(m.text)}</div>`;}
 async function _acceptBI(iid,title,btn){
   btn.disabled=true;
   try{
@@ -743,14 +780,43 @@ async function refreshChat(){
   const body=document.getElementById('msgBody');
   if(!body) return;
   const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
-  body.innerHTML=msgs.map(m=>{const mine=m.to_id===msgChatUid;return _renderBubble(m,mine)}).join('');
+  body.innerHTML=msgs.map(m=>{const mine=m.to_id===msgChatUid;return _renderBubble(m,mine,false)}).join('');
+  if(atBottom) body.scrollTop=body.scrollHeight;
+  pollNotifs();}
+async function refreshGroupChatStu(){
+  if(!msgGroupId) return;
+  const msgs=await get('/api/groups/'+msgGroupId+'/messages').catch(()=>[]);
+  const body=document.getElementById('msgBody');
+  if(!body) return;
+  const myId=await _getSMyId();
+  const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
+  body.innerHTML=msgs.map(m=>{const mine=m.from_id===myId;return _renderBubble(m,mine,true)}).join('');
   if(atBottom) body.scrollTop=body.scrollHeight;
   pollNotifs();}
 
 async function sendMsg(){
+  if(msgGroupId){await sendGroupMsgStu();return;}
   const inp=document.getElementById('msgIn');if(!inp||!inp.value.trim())return;
   try{await post('/api/messages',{to_id:msgChatUid,text:inp.value.trim()});inp.value='';
     await refreshChat();}catch(e){alert(e.detail||'Ошибка')}}
+async function sendGroupMsgStu(){
+  const inp=document.getElementById('msgIn');if(!inp||!inp.value.trim())return;
+  try{await post('/api/groups/'+msgGroupId+'/messages',{text:inp.value.trim()});inp.value='';
+    await refreshGroupChatStu();}catch(e){alert(e.detail||'Ошибка')}}
+async function sendStuMsgFile(){
+  const fi=document.getElementById('stuMsgFileIn');
+  if(!fi||!fi.files.length)return;
+  const file=fi.files[0];fi.value='';
+  try{
+    const r=await upload('/api/messages/upload',file);
+    const txt=JSON.stringify({type:'file',url:r.url,name:r.name,mime:r.mime,size:r.size});
+    if(msgGroupId){
+      await post('/api/groups/'+msgGroupId+'/messages',{text:txt});
+      await refreshGroupChatStu();
+    }else{
+      await post('/api/messages',{to_id:msgChatUid,text:txt});
+      await refreshChat();
+    }}catch(e){alert(e.detail||'Ошибка загрузки файла')}}
 
 let notifPanelOpen=false;
 let lastNotifsData=null;

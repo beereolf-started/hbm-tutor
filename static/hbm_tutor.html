@@ -361,8 +361,7 @@ let curSection=null; // null=home, 'students'|'users'|'subjects'
 function goHome(){curSection=null;render()}
 function goSection(s){
   curSection=s;
-  if(s==='messages')loadConvos();
-  if(s==='contacts')loadContacts();
+  if(s==='contacts'){loadContacts();loadConvos();}
   if(s==='schedule')loadSchedule();
   if(s==='finances')loadFinances();
   render()}
@@ -781,7 +780,7 @@ function openM(id){
 function closeM(id){document.getElementById(id).classList.remove('show')}
 
 // ─── CONTACTS ─────────────────────────────────────────────────────────────
-let contacts=[];
+let contacts=[], contactsTab='chats';
 async function loadContacts(){
   contacts=await get('/api/contacts').catch(()=>[]);
   if(curSection==='contacts') renderContacts()}
@@ -797,53 +796,108 @@ function onlineLabel(last_seen){
   const days=Math.floor(hrs/24);
   return `<span style="color:var(--muted);font-size:.78em">был(а) ${days} д назад</span>`}
 
+function _tabBtn(key,label){
+  const active=contactsTab===key;
+  return`<button onclick="contactsTab='${key}';renderContacts()" style="padding:7px 18px;border-radius:20px;border:none;cursor:pointer;font-size:.88em;font-weight:600;transition:background .15s,color .15s;${active?'background:var(--green);color:#fff':'background:var(--surface);color:var(--muted)'}">${label}</button>`}
 function renderContacts(){
   const m=document.getElementById('main');
+  if(chatUid){renderChat(m);return}
+  if(groupId){renderGroupChat(m);return}
+  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
   let h=`<div class="sec-header">
     <button class="back-btn" onclick="goHome()">← Главная</button>
     <span class="sec-title">💬 Контакты</span>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    ${_tabBtn('chats','💬 Чаты')}
+    ${_tabBtn('groups','👥 Группы')}
   </div>`;
-  if(!contacts.length){
-    m.innerHTML=h+'<div class="empty">Нет доступных контактов</div>';return}
-  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
+  if(contactsTab==='groups'){
+    h+=`<div style="margin-bottom:12px"><button class="btn btn-s btn-sm" onclick="showCreateGroup()">+ Создать группу</button></div>`;
+    if(!groups.length){m.innerHTML=h+'<div class="empty">Нет групп</div>';return}
+    h+='<div style="display:flex;flex-direction:column;gap:8px">';
+    for(const g of groups){
+      const unr=g.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.7em;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto">${g.unread}</span>`:'';
+      const gav=g.photo
+        ?`<img src="${g.photo}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+        :`<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#1f3a27,#2d5a3d);color:var(--green-t);display:flex;align-items:center;justify-content:center;font-size:1.2em;flex-shrink:0">👥</div>`;
+      h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="openGroup('${g.id}','${esc(g.name)}')">
+  ${gav}
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:600;font-size:.93em">${esc(g.name)}</div>
+    <div style="color:var(--muted);font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.last_msg_text||'Нет сообщений')}</div>
+  </div>
+  ${unr}
+</div>`;}
+    h+='</div>';
+    m.innerHTML=h;return}
+  // chats tab
+  const convoMap={};for(const c of convos) convoMap[c.partner_id]=c;
+  if(!contacts.length){m.innerHTML=h+'<div class="empty">Нет контактов</div>';return}
   h+='<div style="display:flex;flex-direction:column;gap:6px">';
   for(const c of contacts){
+    const convo=convoMap[c.id];
+    const avatar=c.photo
+      ?`<img src="${c.photo}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      :`<div style="width:42px;height:42px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1em;flex-shrink:0">${(c.name||'?')[0].toUpperCase()}</div>`;
+    const unrBadge=c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.7em;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:6px">${c.unread}</span>`:'';
+    const subtitle=convo?.last_text
+      ?`<div style="color:var(--muted);font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(convo.last_text)}</div>`
+      :`<div style="display:flex;align-items:center;gap:8px;margin-top:2px"><span style="color:var(--muted);font-size:.78em">${roleLabel[c.role]||c.role}</span>${onlineLabel(c.last_seen)}</div>`;
     h+=`<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-  <div style="width:40px;height:40px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1em;flex-shrink:0">${(c.name||'?')[0].toUpperCase()}</div>
+  ${avatar}
   <div style="flex:1;min-width:0">
-    <div style="font-weight:600;font-size:.92em"><a href="/profile.html?uid=${c.id}" style="color:var(--text);text-decoration:none" onmouseover="this.style.color='var(--green-t)'" onmouseout="this.style.color='var(--text)'">${esc(c.name)}</a></div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-      <span style="color:var(--muted);font-size:.78em">${roleLabel[c.role]||c.role}</span>
-      ${onlineLabel(c.last_seen)}
-    </div>
+    <div style="font-weight:600;font-size:.92em"><a href="/profile.html?uid=${c.id}" style="color:var(--text);text-decoration:none" onmouseover="this.style.color='var(--green-t)'" onmouseout="this.style.color='var(--text)'">${esc(c.name)}</a>${unrBadge}</div>
+    ${subtitle}
   </div>
-  <button class="btn btn-p" style="padding:5px 12px;font-size:.82em" onclick="goToChat('${c.id}','${esc(c.name)}')">Написать</button>
-</div>`;
-  }
+  <button class="btn btn-p" style="padding:5px 12px;font-size:.82em" onclick="openContactChat('${c.id}','${esc(c.name)}')">Написать</button>
+</div>`;}
   h+='</div>';
   m.innerHTML=h}
+async function openContactChat(uid,name){
+  chatUid=uid;chatName=name;
+  chatThread=await get('/api/messages/'+uid).catch(()=>[]);
+  renderChat(document.getElementById('main'));
+  clearInterval(chatPollTimer);
+  chatPollTimer=setInterval(refreshChat,5000);}
 
 function goToChat(uid,name){
-  curSection='messages';
+  curSection='contacts';
   chatUid=uid; chatName=name;
   get('/api/messages/'+uid).then(t=>{chatThread=t;renderChat(document.getElementById('main'));
     clearInterval(chatPollTimer);chatPollTimer=setInterval(refreshChat,5000)}).catch(()=>{})}
 
 // ─── MESSAGES ─────────────────────────────────────────────────────────────
 let convos=[],chatUid=null,chatThread=[],chatPollTimer=null,chatName='';
+let groups=[],groupId=null,groupName='',groupThread=[],groupPollTimer=null;
 async function loadConvos(){
   clearInterval(chatPollTimer);chatPollTimer=null;
-  convos=await get('/api/messages').catch(()=>[]);
+  clearInterval(groupPollTimer);groupPollTimer=null;
+  [convos,groups]=await Promise.all([get('/api/messages').catch(()=>[]),get('/api/groups').catch(()=>[])]);
+  if(curSection==='contacts') renderContacts()
   if(curSection==='messages') renderMessages()}
 function renderMessages(){
   const m=document.getElementById('main');
   if(chatUid){renderChat(m);return}
+  if(groupId){renderGroupChat(m);return}
   let h=`<div class="sec-header">
     <button class="back-btn" onclick="goHome()">← Главная</button>
     <span class="sec-title">💬 Сообщения</span>
+    <div class="sec-header-actions"><button class="btn btn-s btn-sm" onclick="showCreateGroup()">👥 Создать группу</button></div>
   </div>`;
-  if(!convos.length){m.innerHTML=h+'<div class="empty">Нет сообщений</div>';return}
+  const allEmpty=!groups.length&&!convos.length;
+  if(allEmpty){m.innerHTML=h+'<div class="empty">Нет сообщений</div>';return}
   h+='<div style="display:flex;flex-direction:column;gap:6px">';
+  for(const g of groups){
+    const unr=g.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.7em;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto">${g.unread}</span>`:'';
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="openGroup('${g.id}','${esc(g.name)}')">
+  <div style="width:36px;height:36px;border-radius:50%;background:#1f3a27;color:var(--green-t);display:flex;align-items:center;justify-content:center;font-size:1.1em;flex-shrink:0">👥</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:600;font-size:.92em">${esc(g.name)}</div>
+    <div style="color:var(--muted);font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.last_msg_text||'')}</div>
+  </div>
+  ${unr}
+</div>`}
   for(const c of convos){
     const unr=c.unread>0?`<span style="background:#ef4444;color:#fff;font-size:.7em;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto">${c.unread}</span>`:'';
     h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="openChat('${c.partner_id}','${esc(c.partner_name)}')">
@@ -861,7 +915,26 @@ async function openChat(uid,name){
   renderChat(document.getElementById('main'));
   clearInterval(chatPollTimer);
   chatPollTimer=setInterval(refreshChat,5000);}
-function _renderBubble(msg,mine){
+async function openGroup(gid,name){
+  groupId=gid;groupName=name;
+  groupThread=await get('/api/groups/'+gid+'/messages').catch(()=>[]);
+  renderGroupChat(document.getElementById('main'));
+  clearInterval(groupPollTimer);
+  groupPollTimer=setInterval(refreshGroupChat,5000);}
+function _fmtFileSize(bytes){
+  if(bytes<1024) return bytes+' Б';
+  if(bytes<1048576) return (bytes/1024).toFixed(1)+' КБ';
+  return (bytes/1048576).toFixed(1)+' МБ';}
+function _renderFileBubble(j,mine){
+  const align=mine?'flex-end':'flex-start';
+  const bg=mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)';
+  const url=esc(j.url);const name=esc(j.name||'файл');const sz=_fmtFileSize(j.size||0);
+  if((j.mime||'').startsWith('image/')){
+    return`<div style="display:flex;justify-content:${align}"><div style="max-width:72%;padding:6px;border-radius:12px;${bg}"><a href="${url}" target="_blank"><img src="${url}" style="max-width:240px;border-radius:8px;display:block"></a><div style="font-size:.75em;opacity:.8;margin-top:3px">${name} · ${sz}</div></div></div>`;}
+  if((j.mime||'').startsWith('video/')){
+    return`<div style="display:flex;justify-content:${align}"><div style="max-width:72%;padding:6px;border-radius:12px;${bg}"><video src="${url}" controls style="max-width:240px;border-radius:8px;display:block"></video><div style="font-size:.75em;opacity:.8;margin-top:3px">${name} · ${sz}</div></div></div>`;}
+  return`<div style="display:flex;justify-content:${align}"><div style="max-width:72%;padding:8px 12px;border-radius:12px;${bg};font-size:.88em"><a href="${url}" target="_blank" style="color:inherit;text-decoration:none">📎 ${name}</a><div style="font-size:.75em;opacity:.8;margin-top:2px">${sz}</div></div></div>`;}
+function _renderBubble(msg,mine,showSender){
   try{
     const j=JSON.parse(msg.text);
     if(j.type==='board_invite'){
@@ -877,10 +950,13 @@ function _renderBubble(msg,mine){
       <button style="padding:4px 12px;background:var(--green);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_acceptBI('${esc(j.invite_id)}','${esc(j.board_title)}',this)">Принять</button>
       <button style="padding:4px 12px;background:none;color:#ef4444;border:1px solid #ef4444;border-radius:5px;cursor:pointer;font-size:.82em" onclick="_declineBI('${esc(j.invite_id)}',this)">Отклонить</button>
     </div>
-  </div></div>`;}}catch{}
+  </div></div>`;}
+    if(j.type==='file') return _renderFileBubble(j,mine);
+  }catch{}
+  const senderLabel=(!mine&&showSender&&msg.from_name)?`<div style="font-size:.75em;color:var(--muted);margin-bottom:2px">${esc(msg.from_name)}</div>`:'';
   return`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
   <div style="max-width:72%;padding:8px 12px;border-radius:12px;${mine?'background:var(--green);color:#fff':'background:var(--surface-2);color:var(--text)'};font-size:.88em">
-    ${esc(msg.text)}
+    ${senderLabel}${esc(msg.text)}
   </div></div>`;}
 async function _acceptBI(iid,title,btn){
   btn.disabled=true;
@@ -903,19 +979,21 @@ async function refreshChat(){
   const tb=document.getElementById('threadBox');
   if(!tb) return;
   const atBottom=tb.scrollHeight-tb.scrollTop-tb.clientHeight<60;
-  tb.innerHTML=msgs.map(msg=>{const mine=msg.from_id!==chatUid;return _renderBubble(msg,mine)}).join('');
+  tb.innerHTML=msgs.map(msg=>{const mine=msg.from_id!==chatUid;return _renderBubble(msg,mine,false)}).join('');
   if(atBottom) tb.scrollTop=tb.scrollHeight;
   pollNotifs();}
 function renderChat(m){
   const name=convos.find(c=>c.partner_id===chatUid)?.partner_name||chatName||chatUid;
   let h=`<div class="sec-header">
-    <button class="back-btn" onclick="clearInterval(chatPollTimer);chatPollTimer=null;chatUid=null;loadConvos()">← Сообщения</button>
+    <button class="back-btn" onclick="clearInterval(chatPollTimer);chatPollTimer=null;chatUid=null;renderContacts()">← Контакты</button>
     <span class="sec-title">💬 ${esc(name)}</span>
   </div>
   <div id="threadBox" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:60vh;overflow-y:auto;padding:4px">`;
-  for(const msg of chatThread){const mine=msg.from_id!==chatUid;h+=_renderBubble(msg,mine)}
+  for(const msg of chatThread){const mine=msg.from_id!==chatUid;h+=_renderBubble(msg,mine,false)}
   h+=`</div>
-  <div style="display:flex;gap:8px">
+  <div style="display:flex;gap:8px;align-items:center">
+    <input type="file" id="msgFileIn" style="display:none" onchange="sendMsgFile()">
+    <button class="btn btn-s btn-sm" onclick="document.getElementById('msgFileIn').click()" title="Прикрепить файл">📎</button>
     <input id="msgIn" placeholder="Написать..." style="flex:1" onkeydown="if(event.key==='Enter')sendMsg()">
     <button class="btn btn-p" onclick="sendMsg()">Отправить</button>
   </div>`;
@@ -925,6 +1003,217 @@ async function sendMsg(){
   const inp=document.getElementById('msgIn');if(!inp||!inp.value.trim())return;
   try{await post('/api/messages',{to_id:chatUid,text:inp.value.trim()});inp.value='';
     await refreshChat();}catch(e){alert(e.detail||'Ошибка')}}
+async function sendMsgFile(){
+  const fi=document.getElementById('msgFileIn');
+  if(!fi||!fi.files.length)return;
+  const file=fi.files[0];fi.value='';
+  try{
+    const r=await upload('/api/messages/upload',file);
+    const txt=JSON.stringify({type:'file',url:r.url,name:r.name,mime:r.mime,size:r.size});
+    await post('/api/messages',{to_id:chatUid,text:txt});
+    await refreshChat();}catch(e){alert(e.detail||'Ошибка загрузки файла')}}
+// ─── GROUP CHAT ────────────────────────────────────────────────────────────
+async function refreshGroupChat(){
+  if(!groupId) return;
+  const msgs=await get('/api/groups/'+groupId+'/messages').catch(()=>[]);
+  groupThread=msgs;
+  const tb=document.getElementById('threadBox');
+  if(!tb) return;
+  const myId=await _getMyId();
+  const atBottom=tb.scrollHeight-tb.scrollTop-tb.clientHeight<60;
+  tb.innerHTML=msgs.map(msg=>{const mine=msg.from_id===myId;return _renderBubble(msg,mine,true)}).join('');
+  if(atBottom) tb.scrollTop=tb.scrollHeight;
+  pollNotifs();}
+let _myId=null;
+async function _getMyId(){if(!_myId){try{const r=await get('/api/auth/me');_myId=r.id;}catch{}}return _myId;}
+let _groupInfo=null;
+function renderGroupChat(m){
+  const grpData=groups.find(g=>g.id===groupId)||{};
+  const gav=grpData.photo
+    ?`<img src="${grpData.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">`
+    :`<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1f3a27,#2d5a3d);color:var(--green-t);display:flex;align-items:center;justify-content:center;font-size:.95em">👥</div>`;
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="clearInterval(groupPollTimer);groupPollTimer=null;groupId=null;contactsTab='groups';renderContacts()">← Контакты</button>
+    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+      ${gav}
+      <span class="sec-title" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👥 ${esc(groupName)}</span>
+    </div>
+    <button class="btn btn-s btn-sm" style="flex-shrink:0" onclick="showGroupInfo()">ℹ️ Инфо</button>
+  </div>
+  <div id="threadBox" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:60vh;overflow-y:auto;padding:4px">`;
+  _getMyId().then(myId=>{
+    const tb=document.getElementById('threadBox');
+    if(tb){tb.innerHTML=groupThread.map(msg=>{const mine=msg.from_id===myId;return _renderBubble(msg,mine,true)}).join('');tb.scrollTop=tb.scrollHeight;}});
+  h+=`</div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <input type="file" id="grpFileIn" style="display:none" onchange="sendGroupFile()">
+    <button class="btn btn-s btn-sm" onclick="document.getElementById('grpFileIn').click()" title="Прикрепить файл">📎</button>
+    <input id="grpMsgIn" placeholder="Написать в группу..." style="flex:1" onkeydown="if(event.key==='Enter')sendGroupMsg()">
+    <button class="btn btn-p" onclick="sendGroupMsg()">Отправить</button>
+  </div>`;
+  m.innerHTML=h;}
+async function showGroupInfo(){
+  const m=document.getElementById('main');
+  clearInterval(groupPollTimer);groupPollTimer=null;
+  [_groupInfo, _myId]=await Promise.all([
+    get('/api/groups/'+groupId).catch(()=>null),
+    _getMyId()
+  ]);
+  if(!_groupInfo){alert('Ошибка загрузки');renderGroupChat(m);return;}
+  _renderGroupInfo(m);}
+async function deleteGroup(){
+  if(!confirm('Удалить группу «'+groupName+'»? Все сообщения будут удалены.')) return;
+  try{
+    await del('/api/groups/'+groupId);
+    groupId=null;groupName='';groupThread=[];
+    await loadConvos();
+    contactsTab='groups';renderContacts();
+  }catch(e){alert(e.detail||'Ошибка удаления');}}
+function _renderGroupInfo(m){
+  const gi=_groupInfo;
+  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
+  const isEditable=!gi.student_id;  // auto-groups are not fully editable by non-owners
+  const avStyle='width:88px;height:88px;border-radius:50%;object-fit:cover;cursor:pointer;border:3px solid var(--border);display:block';
+  const avatar=gi.photo
+    ?`<img src="${gi.photo}" id="grpAvImg" style="${avStyle}" onclick="document.getElementById('grpPhotoIn').click()">`
+    :`<div id="grpAvImg" onclick="document.getElementById('grpPhotoIn').click()" style="width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,#1f3a27,#2d5a3d);color:var(--green-t);display:flex;align-items:center;justify-content:center;font-size:2.2em;cursor:pointer;border:3px solid var(--border)">👥</div>`;
+  // contacts not yet in group (for adding)
+  const memberIds=new Set(gi.members.map(x=>x.id));
+  const addable=contacts.filter(c=>!memberIds.has(c.id));
+  const addSel=addable.length?`<select id="grpAddSel" style="flex:1"><option value="">— выбрать участника —</option>${addable.map(c=>`<option value="${c.id}">${esc(c.name)} (${roleLabel[c.role]||c.role})</option>`).join('')}</select><button class="btn btn-s btn-sm" onclick="_addGroupMember()">+ Добавить</button>`:'<span style="color:var(--muted);font-size:.82em">Все контакты уже в группе</span>';
+  let membersHtml=gi.members.map(mem=>{
+    const mav=mem.photo
+      ?`<img src="${mem.photo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      :`<div style="width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85em;flex-shrink:0">${(mem.name||'?')[0].toUpperCase()}</div>`;
+    const canRemove=isEditable||true;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--sep)">
+  ${mav}
+  <div style="flex:1"><div style="font-weight:600;font-size:.88em">${esc(mem.name)}</div><div style="font-size:.75em;color:var(--muted)">${roleLabel[mem.role]||mem.role}</div></div>
+  ${canRemove?`<button class="btn btn-d btn-sm" style="font-size:.75em;padding:3px 8px" onclick="_removeGroupMember('${mem.id}','${esc(mem.name)}')">Удалить</button>`:''}
+</div>`}).join('');
+  m.innerHTML=`<div class="sec-header">
+    <button class="back-btn" onclick="renderGroupChat(document.getElementById('main'));clearInterval(groupPollTimer);groupPollTimer=null;groupPollTimer=setInterval(refreshGroupChat,5000)">← Чат</button>
+    <span class="sec-title">👥 Настройки группы</span>
+  </div>
+  <div style="max-width:480px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:24px">
+      <input type="file" id="grpPhotoIn" accept="image/*" style="display:none" onchange="_onGrpPhotoSelect(event)">
+      <canvas id="grpPhotoCanvas" style="display:none"></canvas>
+      ${avatar}
+      <span style="font-size:.75em;color:var(--muted)">Нажмите на фото для смены</span>
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:.82em;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Название</label>
+      <div style="display:flex;gap:8px">
+        <input id="grpNameIn" value="${esc(gi.name)}" style="flex:1">
+        <button class="btn btn-p btn-sm" onclick="_saveGroupName()">Сохранить</button>
+      </div>
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:.82em;color:var(--muted);display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Участники (${gi.members.length})</label>
+      ${membersHtml}
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center">${addSel}</div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px">
+      <button class="btn btn-d" style="width:100%" onclick="deleteGroup()">🗑 Удалить группу</button>
+    </div>
+  </div>`;}
+function _onGrpPhotoSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.getElementById('grpPhotoCanvas');
+      canvas.width=128;canvas.height=128;
+      const ctx=canvas.getContext('2d');
+      const s=Math.min(img.width,img.height);
+      const ox=(img.width-s)/2,oy=(img.height-s)/2;
+      ctx.drawImage(img,ox,oy,s,s,0,0,128,128);
+      const data=canvas.toDataURL('image/jpeg',0.82);
+      _groupInfo.photo=data;
+      const av=document.getElementById('grpAvImg');
+      if(av){av.outerHTML=`<img id="grpAvImg" src="${data}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;cursor:pointer;border:3px solid var(--border)" onclick="document.getElementById('grpPhotoIn').click()">`;}
+      patch('/api/groups/'+groupId,{photo:data}).catch(e=>alert(e.detail||'Ошибка'));
+      const grp=groups.find(g=>g.id===groupId);if(grp)grp.photo=data;
+    };img.src=ev.target.result;};
+  reader.readAsDataURL(file);}
+async function _saveGroupName(){
+  const inp=document.getElementById('grpNameIn');
+  const name=(inp?.value||'').trim();if(!name){alert('Введите название');return;}
+  try{const r=await patch('/api/groups/'+groupId,{name});
+    groupName=r.name;_groupInfo.name=r.name;
+    const grp=groups.find(g=>g.id===groupId);if(grp)grp.name=r.name;
+    inp.style.border='1px solid var(--green)';setTimeout(()=>{inp.style.border='';},1200);
+  }catch(e){alert(e.detail||'Ошибка');}}
+async function _addGroupMember(){
+  const sel=document.getElementById('grpAddSel');
+  const uid=sel?.value;if(!uid)return;
+  try{await post('/api/groups/'+groupId+'/members',{user_id:uid});
+    _groupInfo=await get('/api/groups/'+groupId);
+    _renderGroupInfo(document.getElementById('main'));}
+  catch(e){alert(e.detail||'Ошибка');}}
+async function _removeGroupMember(uid,name){
+  if(!confirm(`Удалить ${name} из группы?`))return;
+  try{await del('/api/groups/'+groupId+'/members/'+uid);
+    _groupInfo=await get('/api/groups/'+groupId);
+    _renderGroupInfo(document.getElementById('main'));}
+  catch(e){alert(e.detail||'Ошибка');}}
+async function sendGroupMsg(){
+  const inp=document.getElementById('grpMsgIn');if(!inp||!inp.value.trim())return;
+  try{await post('/api/groups/'+groupId+'/messages',{text:inp.value.trim()});inp.value='';
+    await refreshGroupChat();}catch(e){alert(e.detail||'Ошибка')}}
+async function sendGroupFile(){
+  const fi=document.getElementById('grpFileIn');
+  if(!fi||!fi.files.length)return;
+  const file=fi.files[0];fi.value='';
+  try{
+    const r=await upload('/api/messages/upload',file);
+    const txt=JSON.stringify({type:'file',url:r.url,name:r.name,mime:r.mime,size:r.size});
+    await post('/api/groups/'+groupId+'/messages',{text:txt});
+    await refreshGroupChat();}catch(e){alert(e.detail||'Ошибка загрузки файла')}}
+function showCreateGroup(){
+  const m=document.getElementById('main');
+  const roleLabel={owner:'Владелец',tutor:'Преподаватель',student:'Ученик',parent:'Родитель'};
+  const cards=contacts.map(c=>{
+    const av=c.photo
+      ?`<img src="${c.photo}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;display:block">`
+      :`<div style="width:42px;height:42px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.05em">${(c.name||'?')[0].toUpperCase()}</div>`;
+    return`<div class="grp-pick-card" id="gpc_${c.id}" data-uid="${c.id}" onclick="_toggleGpc(this)" style="position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;background:var(--surface);border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color .15s,background .15s;min-width:80px;max-width:100px;flex:1">
+  <div style="position:relative">
+    ${av}
+    <div class="gpc-check" style="display:none;position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--green);color:#fff;font-size:.7em;display:none;align-items:center;justify-content:center;font-weight:700">✓</div>
+  </div>
+  <div style="font-size:.78em;font-weight:600;text-align:center;word-break:break-word;line-height:1.2">${esc(c.name)}</div>
+  <div style="font-size:.7em;color:var(--muted)">${roleLabel[c.role]||c.role}</div>
+</div>`;}).join('');
+  m.innerHTML=`<div class="sec-header">
+    <button class="back-btn" onclick="renderContacts()">← Контакты</button>
+    <span class="sec-title">👥 Создать группу</span>
+  </div>
+  <div style="max-width:560px">
+    <div style="margin-bottom:20px">
+      <label style="font-size:.82em;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Название</label>
+      <input id="newGrpName" placeholder="Название группы..." style="width:100%;font-size:1em">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:.82em;color:var(--muted);display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Участники</label>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">${cards||'<span style="color:var(--muted);font-size:.88em">Нет контактов</span>'}</div>
+    </div>
+    <button class="btn btn-p" style="width:100%;padding:10px" onclick="createGroup()">Создать группу</button>
+  </div>
+  <style>.grp-pick-card.sel{border-color:var(--green)!important;background:rgba(63,185,80,.07)!important}.grp-pick-card.sel .gpc-check{display:flex!important}</style>`;
+}
+function _toggleGpc(el){el.classList.toggle('sel')}
+async function createGroup(){
+  const nameEl=document.getElementById('newGrpName');
+  const name=(nameEl?.value||'').trim();
+  if(!name){alert('Введите название группы');return;}
+  const checked=[...document.querySelectorAll('#main .grp-pick-card.sel')].map(el=>el.dataset.uid);
+  try{
+    await post('/api/groups',{name,member_ids:checked});
+    await loadConvos();
+    renderContacts();}catch(e){alert(e.detail||'Ошибка')}}
 let notifPanelOpen=false;
 let lastNotifsData=null;
 function fmtNotifTime(iso){
@@ -954,12 +1243,12 @@ function renderNotifPanel(r){
   const body=document.getElementById('notifPanelBody');
   if(!body) return;
   const msgs=r.unread_messages||0;
-  const notifs=r.notifications||[];
+  const notifs=(r.notifications||[]).filter(n=>!n.is_read);
   let h='';
   if(msgs>0) h+=`<div class="notif-msgs-row" onclick="closeNotifPanel();goSection('messages')">
     <span>💬 ${msgs} новых сообщений</span><span style="color:var(--green-t);font-size:.8em">Открыть →</span></div>`;
   if(!notifs.length&&!msgs){h='<div class="notif-empty">Нет уведомлений</div>';}
-  else h+=notifs.map(n=>`<div class="notif-item${n.is_read?'':' unread'}" onclick="handleNotif('${n.id}','${n.link||''}')">
+  else h+=notifs.map(n=>`<div class="notif-item unread" onclick="handleNotif('${n.id}','${n.link||''}')">
     <div class="notif-item-text">${esc(n.text)}</div>
     <div class="notif-item-time">${fmtNotifTime(n.created_at)}</div></div>`).join('');
   body.innerHTML=h}

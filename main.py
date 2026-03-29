@@ -1,9 +1,9 @@
-from fastapi import FastAPI,Depends,HTTPException,UploadFile,File,WebSocket,WebSocketDisconnect,Request,Body
+from fastapi import FastAPI,Depends,HTTPException,UploadFile,File,Form,WebSocket,WebSocketDisconnect,Request,Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session,joinedload
-import os,json,jwt,secrets,subprocess
+import os,json,jwt,secrets,subprocess,asyncio,shutil,mimetypes,tempfile
 from datetime import datetime,timezone
 from collections import defaultdict
 from database import get_db,SessionLocal,engine,Base
@@ -31,12 +31,32 @@ async def _startup_migrate():
         "ALTER TABLE course_section_items ADD COLUMN IF NOT EXISTS lang VARCHAR(20)",
         "ALTER TABLE items ADD COLUMN IF NOT EXISTS lang VARCHAR(20)",
         "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='code' AND enumtypid=(SELECT oid FROM pg_type WHERE typname='itemtype')) THEN ALTER TYPE itemtype ADD VALUE 'code'; END IF; END $$",
+        "CREATE TABLE IF NOT EXISTS chat_groups (id varchar(12) PRIMARY KEY, name varchar(300) NOT NULL, created_by varchar(12) REFERENCES users(id) ON DELETE SET NULL, student_id varchar(12) REFERENCES students(id) ON DELETE CASCADE, created_at timestamptz DEFAULT now())",
+        "CREATE TABLE IF NOT EXISTS chat_group_members (group_id varchar(12) NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, PRIMARY KEY (group_id, user_id))",
+        "CREATE TABLE IF NOT EXISTS group_messages (id varchar(12) PRIMARY KEY, group_id varchar(12) NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE, from_id varchar(12) REFERENCES users(id) ON DELETE SET NULL, text text NOT NULL, created_at timestamptz DEFAULT now())",
+        "CREATE TABLE IF NOT EXISTS group_message_reads (group_id varchar(12) NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, last_read_at timestamptz DEFAULT now(), PRIMARY KEY (group_id, user_id))",
+        "ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS photo TEXT",
+        "ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS tutor_id varchar(12) REFERENCES users(id) ON DELETE SET NULL",
     ]
     _db=SessionLocal()
     for _sql in _steps:
         try: _db.execute(_sa_text(_sql)); _db.commit()
         except: _db.rollback()
+    # Remove old-style auto-groups (student_id set but no tutor_id = legacy 2-3 person groups)
+    try:
+        _db.execute(_sa_text("DELETE FROM chat_groups WHERE student_id IS NOT NULL AND tutor_id IS NULL"))
+        _db.commit()
+    except: _db.rollback()
     _db.close()
+    # Sync auto-groups for all existing students (idempotent)
+    _db2=SessionLocal()
+    try:
+        _stids=[r[0] for r in _db2.execute(_sa_text("SELECT id FROM students")).fetchall()]
+        for _sid in _stids:
+            try: _sync_auto_group(_sid,_db2)
+            except: pass
+    except: pass
+    finally: _db2.close()
 BASE_DIR=os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR=os.path.join(BASE_DIR,"uploads"); os.makedirs(UPLOAD_DIR,exist_ok=True)
 def _up(aid,ext): return os.path.join(UPLOAD_DIR,f"{aid}{ext}"),f"uploads/{aid}{ext}"
@@ -134,7 +154,15 @@ def create_user(d:UserCreate,u:User=Depends(require_tutor_or_owner),db:Session=D
         for sid in d.children_ids:
             if db.query(Student).filter(Student.id==sid).first():
                 db.execute(parent_student_link.insert().values(parent_id=nu.id,student_id=sid))
-    db.commit(); db.refresh(nu); return nu
+    db.commit(); db.refresh(nu)
+    if d.role=="student" and nu.student_id:
+        try: _sync_auto_group(nu.student_id,db)
+        except: pass
+    if d.role=="parent" and d.children_ids:
+        for sid in d.children_ids:
+            try: _sync_auto_group(sid,db)
+            except: pass
+    return nu
 
 @app.post("/api/users/{uid}/link-student/{stid}",status_code=200)
 def link_user_student(uid:str,stid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
@@ -568,7 +596,10 @@ def create_student(d:StudentCreate,u:User=Depends(require_tutor_or_owner),db:Ses
     s=Student(name=d.name,level=d.level,grade=d.grade,goal=d.goal,base_rate=d.base_rate,format=d.format,subject_id=d.subject_id,created_by=u.id)
     db.add(s); db.flush()
     if u.role=="tutor": db.execute(tutor_student_link.insert().values(tutor_id=u.id,student_id=s.id))
-    db.commit(); db.refresh(s); return s
+    db.commit(); db.refresh(s)
+    try: _sync_auto_group(s.id,db)
+    except: pass
+    return s
 
 @app.patch("/api/students/{stid}",response_model=StudentOut)
 def upd_student(stid:str,d:StudentUpdate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
@@ -592,6 +623,8 @@ def assign_tutor(stid:str,tid:str,o:User=Depends(require_owner),db:Session=Depen
     if not db.query(User).filter(User.id==tid,User.role=="tutor").first(): raise HTTPException(404)
     if not db.execute(tutor_student_link.select().where((tutor_student_link.c.tutor_id==tid)&(tutor_student_link.c.student_id==stid))).first():
         db.execute(tutor_student_link.insert().values(tutor_id=tid,student_id=stid)); db.commit()
+    try: _sync_auto_group(stid,db)
+    except: pass
     return {"ok":True}
 
 @app.delete("/api/students/{stid}/unassign-tutor/{tid}",status_code=200)
@@ -606,6 +639,8 @@ def link_parent(stid:str,uid:str,o:User=Depends(require_tutor_or_owner),db:Sessi
     if not db.query(User).filter(User.id==uid,User.role=="parent").first(): raise HTTPException(404,"Parent user not found")
     if not db.execute(parent_student_link.select().where((parent_student_link.c.parent_id==uid)&(parent_student_link.c.student_id==stid))).first():
         db.execute(parent_student_link.insert().values(parent_id=uid,student_id=stid)); db.commit()
+    try: _sync_auto_group(stid,db)
+    except: pass
     return {"ok":True}
 
 # Apply course
@@ -722,7 +757,6 @@ def upd_item(iid:str,d:ItemUpdate,u:User=Depends(get_current_user),db:Session=De
 def del_item(iid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     it=db.query(Item).filter(Item.id==iid).first()
     if not it: raise HTTPException(404)
-    if it.type=="hw": raise HTTPException(400,"ДЗ нельзя удалить")
     _cln_it(it,db); db.delete(it); db.commit()
 
 @app.post("/api/sections/{sid}/items/reorder",status_code=200)
@@ -889,6 +923,174 @@ async def run_code(body: RunCodeIn, u: User = Depends(get_current_user)):
         except Exception as e:
             return {"stdout": "", "stderr": str(e), "ok": False}
 
+# ═══ BOARD-AWARE CODE EXECUTION ═══
+class RunCodeBoardIn(BaseModel):
+    code: str
+    lang: str = "python"
+    stid: str = ""
+    personal_id: str = ""
+
+@app.post("/api/run_code_board")
+async def run_code_board(body:RunCodeBoardIn, u:User=Depends(get_current_user), db:Session=Depends(get_db)):
+    if u.role not in ("owner","tutor","student"):
+        raise HTTPException(403,"Forbidden")
+    code=body.code.strip()
+    if not code:
+        return {"stdout":"","stderr":"","ok":True,"new_elements":[],"deleted_ids":[],"updated_elements":[]}
+    if len(code)>20000: raise HTTPException(400,"Code too large")
+    stid=body.stid; lang=body.lang; personal_id=body.personal_id
+
+    # Проверяем доступ к доске (сессионной или личной)
+    if stid:
+        try: chk_acc(stid,u,db)
+        except: stid=""
+    if personal_id and not stid:
+        pb=db.query(PersonalBoard).filter(PersonalBoard.id==personal_id).first()
+        if not pb:
+            personal_id=""
+        else:
+            is_owner=pb.owner_id==u.id
+            is_shared=db.execute(personal_board_share.select().where(
+                (personal_board_share.c.board_id==personal_id)&
+                (personal_board_share.c.user_id==u.id))).first() is not None
+            if not (is_owner or is_shared):
+                personal_id=""
+
+    def _get_strokes():
+        if stid:
+            return json.loads(_get_board(stid,db).strokes)
+        if personal_id:
+            pb=db.query(PersonalBoard).filter(PersonalBoard.id==personal_id).first()
+            return json.loads(pb.strokes) if pb else []
+        return []
+
+    def _save_strokes(strokes_list):
+        if stid:
+            b=_get_board(stid,db); b.strokes=json.dumps(strokes_list); db.commit()
+        elif personal_id:
+            pb=db.query(PersonalBoard).filter(PersonalBoard.id==personal_id).first()
+            if pb: pb.strokes=json.dumps(strokes_list); db.commit()
+
+    async def _bcast_el(el,op="stroke"):
+        msg=json.dumps({"type":op,"data":el} if op=="stroke" else {"type":op,"id":el})
+        if stid: asyncio.create_task(_bcast(stid,msg,None))
+        elif personal_id: asyncio.create_task(_pb_bcast(personal_id,msg,None))
+
+    # Собираем docfile-элементы с доски
+    board_files={}  # filename -> {el, path}
+    if stid or personal_id:
+        try:
+            for el in _get_strokes():
+                if el.get('type')=='docfile':
+                    fname=el.get('filename',''); url=el.get('url','')
+                    if fname and url:
+                        board_files[fname]={'el':el,'path':os.path.join(BASE_DIR,url.lstrip('/'))}
+        except: pass
+
+    # Рабочая директория = копия файлов доски
+    workdir=tempfile.mkdtemp(prefix='hbm_code_')
+    stdout=stderr=""; ok=False
+    new_elements=[]; deleted_ids=[]; updated_elements=[]
+    try:
+        # Копируем файлы доски в рабочую директорию
+        initial_snap={}  # fname -> size (для обнаружения изменений)
+        for fname,info in board_files.items():
+            if os.path.exists(info['path']):
+                dst=os.path.join(workdir,fname)
+                try:
+                    shutil.copy2(info['path'],dst)
+                    initial_snap[fname]=os.path.getsize(dst)
+                except: pass
+
+        # Запуск кода
+        if lang=="javascript":
+            try:
+                r=subprocess.run(["node","--input-type=module"],input=code.encode(),
+                    capture_output=True,timeout=10,cwd=workdir)
+                stdout=r.stdout.decode("utf-8","replace")
+                stderr=r.stderr.decode("utf-8","replace")
+                ok=r.returncode==0
+            except FileNotFoundError: stderr="Node.js не установлен на сервере"
+            except subprocess.TimeoutExpired: stderr="Таймаут (10с)"
+        else:
+            # Python: записываем скрипт во временный файл
+            with tempfile.NamedTemporaryFile(suffix=".py",delete=False,mode="w",encoding="utf-8") as f:
+                f.write(code); fname_code=f.name
+            try:
+                r=subprocess.run(["python3",fname_code],
+                    capture_output=True,timeout=30,cwd=workdir)
+                stdout=r.stdout.decode("utf-8","replace")[:10000]
+                stderr=r.stderr.decode("utf-8","replace")[:5000]
+                ok=r.returncode==0
+            except subprocess.TimeoutExpired: stderr="Таймаут (30с)"
+            finally:
+                try: os.unlink(fname_code)
+                except: pass
+
+        # Анализируем изменения в рабочей директории
+        if stid or personal_id:
+            cur_files={f for f in os.listdir(workdir) if not f.startswith('.')}
+            strokes=_get_strokes()
+            offset_base=sum(1 for e in strokes if e.get('type')=='docfile')
+            added_count=0
+
+            # Новые файлы → добавляем на доску
+            for fname in sorted(cur_files):
+                if fname in initial_snap: continue
+                ext=os.path.splitext(fname)[1].lower()
+                if ext not in _BOARD_CODE_OUT_EXTS: continue
+                fpath=os.path.join(workdir,fname)
+                try:
+                    with open(fpath,'rb') as f: content=f.read()
+                except: continue
+                if len(content)>100*1024*1024: continue
+                fid=gen_id(); fp,dbp=_up("bdoc_"+fid,ext)
+                with open(fp,'wb') as f: f.write(content)
+                mime=mimetypes.guess_type(fname)[0] or 'application/octet-stream'
+                off=(offset_base+added_count)*12
+                eid=gen_id()
+                el={"type":"docfile","id":eid,"user_id":u.id,
+                    "x":off,"y":off,"w":260,"h":72,
+                    "url":"/"+dbp,"filename":fname,"filesize":len(content),"mime":mime}
+                c=_get_strokes(); c.append(el); _save_strokes(c)
+                asyncio.create_task(_bcast_el(el,"stroke"))
+                new_elements.append(el); added_count+=1
+
+            # Удалённые файлы → убираем с доски
+            for fname,info in board_files.items():
+                if fname not in cur_files:
+                    eid=info['el'].get('id')
+                    if eid:
+                        c=[e for e in _get_strokes() if e.get('id')!=eid]
+                        _save_strokes(c)
+                        asyncio.create_task(_bcast_el(eid,"erase_stroke"))
+                        deleted_ids.append(eid)
+
+            # Изменённые файлы → обновляем хранилище
+            for fname,info in board_files.items():
+                if fname not in cur_files: continue
+                fpath=os.path.join(workdir,fname)
+                try:
+                    with open(fpath,'rb') as f: new_c=f.read()
+                    src=info['path']
+                    old_c=open(src,'rb').read() if os.path.exists(src) else b''
+                    if new_c!=old_c:
+                        with open(src,'wb') as f: f.write(new_c)
+                        el=dict(info['el']); el['filesize']=len(new_c)
+                        c=_get_strokes()
+                        for i,e in enumerate(c):
+                            if e.get('id')==el.get('id'): c[i]=el; break
+                        _save_strokes(c)
+                        asyncio.create_task(_bcast_el(el['id'],"erase_stroke"))
+                        asyncio.create_task(_bcast_el(el,"stroke"))
+                        updated_elements.append(el)
+                except: pass
+    finally:
+        shutil.rmtree(workdir,ignore_errors=True)
+
+    return {"stdout":stdout,"stderr":stderr,"ok":ok,
+            "new_elements":new_elements,"deleted_ids":deleted_ids,"updated_elements":updated_elements}
+
 @app.websocket("/ws/board/{stid}")
 async def board_ws(ws:WebSocket,stid:str):
     await ws.accept()
@@ -990,6 +1192,138 @@ async def board_ws(ws:WebSocket,stid:str):
         await _bcast(stid,json.dumps({"type":"user_leave","uid":uid}),None)
 
 # ═══ MESSAGING ═══
+@app.post("/api/cs/solve")
+async def cs_solve(body:dict=Body(...),u:User=Depends(get_current_user)):
+    """Symbolic intersection of two CS graph equations via SymPy."""
+    eq1=str(body.get("eq1","")).strip()[:200]
+    eq2=str(body.get("eq2","")).strip()[:200]
+    if not eq1 or not eq2:
+        raise HTTPException(400,"Missing equations")
+    import subprocess,sys,json as _json
+    script=f"""
+import sympy as sp, sys, json
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
+x=sp.Symbol('x',real=True)
+y=sp.Symbol('y',real=True)
+trf=standard_transformations+(implicit_multiplication_application,)
+ns={{'x':x,'y':y,'sqrt':sp.sqrt,'cbrt':lambda a:a**sp.Rational(1,3),
+     'sin':sp.sin,'cos':sp.cos,'tan':sp.tan,
+     'asin':sp.asin,'acos':sp.acos,'atan':sp.atan,
+     'ln':sp.ln,'log':sp.ln,'log10':sp.log,'log2':lambda a:sp.log(a,2),
+     'exp':sp.exp,'abs':sp.Abs,'pi':sp.pi,'e':sp.E}}
+def parse(s):
+    s=s.replace('^','**')
+    idx=s.find('=')
+    if idx>=0:
+        lhs,rhs=s[:idx].strip(),s[idx+1:].strip()
+        if lhs=='y': return parse_expr(rhs,local_dict=ns,transformations=trf)
+        if rhs=='y': return parse_expr(lhs,local_dict=ns,transformations=trf)
+        # f(x,y)=g(x,y) → solve numerically only
+        return None
+    return parse_expr(s,local_dict=ns,transformations=trf)
+try:
+    f1=parse({repr(eq1)})
+    f2=parse({repr(eq2)})
+    if f1 is None or f2 is None:
+        print(json.dumps({{'ok':False,'reason':'not yfx'}}))
+        sys.exit(0)
+    sols=sp.solveset(sp.Eq(f1,f2),x,domain=sp.S.Reals)
+    if not isinstance(sols,sp.sets.FiniteSet):
+        # Infinite/conditional set — fall back to numeric in JS
+        print(json.dumps({{'ok':False,'reason':'infinite_set'}})); sys.exit(0)
+    sols=list(sols)
+    out=[]
+    for xv in sols:
+        # Skip CRootOf (non-radical algebraic numbers) — fall back to numeric
+        if xv.has(sp.CRootOf) or xv.has(sp.RootOf):
+            print(json.dumps({{'ok':False,'reason':'rootof'}})); sys.exit(0)
+        xv=sp.nsimplify(sp.simplify(xv),rational=False,tolerance=1e-10)
+        if xv.has(sp.CRootOf) or xv.has(sp.RootOf):
+            print(json.dumps({{'ok':False,'reason':'rootof'}})); sys.exit(0)
+        try:
+            yv=sp.simplify(f1.subs(x,xv))
+            yv=sp.nsimplify(yv,rational=False,tolerance=1e-10)
+        except:
+            yv=None
+        try: xf=float(sp.re(xv.evalf()))
+        except: continue
+        try: yf=float(sp.re(yv.evalf())) if yv is not None else None
+        except: yf=None
+        if yf is None: continue
+        try:
+            if abs(float(sp.im(yv.evalf())))>1e-9: continue
+        except: pass
+        xl,yl=sp.latex(xv),sp.latex(yv if yv is not None else sp.Integer(0))
+        # Reject if LaTeX too long (unsimplified mess)
+        if len(xl)>120 or len(yl)>120:
+            print(json.dumps({{'ok':False,'reason':'too_complex'}})); sys.exit(0)
+        out.append({{'xLatex':xl,'yLatex':yl,'xFloat':xf,'yFloat':yf}})
+    print(json.dumps({{'ok':True,'solutions':out}}))
+except Exception as ex:
+    print(json.dumps({{'ok':False,'reason':str(ex)}}))
+"""
+    try:
+        proc=await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(
+                None,lambda:subprocess.run(
+                    [sys.executable,'-c',script],
+                    capture_output=True,text=True,timeout=15
+                )
+            ),timeout=20
+        )
+        result=_json.loads(proc.stdout.strip() or '{}')
+    except Exception as e:
+        result={'ok':False,'reason':str(e)}
+    return result
+
+_ALLOWED_MSG_EXTS={'.jpg','.jpeg','.png','.gif','.webp','.mp4','.mov','.avi','.pdf','.zip','.doc','.docx','.xls','.xlsx','.txt','.py','.js'}
+_BOARD_DOC_EXTS={'.pdf','.doc','.docx','.xls','.xlsx','.ppt','.pptx','.odt','.ods','.odp','.txt','.csv','.rtf','.zip','.7z'}
+# Расширения файлов, которые код может создавать на доске (+ изображения и текстовые форматы)
+_BOARD_CODE_OUT_EXTS=_BOARD_DOC_EXTS|{'.png','.jpg','.jpeg','.gif','.webp','.bmp','.svg','.json','.xml','.md','.html','.log','.py','.js'}
+
+@app.post("/api/board/upload-doc")
+async def upload_board_doc(
+    file:UploadFile=File(...),
+    stid:str=Form(None),
+    element_id:str=Form(None),
+    el_x:float=Form(None), el_y:float=Form(None),
+    el_w:float=Form(None), el_h:float=Form(None),
+    u:User=Depends(get_current_user),
+    db:Session=Depends(get_db)
+):
+    ext=os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _BOARD_DOC_EXTS: raise HTTPException(400,"Недопустимый тип файла")
+    content=await file.read()
+    if len(content)>100*1024*1024: raise HTTPException(413,"Файл слишком большой (макс 100 МБ)")
+    fid=gen_id(); fp,dbp=_up("bdoc_"+fid,ext)
+    with open(fp,"wb") as f: f.write(content)
+    result={"url":"/"+dbp,"filename":file.filename or "document","filesize":len(content),"mime":file.content_type or "application/octet-stream"}
+    # Атомарно сохраняем stroke в доску, если переданы stid и element_id
+    if stid and element_id:
+        try:
+            chk_acc(stid,u,db)
+            el={"type":"docfile","id":element_id,"user_id":u.id,
+                "x":el_x or 0,"y":el_y or 0,"w":el_w or 260,"h":el_h or 72,
+                "url":result["url"],"filename":result["filename"],
+                "filesize":result["filesize"],"mime":result["mime"]}
+            b=_get_board(stid,db); c=json.loads(b.strokes); c.append(el); b.strokes=json.dumps(c); db.commit()
+            result["saved"]=True
+            # broadcast через WS если есть активные соединения
+            brd_msg=json.dumps({"type":"stroke","data":el})
+            asyncio.create_task(_bcast(stid,brd_msg,None))
+        except Exception: result["saved"]=False
+    return result
+
+@app.post("/api/messages/upload")
+async def upload_msg_file(file:UploadFile=File(...),u:User=Depends(get_current_user)):
+    ext=os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _ALLOWED_MSG_EXTS: raise HTTPException(400,"Недопустимый тип файла")
+    content=await file.read()
+    if len(content)>50*1024*1024: raise HTTPException(413,"Файл слишком большой (макс 50 МБ)")
+    fid=gen_id(); fp,dbp=_up("msg_"+fid,ext)
+    with open(fp,"wb") as f: f.write(content)
+    return {"url":"/"+dbp,"name":file.filename or "file","mime":file.content_type or "application/octet-stream","size":len(content)}
+
 @app.post("/api/messages",status_code=201)
 def send_message(d:MessageCreate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     if d.to_id==u.id: raise HTTPException(400,"Нельзя писать себе")
@@ -1019,6 +1353,7 @@ def list_conversations(u:User=Depends(get_current_user),db:Session=Depends(get_d
             try:
                 _j=json.loads(m.text)
                 if _j.get("type")=="board_invite": lt=f"📋 Приглашение на доску «{_j.get('board_title','')}»"[:80]
+                elif _j.get("type")=="file": lt=f"📎 {_j.get('name','файл')}"[:80]
             except: pass
             seen[partner_id]={"partner_id":partner_id,"partner_name":partner.name if partner else partner_id,
                 "last_text":lt,"last_at":m.created_at.isoformat() if m.created_at else None,
@@ -1046,13 +1381,66 @@ def get_notifications(u:User=Depends(get_current_user),db:Session=Depends(get_db
     unread_msgs=db.query(Message).filter(Message.to_id==u.id,Message.is_read==False).count()
     notifs=db.query(Notification).filter(Notification.user_id==u.id).order_by(Notification.created_at.desc()).limit(50).all()
     unread_notifs=sum(1 for n in notifs if not n.is_read)
+    grp_unread=0
+    try:
+        user_groups=db.execute(_sa_text("SELECT group_id FROM chat_group_members WHERE user_id=:u").bindparams(u=u.id)).fetchall()
+        for gm in user_groups:
+            gid=gm[0]
+            reads=db.execute(_sa_text("SELECT last_read_at FROM group_message_reads WHERE group_id=:g AND user_id=:u").bindparams(g=gid,u=u.id)).first()
+            if reads:
+                cnt=db.execute(_sa_text("SELECT COUNT(*) FROM group_messages WHERE group_id=:g AND from_id!=:u AND created_at>:t").bindparams(g=gid,u=u.id,t=reads[0])).scalar()
+            else:
+                cnt=db.execute(_sa_text("SELECT COUNT(*) FROM group_messages WHERE group_id=:g AND from_id!=:u").bindparams(g=gid,u=u.id)).scalar()
+            grp_unread+=cnt or 0
+    except: pass
     return {
-        "unread_messages":unread_msgs,
+        "unread_messages":unread_msgs+grp_unread,
         "unread_notifications":unread_notifs,
-        "unread":unread_msgs+unread_notifs,
+        "unread":unread_msgs+grp_unread+unread_notifs,
         "notifications":[{"id":n.id,"text":n.text,"is_read":n.is_read,
             "created_at":n.created_at.isoformat() if n.created_at else None,
             "link":n.link,"notif_type":n.notif_type} for n in notifs]}
+
+# ═══ GROUP CHAT HELPERS ═══
+def _sync_auto_group(student_id: str, db: Session):
+    """Create/update per-tutor auto-groups: student + tutor + parents.
+    Owner is NOT auto-included. Groups require >= 3 members.
+    One group per (student, tutor) pair."""
+    st = db.query(Student).filter(Student.id == student_id).first()
+    if not st: return
+    stu_user = db.query(User).filter(User.student_id == student_id).first()
+    # Collect all tutors for this student
+    tutor_ids = set()
+    if st.created_by: tutor_ids.add(st.created_by)
+    for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id == student_id)).fetchall():
+        tutor_ids.add(r.tutor_id)
+    # Collect all parents for this student
+    parent_ids = set()
+    for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id == student_id)).fetchall():
+        parent_ids.add(r.parent_id)
+    # Create/update one group per tutor
+    for tutor_id in tutor_ids:
+        tutor = db.query(User).filter(User.id == tutor_id).first()
+        if not tutor: continue
+        uids = set()
+        if stu_user: uids.add(stu_user.id)
+        uids.add(tutor_id)
+        uids.update(parent_ids)
+        # Require at least 3 members (student + tutor + at least 1 parent)
+        if len(uids) < 3: continue
+        grp = db.query(ChatGroup).filter(
+            ChatGroup.student_id == student_id,
+            ChatGroup.tutor_id == tutor_id
+        ).first()
+        if not grp:
+            grp = ChatGroup(name=f"{st.name} — {tutor.name}", student_id=student_id, tutor_id=tutor_id)
+            db.add(grp); db.flush()
+        try:
+            existing = {r[0] for r in db.execute(_sa_text("SELECT user_id FROM chat_group_members WHERE group_id=:g").bindparams(g=grp.id)).fetchall()}
+            for uid in uids - existing:
+                db.execute(_sa_text("INSERT INTO chat_group_members(group_id,user_id) VALUES(:g,:u) ON CONFLICT DO NOTHING").bindparams(g=grp.id, u=uid))
+            db.commit()
+        except: db.rollback()
 
 @app.post("/api/notifications/{nid}/read")
 def mark_notif_read(nid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
@@ -1202,63 +1590,208 @@ def reject_change_request(rid:str,u:User=Depends(require_owner),db:Session=Depen
 # ═══ CONTACTS ═══
 @app.get("/api/contacts")
 def get_contacts(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
-    """Returns list of users the current user can message."""
+    """Returns list of users the current user can message, enriched with last message info."""
     ids=set()
     if u.role=="owner":
-        # owner sees everyone
         all_u=db.query(User).filter(User.id!=u.id).all()
-        return [{"id":x.id,"name":x.name,"role":x.role,
-                 "last_seen":x.last_seen.isoformat() if x.last_seen else None} for x in all_u]
-    elif u.role=="tutor":
-        stids=set(_tutor_student_ids(u.id,db))
-        # students (users linked to their students)
-        if stids:
-            for r in db.query(User).filter(User.student_id.in_(stids),User.id!=u.id).all():
-                ids.add(r.id)
-            # parents of those students
-            for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(stids))).fetchall():
-                ids.add(r.parent_id)
-        # owner
-        owner=db.query(User).filter(User.role=="owner").first()
-        if owner: ids.add(owner.id)
-    elif u.role=="student":
-        # find tutors of the linked student profile
-        if u.student_id:
-            st=db.query(Student).filter(Student.id==u.student_id).first()
-            if st:
-                if st.created_by: ids.add(st.created_by)
-                for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id==u.student_id)).fetchall():
-                    ids.add(r.tutor_id)
-        owner=db.query(User).filter(User.role=="owner").first()
-        if owner: ids.add(owner.id)
-    elif u.role=="parent":
-        # tutors of children
-        child_ids=[r.student_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.parent_id==u.id)).fetchall()]
-        if child_ids:
-            for stid in child_ids:
-                st=db.query(Student).filter(Student.id==stid).first()
-                if st and st.created_by: ids.add(st.created_by)
-                for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id==stid)).fetchall():
-                    ids.add(r.tutor_id)
-        owner=db.query(User).filter(User.role=="owner").first()
-        if owner: ids.add(owner.id)
-    elif u.role=="board_user":
-        # board_user contacts = collaborators on shared boards (owners + co-members) + platform owner
-        shared_rows=db.execute(personal_board_share.select().where(personal_board_share.c.user_id==u.id)).fetchall()
-        board_ids={r.board_id for r in shared_rows}
-        owned=db.query(PersonalBoard).filter(PersonalBoard.owner_id==u.id).all()
-        board_ids|={b.id for b in owned}
-        for bid in board_ids:
-            b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
-            if b and b.owner_id!=u.id: ids.add(b.owner_id)
-            for m in db.execute(personal_board_share.select().where(personal_board_share.c.board_id==bid)).fetchall():
-                if m.user_id!=u.id: ids.add(m.user_id)
-        owner=db.query(User).filter(User.role=="owner").first()
-        if owner: ids.add(owner.id)
-    ids.discard(u.id)
-    users=db.query(User).filter(User.id.in_(ids)).all() if ids else []
-    return [{"id":x.id,"name":x.name,"role":x.role,
-             "last_seen":x.last_seen.isoformat() if x.last_seen else None} for x in users]
+        users=all_u
+    else:
+        if u.role=="tutor":
+            stids=set(_tutor_student_ids(u.id,db))
+            if stids:
+                for r in db.query(User).filter(User.student_id.in_(stids),User.id!=u.id).all():
+                    ids.add(r.id)
+                for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(stids))).fetchall():
+                    ids.add(r.parent_id)
+            owner=db.query(User).filter(User.role=="owner").first()
+            if owner: ids.add(owner.id)
+        elif u.role=="student":
+            if u.student_id:
+                st=db.query(Student).filter(Student.id==u.student_id).first()
+                if st:
+                    if st.created_by: ids.add(st.created_by)
+                    for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id==u.student_id)).fetchall():
+                        ids.add(r.tutor_id)
+            owner=db.query(User).filter(User.role=="owner").first()
+            if owner: ids.add(owner.id)
+        elif u.role=="parent":
+            child_ids=[r.student_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.parent_id==u.id)).fetchall()]
+            if child_ids:
+                for stid in child_ids:
+                    st=db.query(Student).filter(Student.id==stid).first()
+                    if st and st.created_by: ids.add(st.created_by)
+                    for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.student_id==stid)).fetchall():
+                        ids.add(r.tutor_id)
+            owner=db.query(User).filter(User.role=="owner").first()
+            if owner: ids.add(owner.id)
+        elif u.role=="board_user":
+            shared_rows=db.execute(personal_board_share.select().where(personal_board_share.c.user_id==u.id)).fetchall()
+            board_ids={r.board_id for r in shared_rows}
+            owned=db.query(PersonalBoard).filter(PersonalBoard.owner_id==u.id).all()
+            board_ids|={b.id for b in owned}
+            for bid in board_ids:
+                b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+                if b and b.owner_id!=u.id: ids.add(b.owner_id)
+                for m in db.execute(personal_board_share.select().where(personal_board_share.c.board_id==bid)).fetchall():
+                    if m.user_id!=u.id: ids.add(m.user_id)
+            owner=db.query(User).filter(User.role=="owner").first()
+            if owner: ids.add(owner.id)
+        ids.discard(u.id)
+        users=db.query(User).filter(User.id.in_(ids)).all() if ids else []
+    # Enrich with last message data
+    msgs=db.query(Message).filter((Message.from_id==u.id)|(Message.to_id==u.id))\
+        .order_by(Message.created_at.desc()).all()
+    msg_map={}
+    for m in msgs:
+        pid=m.to_id if m.from_id==u.id else m.from_id
+        if pid not in msg_map:
+            unread=0 if m.from_id==u.id else (0 if m.is_read else 1)
+            msg_map[pid]={"last_at":m.created_at.isoformat() if m.created_at else None,"unread":unread}
+        elif not m.is_read and m.to_id==u.id:
+            msg_map[pid]["unread"]+=1
+    def _fmt(x):
+        md=msg_map.get(x.id,{})
+        return {"id":x.id,"name":x.name,"role":x.role,"photo":x.photo,
+                "last_seen":x.last_seen.isoformat() if x.last_seen else None,
+                "last_at":md.get("last_at"),"unread":md.get("unread",0)}
+    result=[_fmt(x) for x in users]
+    result.sort(key=lambda c:(c["last_at"] is not None, c["last_at"] or ""),reverse=True)
+    return result
+
+# ═══ GROUP CHATS ═══
+class GroupCreate(BaseModel):
+    name: str
+    member_ids: list[str]=[]
+
+class GroupMsgCreate(BaseModel):
+    text: str
+
+class GroupRename(BaseModel):
+    name: Optional[str]=None
+    photo: Optional[str]=None
+
+class GroupAddMember(BaseModel):
+    user_id: str
+
+@app.post("/api/groups",status_code=201)
+def create_group(d:GroupCreate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    grp=ChatGroup(name=d.name.strip()[:300],created_by=u.id)
+    db.add(grp); db.flush()
+    member_ids=list(set(d.member_ids+[u.id]))
+    for uid in member_ids:
+        if db.query(User).filter(User.id==uid).first():
+            db.execute(_sa_text("INSERT INTO chat_group_members(group_id,user_id) VALUES(:g,:u) ON CONFLICT DO NOTHING").bindparams(g=grp.id,u=uid))
+    db.commit()
+    return {"id":grp.id,"name":grp.name,"created_by":grp.created_by,"student_id":grp.student_id}
+
+@app.get("/api/groups")
+def list_groups(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    # Owner sees ALL groups; others see only groups they're a member of
+    if u.role=="owner":
+        rows=db.execute(_sa_text("SELECT id AS group_id FROM chat_groups")).fetchall()
+    else:
+        rows=db.execute(_sa_text("SELECT group_id FROM chat_group_members WHERE user_id=:u").bindparams(u=u.id)).fetchall()
+    result=[]
+    for r in rows:
+        gid=r[0]
+        grp=db.query(ChatGroup).filter(ChatGroup.id==gid).first()
+        if not grp: continue
+        mc=db.execute(_sa_text("SELECT COUNT(*) FROM chat_group_members WHERE group_id=:g").bindparams(g=gid)).scalar() or 0
+        lm=db.execute(_sa_text("SELECT text,created_at FROM group_messages WHERE group_id=:g ORDER BY created_at DESC LIMIT 1").bindparams(g=gid)).first()
+        last_text=None; last_at=None
+        if lm:
+            last_text=lm[0][:80]
+            try:
+                _j=json.loads(lm[0])
+                if _j.get("type")=="file": last_text=f"📎 {_j.get('name','файл')}"[:80]
+            except: pass
+            last_at=lm[1].isoformat() if lm[1] else None
+        reads=db.execute(_sa_text("SELECT last_read_at FROM group_message_reads WHERE group_id=:g AND user_id=:u").bindparams(g=gid,u=u.id)).first()
+        if reads:
+            unread=db.execute(_sa_text("SELECT COUNT(*) FROM group_messages WHERE group_id=:g AND from_id!=:u AND created_at>:t").bindparams(g=gid,u=u.id,t=reads[0])).scalar() or 0
+        else:
+            unread=db.execute(_sa_text("SELECT COUNT(*) FROM group_messages WHERE group_id=:g AND from_id!=:u").bindparams(g=gid,u=u.id)).scalar() or 0
+        result.append({"id":grp.id,"name":grp.name,"photo":grp.photo,"created_by":grp.created_by,"student_id":grp.student_id,
+            "member_count":mc,"last_msg_text":last_text,"last_msg_at":last_at,"unread":unread})
+    result.sort(key=lambda x:(x["last_msg_at"] is not None,x["last_msg_at"] or ""),reverse=True)
+    return result
+
+@app.get("/api/groups/{gid}")
+def get_group_info(gid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    mem=db.execute(_sa_text("SELECT 1 FROM chat_group_members WHERE group_id=:g AND user_id=:u").bindparams(g=gid,u=u.id)).first()
+    if not mem: raise HTTPException(403,"Не участник группы")
+    grp=db.query(ChatGroup).filter(ChatGroup.id==gid).first()
+    if not grp: raise HTTPException(404)
+    mrows=db.execute(_sa_text("SELECT u.id,u.name,u.role,u.photo FROM chat_group_members cm JOIN users u ON u.id=cm.user_id WHERE cm.group_id=:g").bindparams(g=gid)).fetchall()
+    members=[{"id":r[0],"name":r[1],"role":r[2],"photo":r[3]} for r in mrows]
+    return {"id":grp.id,"name":grp.name,"photo":grp.photo,"created_by":grp.created_by,"student_id":grp.student_id,"members":members}
+
+@app.get("/api/groups/{gid}/messages")
+def get_group_messages(gid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    mem=db.execute(_sa_text("SELECT 1 FROM chat_group_members WHERE group_id=:g AND user_id=:u").bindparams(g=gid,u=u.id)).first()
+    if not mem: raise HTTPException(403,"Не участник группы")
+    msgs=db.execute(_sa_text("SELECT gm.id,gm.from_id,gm.text,gm.created_at,u.name,u.photo FROM group_messages gm LEFT JOIN users u ON u.id=gm.from_id WHERE gm.group_id=:g ORDER BY gm.created_at ASC").bindparams(g=gid)).fetchall()
+    db.execute(_sa_text("INSERT INTO group_message_reads(group_id,user_id,last_read_at) VALUES(:g,:u,now()) ON CONFLICT(group_id,user_id) DO UPDATE SET last_read_at=now()").bindparams(g=gid,u=u.id))
+    db.commit()
+    return [{"id":m[0],"from_id":m[1],"text":m[2],"created_at":m[3].isoformat() if m[3] else None,"from_name":m[4] or "","from_photo":m[5]} for m in msgs]
+
+@app.post("/api/groups/{gid}/messages",status_code=201)
+def send_group_message(gid:str,d:GroupMsgCreate,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    mem=db.execute(_sa_text("SELECT 1 FROM chat_group_members WHERE group_id=:g AND user_id=:u").bindparams(g=gid,u=u.id)).first()
+    if not mem: raise HTTPException(403,"Не участник группы")
+    if not d.text.strip(): raise HTTPException(400,"Пустое сообщение")
+    mid=gen_id()
+    db.execute(_sa_text("INSERT INTO group_messages(id,group_id,from_id,text) VALUES(:id,:g,:f,:t)").bindparams(id=mid,g=gid,f=u.id,t=d.text.strip()[:4000]))
+    db.execute(_sa_text("INSERT INTO group_message_reads(group_id,user_id,last_read_at) VALUES(:g,:u,now()) ON CONFLICT(group_id,user_id) DO UPDATE SET last_read_at=now()").bindparams(g=gid,u=u.id))
+    db.commit()
+    return {"id":mid,"group_id":gid,"from_id":u.id,"text":d.text.strip(),"from_name":u.name}
+
+@app.patch("/api/groups/{gid}")
+def rename_group(gid:str,d:GroupRename,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    grp=db.query(ChatGroup).filter(ChatGroup.id==gid).first()
+    if not grp: raise HTTPException(404)
+    if grp.created_by!=u.id and u.role!="owner": raise HTTPException(403)
+    if d.name is not None: grp.name=d.name.strip()[:300]
+    if d.photo is not None: grp.photo=d.photo or None
+    db.commit()
+    return {"ok":True,"name":grp.name,"photo":grp.photo}
+
+@app.delete("/api/groups/{gid}",status_code=200)
+def delete_group(gid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    grp=db.query(ChatGroup).filter(ChatGroup.id==gid).first()
+    if not grp: raise HTTPException(404)
+    is_owner=u.role=="owner"
+    is_creator=grp.created_by==u.id
+    is_tutor_of_group=grp.tutor_id==u.id
+    if not (is_owner or is_creator or is_tutor_of_group):
+        raise HTTPException(403,"Нет прав для удаления группы")
+    db.delete(grp); db.commit()
+    return {"ok":True}
+
+@app.post("/api/groups/{gid}/members",status_code=200)
+def add_group_member(gid:str,d:GroupAddMember,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    grp=db.query(ChatGroup).filter(ChatGroup.id==gid).first()
+    if not grp: raise HTTPException(404)
+    mem=db.execute(_sa_text("SELECT 1 FROM chat_group_members WHERE group_id=:g AND user_id=:u").bindparams(g=gid,u=u.id)).first()
+    if not mem: raise HTTPException(403,"Не участник группы")
+    if grp.created_by!=u.id and u.role!="owner": raise HTTPException(403)
+    if not db.query(User).filter(User.id==d.user_id).first(): raise HTTPException(404,"Пользователь не найден")
+    db.execute(_sa_text("INSERT INTO chat_group_members(group_id,user_id) VALUES(:g,:u) ON CONFLICT DO NOTHING").bindparams(g=gid,u=d.user_id))
+    db.commit()
+    return {"ok":True}
+
+@app.delete("/api/groups/{gid}/members/{uid}",status_code=200)
+def remove_group_member(gid:str,uid:str,u:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    grp=db.query(ChatGroup).filter(ChatGroup.id==gid).first()
+    if not grp: raise HTTPException(404)
+    if uid!=u.id:
+        if grp.created_by!=u.id and u.role!="owner": raise HTTPException(403)
+    else:
+        cnt=db.execute(_sa_text("SELECT COUNT(*) FROM chat_group_members WHERE group_id=:g").bindparams(g=gid)).scalar() or 0
+        if cnt<=1: raise HTTPException(400,"Нельзя выйти из группы — вы последний участник")
+    db.execute(_sa_text("DELETE FROM chat_group_members WHERE group_id=:g AND user_id=:u").bindparams(g=gid,u=uid))
+    db.commit()
+    return {"ok":True}
 
 # ═══ PERSONAL BOARDS ═══
 @app.get("/api/personal-boards",response_model=list[PersonalBoardListItem])
@@ -1627,12 +2160,13 @@ app.mount("/cm",StaticFiles(directory="static/cm"),name="cm")
 SD="static"
 if os.path.isdir(SD):
     from fastapi.responses import FileResponse,HTMLResponse
+    _NC={"Cache-Control":"no-cache, no-store, must-revalidate","Pragma":"no-cache","Expires":"0"}
     @app.get("/api.js")
-    async def sjs(): return FileResponse(os.path.join(SD,"api.js"),media_type="application/javascript")
+    async def sjs(): return FileResponse(os.path.join(SD,"api.js"),media_type="application/javascript",headers=_NC)
     @app.get("/{p}.html")
     async def shtml(p:str):
         fp=os.path.join(SD,f"{p}.html")
-        if os.path.isfile(fp): return FileResponse(fp,media_type="text/html")
+        if os.path.isfile(fp): return FileResponse(fp,media_type="text/html",headers=_NC)
         raise HTTPException(404)
     @app.get("/")
     async def idx():

@@ -106,11 +106,19 @@ textarea{resize:vertical}
 </style>
 <link rel="stylesheet" href="/cm/codemirror.min.css">
 <link rel="stylesheet" href="/cm/vscode-dark.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="/cm/codemirror.min.js"></script>
 <script src="/cm/mode/python/python.min.js"></script>
 <script src="/cm/mode/javascript/javascript.min.js"></script>
 <script src="/cm/addon/edit/closebrackets.min.js"></script>
 <script src="/cm/addon/edit/matchbrackets.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+.tex-view{cursor:pointer;padding:2px 4px;border-radius:4px;min-height:1.2em;line-height:1.6;word-break:break-word;transition:background .1s}
+.tex-view:hover{background:rgba(255,255,255,.05);outline:1px dashed var(--border)}
+.katex-display{margin:.25em 0!important}
+</style>
 </head><body>
 
 <div class="top">
@@ -361,8 +369,8 @@ function renderSubs(it,locked){
     if(sb.type==='media'){
       const url=sb.file_path?'/'+sb.file_path.replace(/\\/g,'/'):null;
       return`<div class="subblock sb-media">${url?`<a href="${url}" target="_blank">📎 ${esc(sb.name||'файл')}</a>`:'<span class="meta">медиа</span>'}${!locked?` <button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em" onclick="delItSub('${sb.id}')">✕</button>`:''}</div>`}
-    if(!locked) return`<div class="subblock sb-edit"><textarea class="sb-ta" rows="2" placeholder="Текст комментария..." onblur="saveItSub('${sb.id}',this.value)">${esc(sb.content||'')}</textarea><button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em;flex-shrink:0;margin:3px 3px 0 0" onclick="delItSub('${sb.id}')">✕</button></div>`
-    return`<div class="subblock">${esc(sb.content||'')}</div>`
+    if(!locked) return`<div class="subblock sb-edit" style="align-items:center"><div class="tex-view" style="flex:1" data-raw="${esc(sb.content||'')}" data-save="saveItSub" data-save-args='${JSON.stringify([sb.id])}' onclick="texEdit(this)">${renderTeX(sb.content||'')||'<span style="color:var(--muted);font-size:.8em;font-style:italic">Нажмите для ввода текста...</span>'}</div><button class="btn btn-d btn-sm" style="padding:1px 6px;font-size:.72em;flex-shrink:0" onclick="delItSub('${sb.id}')">✕</button></div>`
+    return`<div class="subblock">${renderTeX(sb.content||'')}</div>`
   }).join('');
   const addBtns=!locked?`<div class="add-sub">
     <button class="btn btn-s" onclick="addItSub('${it.id}')">+ Текст</button>
@@ -379,7 +387,7 @@ function renderItem(it,sec){
   if(it.type==='topic'){
     return`<div class="item-row">
 <span class="item-icon">${icon}</span>
-<div class="item-content"><div class="item-name">${esc(it.name||'Тема')}</div></div>
+<div class="item-content"><div class="item-name tex-view" data-raw="${esc(it.name||'')}" data-save="saveItemName" data-save-args='${JSON.stringify([it.id])}' onclick="texEdit(this)">${renderTeX(it.name||'Тема')}</div></div>
 <select class="grade-sel st-${it.status||'none'}" onchange="uIt('${it.id}',{status:this.value})" style="padding:3px 7px;font-size:.82em" ${locked?'disabled':''}>
   <option value="none" ${it.status==='none'?'selected':''}>—</option>
   <option value="progress" ${it.status==='progress'?'selected':''}>▶ В работе</option>
@@ -401,8 +409,8 @@ ${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</butto
     return`<div class="item-row">
 <span class="item-icon">${icon}</span>
 <div class="item-content">
-  <div class="item-name">${esc(it.name||'ДЗ')}${it.total?` <span class="meta">(${it.total} зад.)</span>`:''}</div>
-  ${it.text?`<div class="item-sub">${esc(it.text)}</div>`:''}
+  <div class="item-name">${renderTeX(it.name||'ДЗ')}${it.total?` <span class="meta">(${it.total} зад.)</span>`:''}</div>
+  ${it.text?`<div class="item-sub">${renderTeX(it.text)}</div>`:''}
   ${answerBlock}
 </div>
 <select class="grade-sel ${gcls}" onchange="uIt('${it.id}',{grade:+this.value})" ${locked?'disabled':''}>
@@ -456,7 +464,7 @@ ${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</butto
   // generic / note
   return`<div class="item-row">
 <span class="item-icon">${icon}</span>
-<div class="item-content"><div class="item-name">${esc(it.name||it.text||it.type)}</div></div>
+<div class="item-content"><div class="item-name">${renderTeX(it.name||it.text||it.type)}</div></div>
 ${!locked?`<button class="btn btn-d btn-sm" onclick="dIt('${it.id}')">✕</button>`:''}
 </div>${renderSubs(it,locked)}`}
 
@@ -651,6 +659,49 @@ function openEditSt(){/* TODO: edit student info */}
 function openM(id){document.getElementById(id).classList.add('show')}
 function closeM(id){document.getElementById(id).classList.remove('show')}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function renderTeX(s){
+  if(!s)return'';
+  if(typeof katex==='undefined')return esc(s);
+  const re=/(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g;
+  let last=0,out='',m;
+  while((m=re.exec(s))!==null){
+    if(m.index>last)out+=esc(s.slice(last,m.index));
+    const raw=m[0],disp=raw.startsWith('$$');
+    const formula=disp?raw.slice(2,-2):raw.slice(1,-1);
+    try{out+=katex.renderToString(formula,{displayMode:disp,throwOnError:false});}
+    catch(e){out+=esc(raw);}
+    last=m.index+raw.length;
+  }
+  if(last<s.length)out+=esc(s.slice(last));
+  return out;
+}
+function saveItemName(id,val){uIt(id,{name:val||'Тема'});}
+function texEdit(div){
+  if(div._texEditing)return;
+  div._texEditing=true;
+  const raw=div.dataset.raw||'';
+  const ta=document.createElement('textarea');
+  ta.className='sb-ta';
+  ta.rows=Math.max(2,(raw.match(/\n/g)||[]).length+1);
+  ta.style.width='100%';
+  ta.value=raw;
+  ta.addEventListener('blur',function(){
+    const val=ta.value;
+    div.dataset.raw=val;
+    div.innerHTML=renderTeX(val)||'<span style="color:var(--muted);font-size:.8em;font-style:italic">Нажмите для редактирования...</span>';
+    div.style.display='';
+    ta.remove();
+    div._texEditing=false;
+    const fn=div.dataset.save;
+    if(fn&&window[fn]){
+      const args=JSON.parse(div.dataset.saveArgs||'[]');
+      window[fn](...args,val);
+    }
+  });
+  div.style.display='none';
+  div.parentNode.insertBefore(ta,div.nextSibling);
+  ta.focus();
+}
 
 ld();
 </script></body></html>

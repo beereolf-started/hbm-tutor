@@ -1,7 +1,7 @@
 const API_BASE='';
 function hdr(){const t=localStorage.getItem('token');return{'Content-Type':'application/json',...(t?{'Authorization':'Bearer '+t}:{})}}
 async function api(method,url,body){
-    const r=await fetch(API_BASE+url,{method,headers:hdr(),...(body?{body:JSON.stringify(body)}:{})});
+    const r=await fetch(API_BASE+url,{method,headers:hdr(),cache:'no-store',...(body?{body:JSON.stringify(body)}:{})});
     if(r.status===401){localStorage.clear();location.href='/login.html';return}
     if(r.status===204)return null;
     const j=await r.json();if(!r.ok)throw j;return j}

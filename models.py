@@ -260,3 +260,28 @@ class ScheduleSlot(Base):
     created_at=Column(DateTime(timezone=True),server_default=func.now())
     tutor=relationship("User",foreign_keys=[tutor_id])
     student=relationship("Student",foreign_keys=[student_id])
+
+chat_group_members = Table("chat_group_members", Base.metadata,
+    Column("group_id", String(12), ForeignKey("chat_groups.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", String(12), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True))
+
+class ChatGroup(Base):
+    __tablename__="chat_groups"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    name=Column(String(300),nullable=False)
+    photo=Column(Text,nullable=True)
+    created_by=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
+    student_id=Column(String(12),ForeignKey("students.id",ondelete="CASCADE"),nullable=True)
+    tutor_id=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    creator=relationship("User",foreign_keys=[created_by])
+    members=relationship("User",secondary="chat_group_members")
+
+class GroupMessage(Base):
+    __tablename__="group_messages"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    group_id=Column(String(12),ForeignKey("chat_groups.id",ondelete="CASCADE"),nullable=False)
+    from_id=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
+    text=Column(Text,nullable=False)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    sender=relationship("User",foreign_keys=[from_id])
