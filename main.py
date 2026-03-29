@@ -1209,8 +1209,13 @@ trf=standard_transformations+(implicit_multiplication_application,)
 ns={{'x':x,'y':y,'sqrt':sp.sqrt,'cbrt':lambda a:a**sp.Rational(1,3),
      'sin':sp.sin,'cos':sp.cos,'tan':sp.tan,
      'asin':sp.asin,'acos':sp.acos,'atan':sp.atan,
-     'ln':sp.ln,'log':sp.ln,'log10':sp.log,'log2':lambda a:sp.log(a,2),
+     'arcsin':sp.asin,'arccos':sp.acos,'arctan':sp.atan,
+     'cot':lambda a:sp.cos(a)/sp.sin(a),'arccot':lambda a:sp.pi/2-sp.atan(a),
+     'sinh':sp.sinh,'cosh':sp.cosh,'tanh':sp.tanh,
+     'arcsinh':sp.asinh,'arccosh':sp.acosh,'arctanh':sp.atanh,
+     'ln':sp.ln,'log':sp.ln,'log10':lambda a:sp.log(a,10),'log2':lambda a:sp.log(a,2),
      'exp':sp.exp,'abs':sp.Abs,'pi':sp.pi,'e':sp.E}}
+
 def parse(s):
     s=s.replace('^','**')
     idx=s.find('=')
@@ -1218,47 +1223,98 @@ def parse(s):
         lhs,rhs=s[:idx].strip(),s[idx+1:].strip()
         if lhs=='y': return parse_expr(rhs,local_dict=ns,transformations=trf)
         if rhs=='y': return parse_expr(lhs,local_dict=ns,transformations=trf)
-        # f(x,y)=g(x,y) → solve numerically only
         return None
     return parse_expr(s,local_dict=ns,transformations=trf)
+
+def verify_real(f1,f2,xf,tol=1e-5):
+    try:
+        xfp=sp.Float(xf,30)
+        v1=complex(f1.subs(x,xfp).evalf(20))
+        v2=complex(f2.subs(x,xfp).evalf(20))
+        if abs(v1.imag)>tol or abs(v2.imag)>tol: return False
+        if abs(v1.real-v2.real)>tol: return False
+        return True
+    except: return False
+
+def try_even_power_sub(diff_expr,f1,f2):
+    try:
+        p=sp.Poly(diff_expr,x)
+        dct=p.as_dict()
+        degs=[m[0] for m in dct.keys()]
+        if not all(d%2==0 for d in degs): return None
+        u=sp.Symbol('u')
+        u_expr=sum(c*u**(d[0]//2) for d,c in dct.items())
+        u_sols=sp.solveset(sp.Eq(u_expr,0),u,domain=sp.S.Reals)
+        if not isinstance(u_sols,sp.sets.FiniteSet): return None
+        x_sols=[]
+        for uv in u_sols:
+            try:
+                uv_s=sp.simplify(uv)  # NO nsimplify — it corrupts nested radicals
+                uv_f=float(uv_s.evalf(30))
+            except: continue
+            if uv_f<-1e-10: continue
+            if abs(uv_f)<1e-10:
+                x_sols.append(sp.Integer(0))
+            else:
+                sq=sp.simplify(sp.sqrt(uv_s))
+                x_sols.extend([sq,-sq])
+        return x_sols if x_sols else None
+    except: return None
+
 try:
     f1=parse({repr(eq1)})
     f2=parse({repr(eq2)})
     if f1 is None or f2 is None:
-        print(json.dumps({{'ok':False,'reason':'not yfx'}}))
-        sys.exit(0)
+        print(json.dumps({{'ok':False,'reason':'not yfx'}})); sys.exit(0)
+
+    # Strategy 1: direct solveset
+    x_solutions=None
     sols=sp.solveset(sp.Eq(f1,f2),x,domain=sp.S.Reals)
-    if not isinstance(sols,sp.sets.FiniteSet):
-        # Infinite/conditional set — fall back to numeric in JS
-        print(json.dumps({{'ok':False,'reason':'infinite_set'}})); sys.exit(0)
-    sols=list(sols)
-    out=[]
-    for xv in sols:
-        # Skip CRootOf (non-radical algebraic numbers) — fall back to numeric
-        if xv.has(sp.CRootOf) or xv.has(sp.RootOf):
-            print(json.dumps({{'ok':False,'reason':'rootof'}})); sys.exit(0)
-        xv=sp.nsimplify(sp.simplify(xv),rational=False,tolerance=1e-10)
-        if xv.has(sp.CRootOf) or xv.has(sp.RootOf):
-            print(json.dumps({{'ok':False,'reason':'rootof'}})); sys.exit(0)
+    if isinstance(sols,sp.sets.FiniteSet):
+        cands=list(sols)
+        # Only use Strategy 1 if NO CRootOf in results
+        if not any(c.has(sp.CRootOf) or c.has(sp.RootOf) for c in cands):
+            x_solutions=cands
+
+    # Strategy 2: even-power polynomial substitution (handles x^8, x^6,... polynomials)
+    if x_solutions is None:
         try:
-            yv=sp.simplify(f1.subs(x,xv))
-            yv=sp.nsimplify(yv,rational=False,tolerance=1e-10)
-        except:
-            yv=None
-        try: xf=float(sp.re(xv.evalf()))
-        except: continue
-        try: yf=float(sp.re(yv.evalf())) if yv is not None else None
-        except: yf=None
-        if yf is None: continue
-        try:
-            if abs(float(sp.im(yv.evalf())))>1e-9: continue
+            diff=sp.expand(f1-f2)
+            x_solutions=try_even_power_sub(diff,f1,f2)
         except: pass
-        xl,yl=sp.latex(xv),sp.latex(yv if yv is not None else sp.Integer(0))
-        # Reject if LaTeX too long (unsimplified mess)
-        if len(xl)>120 or len(yl)>120:
-            print(json.dumps({{'ok':False,'reason':'too_complex'}})); sys.exit(0)
+
+    # Strategy 3: use solveset result anyway (even with CRootOf — filter per-solution)
+    if x_solutions is None and isinstance(sols,sp.sets.FiniteSet):
+        x_solutions=list(sols)
+    elif x_solutions is None:
+        print(json.dumps({{'ok':False,'reason':'infinite_or_unsolvable'}})); sys.exit(0)
+
+    out=[]; had_rootof=False
+    for xv in x_solutions:
+        if xv.has(sp.CRootOf) or xv.has(sp.RootOf):
+            had_rootof=True; continue
+        xv_s=sp.simplify(xv)  # simplify only — nsimplify corrupts nested radicals
+        if xv_s.has(sp.CRootOf) or xv_s.has(sp.RootOf):
+            had_rootof=True; continue
+        try: xf=float(sp.re(xv_s.evalf(50)))
+        except: continue
+        # Filter false roots (domain restrictions for sqrt etc.)
+        if not verify_real(f1,f2,xf): continue
+        try:
+            yv=sp.simplify(f1.subs(x,xv_s))
+            if yv.has(sp.CRootOf):
+                yf=float(sp.re(yv.evalf(30)))
+                yv=sp.Float(yf,10)
+            yv_s=sp.simplify(yv)
+        except: continue
+        try:
+            yf=float(sp.re(yv_s.evalf(30)))
+            if abs(float(sp.im(yv_s.evalf(30))))>1e-6: continue
+        except: continue
+        xl=sp.latex(xv_s); yl=sp.latex(yv_s)
+        if len(xl)>150 or len(yl)>150: continue
         out.append({{'xLatex':xl,'yLatex':yl,'xFloat':xf,'yFloat':yf}})
-    print(json.dumps({{'ok':True,'solutions':out}}))
+    print(json.dumps({{'ok':True,'solutions':out,'partial':had_rootof}}))
 except Exception as ex:
     print(json.dumps({{'ok':False,'reason':str(ex)}}))
 """

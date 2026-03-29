@@ -445,6 +445,40 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
   font-size:.8em;white-space:nowrap;transition:background .12s}
 .cs-btn:hover{background:var(--accent);color:#fff}
 .cs-btn.active{background:var(--accent);color:#fff}
+/* ── Math keyboard ─────────────────────────────────────── */
+.math-kb{margin-top:4px;user-select:none}
+.eq-preview{
+  min-height:28px;padding:3px 10px;margin-bottom:4px;
+  border:1px solid var(--sep);border-radius:6px;
+  background:#0d1117;overflow-x:auto;white-space:nowrap;
+  display:flex;align-items:center;cursor:default;gap:0}
+.eq-preview .katex{font-size:.95em}
+.eq-preview-ph{color:var(--fg-dim);font-style:italic;font-size:.78em}
+.math-kb-tabs{
+  display:flex;gap:2px;margin-bottom:4px;
+  border-bottom:1px solid var(--sep);padding-bottom:3px;overflow-x:auto}
+.math-kb-tab{
+  background:none;border:none;color:var(--fg-dim);font-size:.73em;
+  padding:2px 7px;border-radius:4px;cursor:pointer;white-space:nowrap;
+  transition:background .12s,color .12s;flex-shrink:0}
+.math-kb-tab.act{background:var(--accent-bg);color:var(--accent)}
+.math-kb-tab:disabled{opacity:.35;cursor:default}
+.math-kb-row{display:flex;gap:2px;margin-bottom:2px}
+.math-kb-btn{
+  flex:1;min-width:0;background:#1c2128;
+  border:1px solid var(--sep);border-radius:5px;
+  color:var(--fg);font-size:.74em;padding:4px 1px;
+  cursor:pointer;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;transition:background .1s,border-color .1s;
+  font-family:monospace;line-height:1.3}
+.math-kb-btn:hover{background:#2d333b;border-color:var(--accent)}
+.math-kb-btn.kb-op{color:#79c0ff}
+.math-kb-btn.kb-fn{color:#d2a8ff}
+.math-kb-btn.kb-const{color:#ffa657}
+.math-kb-btn.kb-tpl{color:#5da0f0;font-family:serif}
+.math-kb-btn.kb-tpl b{color:#79c0ff;font-family:sans-serif;font-style:normal}
+.math-kb-btn.kb-back{background:#2a1c1c;color:#ef4444;border-color:#3d1f1f;font-family:sans-serif}
+.math-kb-msg{padding:10px 6px;color:var(--fg-dim);text-align:center;font-size:.8em}
 </style>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
@@ -1838,11 +1872,35 @@ function _preprocess(s) {
   s = s.trim();
   /* Unicode → ASCII */
   s = s.replace(/π/g,'pi').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+  /* Russian/alternative notation → standard */
+  s = s.replace(/\barcctg\b/g,'arccot').replace(/\barctg\b/g,'arctan')
+       .replace(/\barcsh\b/g,'arcsinh').replace(/\barcch\b/g,'arccosh').replace(/\barcth\b/g,'arctanh')
+       .replace(/\bctg\b/g,'cot').replace(/\btg\b/g,'tan')
+       .replace(/\bsh\b/g,'sinh').replace(/\bch\b/g,'cosh').replace(/\bth\b/g,'tanh')
+       .replace(/\blg\b/g,'log10');
+  /* log_(base)(arg) → log2/log10/ln/general — full bracket matching */
+  s = (function _expandLogBase(str){
+    const re=/log_\(([^)]+)\)\s*\(/g; let out='',last=0,m;
+    while((m=re.exec(str))!==null){
+      const base=m[1].trim(); const oI=m.index+m[0].length-1;
+      let dep=0,cI=oI;
+      for(let i=oI;i<str.length;i++){if(str[i]==='(')dep++;else if(str[i]===')')if(--dep===0){cI=i;break;}}
+      const arg=str.slice(oI+1,cI);
+      out+=str.slice(last,m.index);
+      if(base==='2')out+=`log2(${arg})`;
+      else if(base==='10')out+=`log10(${arg})`;
+      else if(base==='e')out+=`ln(${arg})`;
+      else out+=`(ln(${arg})/ln(${base}))`;
+      last=cI+1; re.lastIndex=last;
+    }
+    return out+str.slice(last);
+  })(s);
   /* Normalize: remove spaces around operators */
   s = s.replace(/\s+/g,' ');
   /* Known functions (order matters: longer names first) */
   const FUNS = ['sqrt','cbrt','sinh','cosh','tanh','asin','acos','atan2','atan',
-                'arcsin','arccos','arctan','sin','cos','tan','abs','exp','log10',
+                'arcsin','arccos','arctan','arccot','arcsinh','arccosh','arctanh',
+                'cot','sin','cos','tan','abs','exp','log10',
                 'log2','log','ln','sign','floor','ceil','round','max','min'];
   /* Implicit multiplication rules (applied before function → Math.* substitution):
      1) digit immediately before letter or (  →  digit * ...
@@ -1870,6 +1928,7 @@ function _preprocess(s) {
   }
   /* arcsin/arccos/arctan → asin/acos/atan */
   s = s.replace(/\barcsin\b/g,'asin').replace(/\barccos\b/g,'acos').replace(/\barctan\b/g,'atan');
+  /* arccot/arcsinh/arccosh/arctanh pass through (defined as JS helpers in mathEval) */
   /* log without base → ln (natural log, WolframAlpha convention) */
   s = s.replace(/\blog\b(?!\s*\d)/g,'ln');
   /* log10 stays, log2 stays */
@@ -1908,7 +1967,10 @@ function mathEval(expr, xVal, yVal) {
       .replace(/\bpi\b/gi,   'Math.PI')
       .replace(/(?<![A-Za-z_\d\.])e(?![A-Za-z_0-9])/g, 'Math.E');
     // eslint-disable-next-line no-new-func
-    return new Function('x','y', '"use strict";return (' + code + ');')(xVal, yVal);
+    return new Function('x','y', '"use strict";'+
+      'const cot=v=>1/Math.tan(v),arccot=v=>Math.PI/2-Math.atan(v),acot=arccot;'+
+      'const arcsinh=Math.asinh,arccosh=Math.acosh,arctanh=Math.atanh;'+
+      'return (' + code + ');')(xVal, yVal);
   } catch { return NaN; }
 }
 
@@ -1967,6 +2029,247 @@ function csParallelogramAt(wx, wy) {
 
 /* ── CS unified panel ──
    Call with (la, lb) to show/update, or (null, null) to hide. */
+/* ── Math keyboard panel ───────────────────────────────────── */
+/* Convert plain formula text to LaTeX for preview rendering */
+function _eqToLatex(raw) {
+  if (!raw) return '';
+  let s = raw.replace(/π/g,'pi').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+  s = s.replace(/\barcctg\b/g,'arccot').replace(/\barctg\b/g,'arctan')
+       .replace(/\bctg\b/g,'cot').replace(/\btg\b/g,'tan')
+       .replace(/\blg\b/g,'log10');
+  function exBr(str,i){let d=0,j=i;while(j<str.length){if(str[j]==='(')d++;else if(str[j]===')')if(--d===0)return j;j++;}return str.length-1;}
+  const FUNS=[
+    ['log10',  a=>`\\log_{10}\\!\\left(${cv(a)}\\right)`],
+    ['log2',   a=>`\\log_{2}\\!\\left(${cv(a)}\\right)`],
+    ['arcsinh',a=>`\\operatorname{arcsinh}\\!\\left(${cv(a)}\\right)`],
+    ['arccosh',a=>`\\operatorname{arccosh}\\!\\left(${cv(a)}\\right)`],
+    ['arctanh',a=>`\\operatorname{arctanh}\\!\\left(${cv(a)}\\right)`],
+    ['arcsin', a=>`\\arcsin\\!\\left(${cv(a)}\\right)`],
+    ['arccos', a=>`\\arccos\\!\\left(${cv(a)}\\right)`],
+    ['arctan', a=>`\\arctan\\!\\left(${cv(a)}\\right)`],
+    ['arccot', a=>`\\operatorname{arccot}\\!\\left(${cv(a)}\\right)`],
+    ['sinh',   a=>`\\sinh\\!\\left(${cv(a)}\\right)`],
+    ['cosh',   a=>`\\cosh\\!\\left(${cv(a)}\\right)`],
+    ['tanh',   a=>`\\tanh\\!\\left(${cv(a)}\\right)`],
+    ['sqrt',   a=>`\\sqrt{${cv(a)}}`],
+    ['cbrt',   a=>`\\sqrt[3]{${cv(a)}}`],
+    ['sin',    a=>`\\sin\\!\\left(${cv(a)}\\right)`],
+    ['cos',    a=>`\\cos\\!\\left(${cv(a)}\\right)`],
+    ['tan',    a=>`\\tan\\!\\left(${cv(a)}\\right)`],
+    ['cot',    a=>`\\cot\\!\\left(${cv(a)}\\right)`],
+    ['exp',    a=>`e^{${cv(a)}}`],
+    ['ln',     a=>`\\ln\\!\\left(${cv(a)}\\right)`],
+    ['log',    a=>`\\ln\\!\\left(${cv(a)}\\right)`],
+    ['abs',    a=>`\\left|${cv(a)}\\right|`],
+    ['floor',  a=>`\\lfloor ${cv(a)}\\rfloor`],
+    ['ceil',   a=>`\\lceil ${cv(a)}\\rceil`],
+    ['round',  a=>`\\operatorname{round}\\!\\left(${cv(a)}\\right)`],
+    ['sign',   a=>`\\operatorname{sign}\\!\\left(${cv(a)}\\right)`],
+    ['max',    a=>`\\max\\!\\left(${cv(a)}\\right)`],
+    ['min',    a=>`\\min\\!\\left(${cv(a)}\\right)`],
+    /* log_(base)(arg) */
+    ['log_',   null], // handled specially below
+  ];
+  function cv(s){
+    let r='',i=0;
+    while(i<s.length){
+      /* log_(base)( */
+      if(s.startsWith('log_(',i)){
+        const bi=i+5; const bEnd=exBr(s,i+4);
+        const base=s.slice(bi,bEnd);
+        if(bEnd+1<s.length&&s[bEnd+1]==='('){
+          const aEnd=exBr(s,bEnd+1);
+          r+=`\\log_{${cv(base)}}\\!\\left(${cv(s.slice(bEnd+2,aEnd))}\\right)`;
+          i=aEnd+1; continue;
+        }
+      }
+      /* known functions */
+      let hit=false;
+      for(const [name,fmt] of FUNS){
+        if(!fmt)continue;
+        if(s.startsWith(name,i)){
+          const ni=i+name.length;
+          if(ni<s.length&&s[ni]==='('){
+            const cI=exBr(s,ni);
+            r+=fmt(s.slice(ni+1,cI)); i=cI+1; hit=true; break;
+          }
+        }
+      }
+      if(hit)continue;
+      /* pi */
+      if(s.startsWith('pi',i)&&(i+2>=s.length||!/\w/.test(s[i+2]))&&(i===0||!/\w/.test(s[i-1]))){r+='\\pi';i+=2;continue;}
+      /* ^ superscript */
+      if(s[i]==='^'){i++;
+        if(i<s.length&&s[i]==='('){const cI=exBr(s,i);r+=`^{${cv(s.slice(i+1,cI))}}`;i=cI+1;}
+        else if(i<s.length){r+=`^{${s[i]}}`;i++;}
+        else r+='^'; continue;
+      }
+      /* _ subscript */
+      if(s[i]==='_'){i++;
+        if(i<s.length&&s[i]==='('){const cI=exBr(s,i);r+=`_{${cv(s.slice(i+1,cI))}}`;i=cI+1;}
+        else if(i<s.length){r+=`_{${s[i]}}`;i++;}
+        else r+='_'; continue;
+      }
+      if(s[i]==='*'){r+='\\cdot ';i++;continue;}
+      if(s[i]==='('){r+='\\left(';i++;continue;}
+      if(s[i]===')'){{r+='\\right)';i++;continue;}}
+      r+=s[i]; i++;
+    }
+    return r;
+  }
+  try{return cv(s);}catch(e){return raw;}
+}
+
+function buildMathKb(inp) {
+  const kb = document.createElement('div'); kb.className = 'math-kb';
+
+  /* ── Live preview ── */
+  const prev = document.createElement('div'); prev.className = 'eq-preview';
+  function updatePrev() {
+    const v = inp.value.trim();
+    if (!v) { prev.innerHTML = '<span class="eq-preview-ph">введите формулу…</span>'; return; }
+    if (typeof katex !== 'undefined') {
+      try { katex.render(_eqToLatex(v), prev, {throwOnError:false,displayMode:false}); return; }
+      catch(e) {}
+    }
+    prev.textContent = v;
+  }
+  inp.addEventListener('input', updatePrev);
+  /* defer first render until katex loads */
+  if (typeof katex !== 'undefined') updatePrev();
+  else { prev.innerHTML = '<span class="eq-preview-ph">введите формулу…</span>'; setTimeout(updatePrev,800); }
+  kb.appendChild(prev);
+
+  const tabBar = document.createElement('div'); tabBar.className = 'math-kb-tabs';
+  const content = document.createElement('div');
+
+  /* ── Insert helper ── */
+  function ins(s) {
+    const st = inp.selectionStart ?? inp.value.length;
+    const en = inp.selectionEnd ?? st;
+    const sel = inp.value.slice(st, en);
+    let txt = s, cur;
+    if (s.endsWith('(')) {
+      /* Function: always close paren, cursor inside */
+      if (sel) { txt = s + sel + ')'; cur = st + txt.length; }
+      else { txt = s + ')'; cur = st + s.length; }
+    } else if (s === '^()') {
+      /* Superscript template */
+      if (sel) { txt = '(' + sel + ')^()'; cur = st + txt.length - 1; }
+      else { txt = '^()'; cur = st + 2; }
+    } else if (s === '_()') {
+      /* Subscript template */
+      if (sel) { txt = sel + '_()'; cur = st + txt.length - 1; }
+      else { txt = '_()'; cur = st + 2; }
+    } else if (s === '^(2)') {
+      if (sel) { txt = '(' + sel + ')^(2)'; cur = st + txt.length; }
+      else { txt = '^(2)'; cur = st + txt.length; }
+    } else {
+      cur = st + s.length;
+    }
+    inp.value = inp.value.slice(0, st) + txt + inp.value.slice(en);
+    inp.selectionStart = inp.selectionEnd = cur;
+    inp.focus();
+    inp.dispatchEvent(new Event('input'));
+  }
+
+  function mkB(label, val, cls='') {
+    const b = document.createElement('button');
+    b.className = 'math-kb-btn' + (cls ? ' '+cls : '');
+    b.textContent = label; b.type = 'button';
+    b.onmousedown = e => { e.preventDefault(); ins(val); };
+    return b;
+  }
+  /* Button with HTML label (for templates) */
+  function mkBH(html, val, cls='') {
+    const b = document.createElement('button');
+    b.className = 'math-kb-btn' + (cls ? ' '+cls : '');
+    b.innerHTML = html; b.type = 'button';
+    b.onmousedown = e => { e.preventDefault(); ins(val); };
+    return b;
+  }
+  function row(...btns) {
+    const r = document.createElement('div'); r.className = 'math-kb-row';
+    btns.forEach(b => r.appendChild(b)); return r;
+  }
+  function mkBack() {
+    const b = document.createElement('button');
+    b.className = 'math-kb-btn kb-back'; b.textContent = '⌫'; b.type = 'button';
+    b.onmousedown = e => {
+      e.preventDefault();
+      const st=inp.selectionStart, en=inp.selectionEnd;
+      if(st!==en){ inp.value=inp.value.slice(0,st)+inp.value.slice(en); inp.selectionStart=inp.selectionEnd=st; }
+      else if(st>0){ inp.value=inp.value.slice(0,st-1)+inp.value.slice(st); inp.selectionStart=inp.selectionEnd=st-1; }
+      inp.focus(); inp.dispatchEvent(new Event('input'));
+    };
+    return b;
+  }
+
+  const TABS = [
+    { label: 'Осн', render() {
+      content.append(
+        row(mkB('7','7'),mkB('8','8'),mkB('9','9'),mkB('÷','/', 'kb-op'),mkB('(','(', 'kb-op'),mkB(')',')', 'kb-op')),
+        row(mkB('4','4'),mkB('5','5'),mkB('6','6'),mkB('+','+', 'kb-op'),mkB('−','-', 'kb-op'),mkBack()),
+        row(mkB('1','1'),mkB('2','2'),mkB('3','3'),mkB('×','*', 'kb-op'),mkB('x','x', 'kb-op'),mkB('y','y', 'kb-op')),
+        row(mkB('0','0'),mkB('.', '.'),mkB('π','π', 'kb-const'),mkB('e','e', 'kb-const'),mkB('=','=', 'kb-op'),
+            mkBH('√<b>□</b>','sqrt(', 'kb-fn kb-tpl')),
+        row(
+          mkBH('<b>□</b><sup style="font-size:.6em">2</sup>','^(2)', 'kb-tpl'),
+          mkBH('<b>□</b><sup style="font-size:.6em">n</sup>','^()', 'kb-tpl'),
+          mkBH('<b>□</b><sub style="font-size:.6em">n</sub>','_()', 'kb-tpl'),
+          mkBH('∛<b>□</b>','cbrt(', 'kb-fn kb-tpl'),
+          mkBH('|<b>□</b>|','abs(', 'kb-fn kb-tpl'))
+      );
+    }},
+    { label: 'Trig', render() {
+      content.append(
+        row(mkB('sin','sin(', 'kb-fn'),mkB('cos','cos(', 'kb-fn'),mkB('tan','tan(', 'kb-fn'),mkB('ctg','cot(', 'kb-fn')),
+        row(mkB('arcsin','arcsin(', 'kb-fn'),mkB('arccos','arccos(', 'kb-fn')),
+        row(mkB('arctan','arctan(', 'kb-fn'),mkB('arcctg','arccot(', 'kb-fn')),
+        row(mkB('sinh','sinh(', 'kb-fn'),mkB('cosh','cosh(', 'kb-fn'),mkB('tanh','tanh(', 'kb-fn')),
+        row(mkB('π','π', 'kb-const'),mkB('2π','2*pi', 'kb-const'),mkB('π/2','pi/2', 'kb-const'))
+      );
+    }},
+    { label: 'Log', render() {
+      content.append(
+        row(mkB('ln','ln(', 'kb-fn'),mkB('lg','log10(', 'kb-fn'),mkB('log₂','log2(', 'kb-fn')),
+        row(mkBH('log<sub style="font-size:.7em">n</sub>','log_()', 'kb-fn kb-tpl'),
+            mkB('exp','exp(', 'kb-fn'),mkB('e','e', 'kb-const')),
+        row(mkB('e²','e^(2)', 'kb-const'),mkB('eˣ','exp(', 'kb-fn'),mkB('10ˣ','10^(', 'kb-fn'))
+      );
+    }},
+    { label: 'Разн', render() {
+      content.append(
+        row(mkB('floor','floor(', 'kb-fn'),mkB('ceil','ceil(', 'kb-fn'),mkB('round','round(', 'kb-fn')),
+        row(mkB('max','max(', 'kb-fn'),mkB('min','min(', 'kb-fn'),mkB('sign','sign(', 'kb-fn')),
+        row(mkB('mod','%', 'kb-op'),mkB('n!','!', 'kb-op'),mkB('∞','Infinity', 'kb-const'))
+      );
+    }},
+    { label: '∫', render() {
+      const m = document.createElement('div'); m.className = 'math-kb-msg';
+      m.textContent = 'Матанализ — скоро'; content.appendChild(m);
+    }, disabled: true }
+  ];
+
+  let curTab = 0;
+  TABS.forEach((t, i) => {
+    const tb = document.createElement('button');
+    tb.className = 'math-kb-tab' + (i===0?' act':'');
+    tb.textContent = t.label; tb.type = 'button';
+    if (t.disabled) tb.disabled = true;
+    tb.onmousedown = e => {
+      e.preventDefault(); curTab = i;
+      tabBar.querySelectorAll('.math-kb-tab').forEach((b,j) => b.classList.toggle('act', j===i));
+      content.innerHTML = ''; TABS[i].render();
+    };
+    tabBar.appendChild(tb);
+  });
+
+  kb.appendChild(tabBar); kb.appendChild(content);
+  TABS[0].render();
+  return kb;
+}
+
 function updateCSPanels(la, lb) {
   const panel = document.getElementById('csSetPanel');
 
@@ -2214,13 +2517,22 @@ function updateCSPanels(la, lb) {
     cpk.onchange=()=>{ const _la=getLa(); wsSend({type:'stroke_update',data:{..._la}}); };
 
     const eq=document.createElement('span'); eq.className='csg-eq';
-    eq.textContent=g.eq; eq.title='Нажмите для редактирования';
+    eq.title='Нажмите для редактирования';
+    function _renderEq(eqEl, eqStr) {
+      if (typeof katex !== 'undefined') {
+        try { katex.render(_eqToLatex(eqStr), eqEl, {throwOnError:false,displayMode:false}); return; }
+        catch(e) {}
+      }
+      eqEl.textContent = eqStr;
+    }
+    _renderEq(eq, g.eq);
     eq.onclick=()=>{
       const curEq = liveG().eq || g.eq;
       const nw=prompt('Уравнение:',curEq);
       if (nw!==null && nw.trim()) {
         const lg=liveG(); const p=parseEqn(nw.trim());
         lg.eq=g.eq=nw.trim(); if(p){ lg.mode=g.mode=p.mode; }
+        _renderEq(eq, lg.eq);
         const _la=getLa(),_lb=getLb();
         redraw(); wsSend({type:'stroke_update',data:{..._la}}); updateCSPanels(_la,_lb); }
     };
@@ -2303,11 +2615,7 @@ function updateCSPanels(la, lb) {
   eqInp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addBtn.click();}});
 
   addRow.append(colorDot,colorPick,eqInp,addBtn); panel.appendChild(addRow);
-
-  const hint=document.createElement('div');
-  hint.style.cssText='font-size:.69em;color:var(--fg-dim);padding-top:1px';
-  hint.textContent='y=f(x) · x=f(y) · F(x,y)=G(x,y) · sin cos sqrt ln ^ pi';
-  panel.appendChild(hint);
+  panel.appendChild(buildMathKb(eqInp));
 }
 
 function updateSelBar() {
@@ -3860,7 +4168,7 @@ function numericalIntersect(g1,g2,rangeA,rangeB,offA,offB){
     if(Math.abs(x-offA)>rangeA*1.02||Math.abs(y-offB)>rangeB*1.02)return null;
     return{mathX:x,mathY:y};
   }
-  function add(r){if(!r)return;const k=`${Math.round(r.mathX*1e5)},${Math.round(r.mathY*1e5)}`;if(seen.has(k))return;seen.add(k);const xv=toExactVal(r.mathX),yv=toExactVal(r.mathY);pts.push({...r,xExact:xv,yExact:yv,exact:false});}
+  function add(r){if(!r)return;const k=`${Math.round(r.mathX*1e5)},${Math.round(r.mathY*1e5)}`;if(seen.has(k))return;seen.add(k);const xv=toExactVal(r.mathX,1e-9),yv=toExactVal(r.mathY,1e-9);pts.push({...r,xExact:xv,yExact:yv,exact:false});}
   if(p1.mode==='yfx'&&p2.mode==='yfx'){
     const N=300;let prev=null;
     for(let i=0;i<=N;i++){
@@ -3926,29 +4234,56 @@ async function computeAllIntersections(la,lb){
   const rawPts=[];
   for(let i=0;i<graphs.length;i++) for(let j=i+1;j<graphs.length;j++){
     const g1=graphs[i],g2=graphs[j];
+    /* Always compute numerical/algebraic baseline — guaranteed complete */
+    let numPts=algebraicIntersect(g1,g2);
+    if(!numPts) numPts=numericalIntersect(g1,g2,rangeA,rangeB,offA,offB);
+
+    /* Try SymPy for exact labels */
     let symPts=null;
-    /* Try SymPy first */
     try{
       const r=await fetch('/api/cs/solve',{method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('token')},
         body:JSON.stringify({eq1:g1.eq,eq2:g2.eq})});
       if(r.ok){const d=await r.json(); if(d.ok)symPts=d.solutions;}
     }catch{}
+
     if(symPts&&symPts.length>0){
-      /* Normalize SymPy results: add mathX/mathY; reject ugly LaTeX (RootOf etc.) */
-      const MAX_LATEX=80;
-      for(const s of symPts){
-        const mx=s.xFloat, my=s.yFloat;
-        if(!isFinite(mx)||!isFinite(my))continue;
-        const ugly=s.xLatex&&(s.xLatex.includes('operatorname')||s.xLatex.includes('RootOf')||s.xLatex.length>MAX_LATEX);
-        rawPts.push({mathX:mx,mathY:my,
-          xLatex:ugly?null:s.xLatex, yLatex:ugly?null:s.yLatex});
+      /* Merge: for each numerical point find the nearest SymPy point (within MERGE_TOL)
+         and attach its exact LaTeX. Points not matched by SymPy are kept as numeric.
+         SymPy points outside visible range are filtered by _buildISectResult. */
+      const MERGE_TOL=1e-3;
+      const MAX_LATEX=120;
+      // Build SymPy point array with cleaned labels
+      const spts=symPts.filter(s=>isFinite(s.xFloat)&&isFinite(s.yFloat)).map(s=>{
+        const ugly=s.xLatex&&(s.xLatex.includes('operatorname')||
+          s.xLatex.includes('RootOf')||s.xLatex.length>MAX_LATEX);
+        return{mathX:s.xFloat,mathY:s.yFloat,
+          xLatex:ugly?null:s.xLatex,yLatex:ugly?null:s.yLatex};
+      });
+      const usedSym=new Set();
+      // Attach SymPy label to each numerical point if close enough
+      const merged=numPts.map(np=>{
+        let bestI=-1,bestD=MERGE_TOL;
+        for(let k=0;k<spts.length;k++){
+          const d=Math.hypot(spts[k].mathX-np.mathX,spts[k].mathY-np.mathY);
+          if(d<bestD){bestD=d;bestI=k;}
+        }
+        if(bestI>=0){
+          usedSym.add(bestI);
+          const sp=spts[bestI];
+          // Use SymPy's exact float (higher precision from solveset)
+          return{...np,mathX:sp.mathX,mathY:sp.mathY,xLatex:sp.xLatex,yLatex:sp.yLatex};
+        }
+        return np;
+      });
+      // Add SymPy points that have no matching numerical counterpart
+      // (numerical might have missed them due to sampling density)
+      for(let k=0;k<spts.length;k++){
+        if(!usedSym.has(k)) merged.push(spts[k]);
       }
+      rawPts.push(...merged);
     } else {
-      /* fallback: JS algebraic, then numerical */
-      let pts=algebraicIntersect(g1,g2);
-      if(!pts) pts=numericalIntersect(g1,g2,rangeA,rangeB,offA,offB);
-      rawPts.push(...pts);
+      rawPts.push(...numPts);
     }
   }
   return _buildISectResult(la,lb,rawPts,O,scaleA,scaleB,offA,offB,nA,nB,rangeA,rangeB);
