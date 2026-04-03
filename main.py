@@ -55,6 +55,7 @@ async def _startup_migrate():
         )""",
         "CREATE INDEX IF NOT EXISTS idx_lr_tutor_date ON lesson_records(tutor_id, held_at)",
         "CREATE INDEX IF NOT EXISTS idx_lr_student_date ON lesson_records(student_id, held_at)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS no_commission BOOLEAN DEFAULT FALSE",
         """CREATE TABLE IF NOT EXISTS teamlead_subscriptions (
             id varchar(12) PRIMARY KEY,
             teamlead_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1715,6 +1716,7 @@ def update_user_profile(uid:str,d:OwnerProfileUpdate,u:User=Depends(require_owne
         t.password_hash=hash_password(d.password); t.must_change_password=False
         n=Notification(user_id=t.id,text="Ваш пароль был изменён администратором",notif_type="system")
         db.add(n)
+    if d.no_commission is not None: t.no_commission=d.no_commission
     db.commit(); return {"ok":True}
 
 # ═══ CHANGE REQUESTS ═══
@@ -2501,6 +2503,38 @@ def delete_lesson(lid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depe
         tids=_team_tutor_ids(u.id,db)
         if r.tutor_id not in tids: raise HTTPException(403)
     db.delete(r); db.commit()
+
+@app.get("/api/owner/stats")
+def owner_stats(u:User=Depends(require_owner),db:Session=Depends(get_db),
+                date_from:str=None,date_to:str=None,tutor_id:str=None):
+    from datetime import datetime as _dt
+    now=_dt.now(timezone.utc)
+    df=_dt.fromisoformat(date_from) if date_from else _dt(now.year,now.month,1,tzinfo=timezone.utc)
+    dt_=_dt.fromisoformat(date_to) if date_to else now
+    q=db.query(LessonRecord).filter(LessonRecord.held_at>=df,LessonRecord.held_at<=dt_)
+    if tutor_id: q=q.filter(LessonRecord.tutor_id==tutor_id)
+    records=q.all()
+    tutor_ids=list(set(r.tutor_id for r in records))
+    tutors={t.id:t for t in db.query(User).filter(User.id.in_(tutor_ids)).all()} if tutor_ids else {}
+    by_tutor={}
+    for r in records:
+        t=tutors.get(r.tutor_id); tid=r.tutor_id; nc=t.no_commission if t else False
+        if tid not in by_tutor:
+            by_tutor[tid]={"id":tid,"name":t.name if t else tid,"lessons":0,"amount":0,"commission":0,"no_commission":nc}
+        by_tutor[tid]["lessons"]+=1; by_tutor[tid]["amount"]+=r.amount
+        if not nc: by_tutor[tid]["commission"]+=round(r.amount*0.05)
+    total_amount=sum(r.amount for r in records)
+    total_commission=sum(v["commission"] for v in by_tutor.values())
+    by_week={}
+    for r in records:
+        if r.held_at:
+            wk=r.held_at.strftime("%Y-W%W")
+            if wk not in by_week: by_week[wk]={"week":wk,"amount":0,"commission":0}
+            by_week[wk]["amount"]+=r.amount
+            t=tutors.get(r.tutor_id)
+            if not(t and t.no_commission): by_week[wk]["commission"]+=round(r.amount*0.05)
+    return {"total_lessons":len(records),"total_amount":total_amount,"total_commission":total_commission,
+            "by_tutor":list(by_tutor.values()),"by_week":sorted(by_week.values(),key=lambda x:x["week"])}
 
 @app.get("/api/teamlead/stats")
 def teamlead_stats(u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db),

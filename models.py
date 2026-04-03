@@ -51,6 +51,7 @@ class User(Base):
     subject=relationship("Subject",back_populates="tutors")
     # Teamlead: ссылка для приглашённых тьюторов (NULL = независимый тьютор или teamlead)
     teamlead_id=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
+    no_commission=Column(Boolean,default=False)  # не взимать комиссию с этого препода
 
 class Subject(Base):
     __tablename__="subjects"

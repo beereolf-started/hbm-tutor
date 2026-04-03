@@ -19,6 +19,7 @@ class UserOut(BaseModel):
     last_seen: Optional[datetime]=None; subject_ids: list[str]=[]
     about: Optional[str]=None; photo: Optional[str]=None
     teamlead_id: Optional[str]=None
+    no_commission: bool = False
     model_config = {"from_attributes": True}
 
 class ProfileUpdate(BaseModel):
@@ -33,6 +34,7 @@ class OwnerProfileUpdate(BaseModel):
     owner_notes: Optional[str]=None
     login: Optional[str]=None
     password: Optional[str]=None
+    no_commission: Optional[bool]=None
 
 class ChangeRequestCreate(BaseModel):
     req_type: str

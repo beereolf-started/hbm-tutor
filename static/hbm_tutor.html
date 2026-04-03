@@ -393,7 +393,7 @@ function renderHome(){
     {key:'courses',icon:'📚',title:'Курсы',count:null,desc:'Учебные программы',href:'/courses.html'},
     {key:'contacts',icon:'💬',title:'Контакты',count:null,desc:'Написать ученику или родителю',badge:'contacts'},
     {key:'schedule',icon:'📅',title:'Расписание',count:null,desc:'Занятия по дням недели'},
-    {key:'finances',icon:'💰',title:'Финансы',count:null,desc:isTL?'Доходы команды':'Счета комиссии'},
+    {key:'finances',icon:'💰',title:'Финансы',count:null,desc:isTL?'Доходы команды':isOwner?'Комиссия и учёт занятий':'Мои заработки'},
     {key:'workshop',icon:'🛠',title:'Мастерская',count:null,desc:'Мои личные доски',href:'/workshop.html'},
   ];
   if(isTL) sections.push({key:'team',icon:'👔',title:'Команда',count:null,desc:'Преподаватели и управление'});
@@ -510,9 +510,9 @@ function renderUsers(){
       <option value="role"${usort==='role'?' selected':''}>По роли</option>
     </select>
   </div>`;
-  const rl={owner:'rb-owner',tutor:'rb-tutor',student:'rb-student',parent:'rb-parent',board_user:'rb-board-user'};
-  const rn={owner:'👑 Владелец',tutor:'👨‍🏫 Преподаватель',student:'🎓 Ученик',parent:'👨‍👩‍👧 Родитель',board_user:'🛠 Польз. доски'};
-  const ROLE_ORD={owner:0,tutor:1,student:2,parent:3,board_user:4};
+  const rl={owner:'rb-owner',tutor:'rb-tutor',student:'rb-student',parent:'rb-parent',board_user:'rb-board-user',teamlead:'rb-teamlead'};
+  const rn={owner:'👑 Владелец',tutor:'👨‍🏫 Преподаватель',student:'🎓 Ученик',parent:'👨‍👩‍👧 Родитель',board_user:'🛠 Польз. доски',teamlead:'🏢 Тимлид'};
+  const ROLE_ORD={owner:0,teamlead:1,tutor:2,student:3,parent:4,board_user:5};
   let filtUsers=users.filter(u=>{
     if(uq&&!u.name.toLowerCase().includes(uq)&&!u.login.toLowerCase().includes(uq)) return false;
     if(uroF&&u.role!==uroF) return false;
@@ -523,33 +523,51 @@ function renderUsers(){
   else if(usort==='role') filtUsers.sort((a,b)=>(ROLE_ORD[a.role]||9)-(ROLE_ORD[b.role]||9));
   else filtUsers.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
   if(!filtUsers.length){m.innerHTML=h+'<div class="empty">Нет пользователей по фильтру</div>';return}
-  for(const u of filtUsers){
+  function _userRow(u){
     const canDel=isOwner&&u.role!=='owner';
     const subjTags=u.subject_ids&&u.subject_ids.length
-      ?u.subject_ids.map(sid=>{const s=subjects.find(x=>x.id===sid);return s?`<span class="subj-tag">${s.icon} ${s.name}</span>`:''}).join('')
-      :'';
+      ?u.subject_ids.map(sid=>{const s=subjects.find(x=>x.id===sid);return s?`<span class="subj-tag">${s.icon} ${s.name}</span>`:''}).join(''):'';
     let studentInfo='';
     if(u.role==='student'){
       const st=students.find(x=>x.id===u.student_id);
-      studentInfo=st
-        ?`<span style="font-size:.78em;color:var(--green-t)">🎓 ${esc(st.name)}</span>`
-        :`<span style="font-size:.78em;color:#f87171">⚠ Профиль не привязан</span>`;}
-    h+=`<div class="user-row">
+      studentInfo=st?`<span style="font-size:.78em;color:var(--green-t)">🎓 ${esc(st.name)}</span>`:`<span style="font-size:.78em;color:#f87171">⚠ Профиль не привязан</span>`;}
+    const noCommBadge=u.role==='tutor'&&u.no_commission?`<span style="font-size:.72em;padding:1px 6px;border-radius:8px;background:#3fb95022;color:#3fb950;margin-left:4px">Без комиссии</span>`:'';
+    return `<div class="user-row">
   <div class="user-row-info">
-    <div class="user-row-name">${u.name}</div>
-    <div class="user-row-meta"><span class="role-badge ${rl[u.role]||''}">${rn[u.role]||u.role}</span> · ${u.login}</div>
+    <div class="user-row-name">${esc(u.name)}${noCommBadge}</div>
+    <div class="user-row-meta"><span class="role-badge ${rl[u.role]||''}">${rn[u.role]||u.role}</span> · ${esc(u.login)}</div>
     ${subjTags?`<div class="subj-tags">${subjTags}</div>`:''}
     ${studentInfo?`<div style="margin-top:2px">${studentInfo}</div>`:''}
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    <a class="btn btn-s btn-sm" href="/profile.html?uid=${u.id}" title="Профиль пользователя">👤</a>
-    ${u.role==='tutor'&&isOwner?`<button class="btn btn-s btn-sm" onclick="openTutorSubjects('${u.id}','${u.name}')">📐 Предметы</button>`:''}
+    <a class="btn btn-s btn-sm" href="/profile.html?uid=${u.id}" title="Профиль">👤</a>
+    ${u.role==='tutor'&&isOwner?`<button class="btn btn-s btn-sm" onclick="openTutorSubjects('${u.id}','${esc(u.name)}')">📐</button>`:''}
+    ${u.role==='tutor'&&isOwner?`<button class="btn btn-s btn-sm" onclick="toggleCommission('${u.id}',${!!u.no_commission})" title="${u.no_commission?'Включить комиссию (сейчас отключена)':'Отключить комиссию'}" style="color:${u.no_commission?'var(--green-t)':'var(--muted)'}">%</button>`:''}
     ${u.role==='student'?`<button class="btn btn-s btn-sm" onclick="openLinkStudent('${u.id}','${esc(u.name)}','${u.student_id||''}')">🔗 ${u.student_id?'Сменить':'Привязать'}</button>`:''}
     ${u.role==='student'&&u.student_id?`<button class="btn btn-s btn-sm" onclick="unlinkStudent('${u.id}','${esc(u.name)}')" title="Отвязать профиль">✂</button>`:''}
     ${canDel?`<button class="btn btn-d btn-sm" onclick="delUser('${u.id}')">✕</button>`:''}
   </div>
-</div>`}
+</div>`;}
+  // Группировка: если фильтр по тьюторам — разделяем своих и командных
+  if(uroF==='tutor'&&isOwner){
+    const ownTutors=filtUsers.filter(u=>!u.teamlead_id);
+    const invited=filtUsers.filter(u=>!!u.teamlead_id);
+    const tlMap={};
+    invited.forEach(u=>{if(!tlMap[u.teamlead_id])tlMap[u.teamlead_id]=[];tlMap[u.teamlead_id].push(u);});
+    if(ownTutors.length){
+      h+=`<div style="font-size:.8em;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px">Мои преподаватели</div>`;
+      ownTutors.forEach(u=>{h+=_userRow(u);});}
+    Object.entries(tlMap).forEach(([tlId,list])=>{
+      const tl=users.find(u=>u.id===tlId);
+      h+=`<div style="font-size:.8em;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px">Команда: ${esc(tl?tl.name:tlId)}</div>`;
+      list.forEach(u=>{h+=_userRow(u);});});
+    if(!ownTutors.length&&!invited.length) h+='<div class="empty">Нет преподавателей по фильтру</div>';
+  } else {
+    filtUsers.forEach(u=>{h+=_userRow(u);});}
   m.innerHTML=h}
+async function toggleCommission(uid,current){
+  try{await patch('/api/users/'+uid+'/profile',{no_commission:!current});await load();}
+  catch(e){alert(e.detail||'Ошибка');}}
 
 // ─── SUBJECTS ─────────────────────────────────────────────────────────────
 function renderSubjects(){
@@ -1284,6 +1302,8 @@ document.addEventListener('click',e=>{
 let schedSlots=[];
 let finBills=[];
 let finSessions=[];
+let ownerStats=null,ownerFinLessons=[],ownerDateFrom='',ownerDateTo='';
+let tutorFinLessons=[],tutorDateFrom='',tutorDateTo='';
 let schedEditDay=null,schedEditSlot=null,schedEditId=null;
 
 const DAYS_FULL=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
@@ -1297,14 +1317,6 @@ function stColor(stid){
   if(!stid) return '#30363d';
   const idx=students.findIndex(s=>s.id===stid);
   return S_COLORS[idx>=0?idx%S_COLORS.length:0]}
-
-async function loadFinances(){
-  [finBills,finSessions]=await Promise.all([
-    get('/api/bills').catch(()=>[]),
-    get('/api/lesson-sessions').catch(()=>[])
-  ]);
-  if(curSection==='finances') renderFinances()
-}
 
 let tlFinStats=null,tlFinLessons=[],tlFinDateFrom='',tlFinDateTo='',tlFinTutorF='';
 async function loadFinances(){
@@ -1320,9 +1332,21 @@ async function loadFinances(){
     if(curSection==='finances') renderFinances();
     return;
   }
-  [finBills,finSessions]=await Promise.all([
-    get('/api/bills').catch(()=>[]),
-    get('/api/lesson-sessions').catch(()=>[])
+  if(R==='tutor'){
+    const p=new URLSearchParams();
+    if(tutorDateFrom)p.set('date_from',tutorDateFrom);
+    if(tutorDateTo)p.set('date_to',tutorDateTo);
+    tutorFinLessons=await get('/api/lessons?'+p).catch(()=>[]);
+    if(curSection==='finances') renderFinances();
+    return;
+  }
+  // owner
+  const p=new URLSearchParams();
+  if(ownerDateFrom)p.set('date_from',ownerDateFrom);
+  if(ownerDateTo)p.set('date_to',ownerDateTo);
+  [ownerStats,ownerFinLessons]=await Promise.all([
+    get('/api/owner/stats?'+p).catch(()=>null),
+    get('/api/lessons?'+p).catch(()=>[])
   ]);
   if(curSection==='finances') renderFinances()
 }
@@ -1450,8 +1474,206 @@ async function doAddLesson(){
 
 function renderFinances(){
   const m=document.getElementById('main');
-  // Teamlead видит статистику команды, не счета комиссии
   if(isTL){renderTeamFinances(m);return;}
+  if(isOwner){renderOwnerFinances(m);return;}
+  if(R==='tutor'){renderTutorFinances(m);return;}
+  m.innerHTML='<div class="empty">Финансы недоступны</div>';
+}
+
+function renderOwnerFinances(m){
+  const stats=ownerStats;
+  const lessons=ownerFinLessons;
+  const now=new Date();
+  const defFrom=ownerDateFrom||(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01');
+  const defTo=ownerDateTo||now.toISOString().slice(0,10);
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">💰 Финансы</span>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <input type="date" value="${defFrom}" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="ownerDateFrom=this.value;loadFinances()">
+    <input type="date" value="${defTo}" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="ownerDateTo=this.value;loadFinances()">
+    <button class="btn btn-p" style="font-size:.84em" onclick="showAddLesson()">+ Занятие</button>
+  </div>`;
+  if(!stats){m.innerHTML=h+'<div class="empty">Нет данных</div>';return;}
+  const totalL=stats.total_lessons||0;const totalA=stats.total_amount||0;const totalC=stats.total_commission||0;
+  h+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:1.6em;font-weight:700">${totalL}</div>
+      <div style="font-size:.8em;color:var(--muted)">занятий</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:1.6em;font-weight:700;color:var(--green-t)">${totalA.toLocaleString('ru')} ₽</div>
+      <div style="font-size:.8em;color:var(--muted)">доход преп.</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:1.6em;font-weight:700;color:#60a5fa">${totalC.toLocaleString('ru')} ₽</div>
+      <div style="font-size:.8em;color:var(--muted)">моя комиссия</div>
+    </div>
+  </div>`;
+  // Pie-style chart: horizontal bar per tutor
+  const byT=stats.by_tutor||[];
+  if(byT.length){
+    const maxA=Math.max(...byT.map(t=>t.amount),1);
+    const PIE_COLORS=['#3fb950','#60a5fa','#f59e0b','#f472b6','#a78bfa','#34d399','#fb923c','#e879f9'];
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-weight:600;font-size:.88em;margin-bottom:12px">По преподавателям</div>`;
+    byT.sort((a,b)=>b.amount-a.amount).forEach((t,i)=>{
+      const col=PIE_COLORS[i%PIE_COLORS.length];
+      const pct=Math.round(t.amount/maxA*100);
+      const nc=t.no_commission?`<span style="font-size:.7em;padding:1px 5px;border-radius:6px;background:#3fb95022;color:#3fb950;margin-left:4px">Без ком.</span>`:'';
+      h+=`<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:.82em;margin-bottom:3px">
+          <span>${esc(t.name)}${nc}</span>
+          <span style="color:var(--muted)">${t.lessons} зан. · ${t.amount.toLocaleString('ru')} ₽${t.commission?` · <span style="color:#60a5fa">ком. ${t.commission.toLocaleString('ru')} ₽</span>`:''}</span>
+        </div>
+        <div style="height:7px;background:var(--surface-2);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:4px;transition:width .3s"></div>
+        </div>
+      </div>`; });
+    h+=`</div>`;}
+  // Weekly commission chart
+  const byW=stats.by_week||[];
+  if(byW.length){
+    const maxW=Math.max(...byW.map(w=>w.commission),1);
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-weight:600;font-size:.88em;margin-bottom:10px">Моя комиссия по неделям</div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:80px">
+        ${byW.map(w=>{const h2=Math.max(4,Math.round(w.commission/maxW*72));return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${w.week}: ${w.commission} ₽"><div style="width:100%;background:#60a5fa;border-radius:3px 3px 0 0;height:${h2}px"></div><div style="font-size:.6em;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg)">${w.week.slice(5)}</div></div>`;}).join('')}
+      </div>
+    </div>`;}
+  // History table
+  if(lessons.length){
+    h+=`<div style="font-weight:600;font-size:.88em;color:var(--muted);margin-bottom:8px">История занятий</div>`;
+    h+=`<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:.82em">
+        <thead><tr style="background:var(--surface-2)">
+          <th style="padding:8px 10px;text-align:left;color:var(--muted)">Дата</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted)">Препод</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted)">Ученик</th>
+          <th style="padding:8px 10px;text-align:right;color:var(--muted)">Доход</th>
+          <th style="padding:8px 10px;text-align:right;color:var(--muted)">Ком.</th>
+          <th style="padding:8px 10px"></th>
+        </tr></thead><tbody>`;
+    lessons.forEach(l=>{
+      const tObj=stats.by_tutor.find(t=>t.id===l.tutor_id);
+      const nc=tObj&&tObj.no_commission;
+      const comm=nc?0:Math.round(l.amount*0.05);
+      const dt=l.held_at?new Date(l.held_at).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+      h+=`<tr style="border-top:1px solid var(--border)">
+        <td style="padding:7px 10px;color:var(--muted)">${dt}</td>
+        <td style="padding:7px 10px">${esc(l.tutor_name||'—')}</td>
+        <td style="padding:7px 10px">${esc(l.student_name||'—')}</td>
+        <td style="padding:7px 10px;text-align:right;color:var(--green-t)">${l.amount.toLocaleString('ru')} ₽</td>
+        <td style="padding:7px 10px;text-align:right;color:#60a5fa">${comm?comm.toLocaleString('ru')+' ₽':'<span style="color:var(--muted)">—</span>'}</td>
+        <td style="padding:7px 10px;text-align:right"><button onclick="delLesson('${l.id}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9em" title="Удалить">✕</button></td>
+      </tr>`;});
+    h+=`</tbody></table></div>`;}
+  else if(totalL===0) h+=`<div class="empty">Нет занятий за выбранный период</div>`;
+  m.innerHTML=h;
+}
+
+function renderTutorFinances(m){
+  const lessons=tutorFinLessons;
+  const now=new Date();
+  const defFrom=tutorDateFrom||(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01');
+  const defTo=tutorDateTo||now.toISOString().slice(0,10);
+  let h=`<div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">💰 Мои финансы</span>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <input type="date" value="${defFrom}" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="tutorDateFrom=this.value;loadFinances()">
+    <input type="date" value="${defTo}" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="tutorDateTo=this.value;loadFinances()">
+    <button class="btn btn-p" style="font-size:.84em" onclick="showAddLessonTutor()">+ Занятие</button>
+  </div>`;
+  const totalA=lessons.reduce((s,l)=>s+l.amount,0);
+  h+=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:1.8em;font-weight:700">${lessons.length}</div>
+      <div style="font-size:.8em;color:var(--muted)">занятий</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:1.8em;font-weight:700;color:var(--green-t)">${totalA.toLocaleString('ru')} ₽</div>
+      <div style="font-size:.8em;color:var(--muted)">заработано</div>
+    </div>
+  </div>`;
+  // Weekly bar chart
+  const byW={};
+  lessons.forEach(l=>{if(l.held_at){const wk=new Date(l.held_at).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});byW[wk]=(byW[wk]||0)+l.amount;}});
+  const wKeys=Object.keys(byW);
+  if(wKeys.length>1){
+    const maxW=Math.max(...Object.values(byW),1);
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-weight:600;font-size:.88em;margin-bottom:10px">По дням</div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:70px">
+        ${wKeys.map(k=>{const hh=Math.max(4,Math.round(byW[k]/maxW*62));return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${k}: ${byW[k]} ₽"><div style="width:100%;background:#3fb950;border-radius:3px 3px 0 0;height:${hh}px"></div><div style="font-size:.6em;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg)">${k}</div></div>`;}).join('')}
+      </div>
+    </div>`;}
+  // History
+  if(lessons.length){
+    h+=`<div style="font-weight:600;font-size:.88em;color:var(--muted);margin-bottom:8px">История</div>
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:.83em">
+        <thead><tr style="background:var(--surface-2)">
+          <th style="padding:8px 10px;text-align:left;color:var(--muted)">Дата</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted)">Ученик</th>
+          <th style="padding:8px 10px;text-align:right;color:var(--muted)">Заработок</th>
+          <th style="padding:8px 10px"></th>
+        </tr></thead><tbody>`;
+    lessons.forEach(l=>{
+      const dt=l.held_at?new Date(l.held_at).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+      h+=`<tr style="border-top:1px solid var(--border)">
+        <td style="padding:7px 10px;color:var(--muted)">${dt}</td>
+        <td style="padding:7px 10px">${esc(l.student_name||'—')}</td>
+        <td style="padding:7px 10px;text-align:right;color:var(--green-t)">${l.amount.toLocaleString('ru')} ₽</td>
+        <td style="padding:7px 10px;text-align:right"><button onclick="delLesson('${l.id}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9em" title="Удалить">✕</button></td>
+      </tr>`;});
+    h+=`</tbody></table></div>`;}
+  else h+=`<div class="empty">Нет занятий за выбранный период</div>`;
+  m.innerHTML=h;
+}
+
+async function delLesson(id){
+  if(!confirm('Удалить занятие?')) return;
+  try{await del('/api/lessons/'+id);loadFinances();}
+  catch(e){alert(e.detail||'Ошибка');}}
+
+function showAddLessonTutor(){
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';modal.id='mAddLessonTutor';
+  modal.onclick=e=>{if(e.target===modal)modal.remove()};
+  const stOpts=students.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  modal.innerHTML=`<div class="modal" style="max-width:380px">
+    <div class="modal-header"><h3>Добавить занятие</h3><button class="modal-close" onclick="document.getElementById('mAddLessonTutor').remove()">✕</button></div>
+    <div class="modal-body">
+      <select id="altStudent" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg);width:100%">
+        <option value="">— ученик —</option>${stOpts}
+      </select>
+      <input type="datetime-local" id="altDate" value="${new Date().toISOString().slice(0,16)}" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg);width:100%">
+      <input type="number" id="altDur" value="60" placeholder="Длительность (мин)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg);width:100%">
+      <input type="number" id="altRate" value="1500" placeholder="Ставка (₽)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg);width:100%">
+      <input id="altNote" placeholder="Заметка (необяз.)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg);width:100%">
+      <p id="altErr" style="color:#f87171;font-size:.85em;display:none"></p>
+    </div>
+    <div class="modal-footer"><button class="btn-primary" onclick="doAddLessonTutor()">Сохранить</button></div>
+  </div>`;
+  document.body.appendChild(modal);}
+
+async function doAddLessonTutor(){
+  const e=document.getElementById('altErr');e.style.display='none';
+  const sid=document.getElementById('altStudent').value;
+  const date=document.getElementById('altDate').value;
+  const dur=parseInt(document.getElementById('altDur').value)||60;
+  const rate=parseInt(document.getElementById('altRate').value)||1500;
+  const note=document.getElementById('altNote').value.trim();
+  if(!sid){e.textContent='Выберите ученика';e.style.display='block';return;}
+  try{
+    await post('/api/lessons',{student_id:sid,held_at:date?new Date(date).toISOString():undefined,duration_min:dur,rate,note:note||undefined});
+    const el=document.getElementById('mAddLessonTutor');if(el)el.remove();loadFinances();
+  }catch(x){e.textContent=x.detail||'Ошибка';e.style.display='block';}}
+
+function _finDeprecatedBills(){
   const STATUS={open:'Открыт',reported:'Оплата заявлена',closed:'Закрыт',archived:'В архиве'};
   const SC={open:'#1f6feb',reported:'#d29922',closed:'#1a7f37',archived:'#7d8590'};
   const finStatusF=document.getElementById('finStatusF')?.value||'active';
