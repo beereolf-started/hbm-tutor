@@ -1907,17 +1907,21 @@ function _preprocess(s) {
      2) ) immediately before digit, letter or (  →  ) * ...
      3) letter (only x or y single-char) before (  →  letter * (
      But NOT: function-name before (  */
-  /* Step 1: protect function names with a placeholder */
+  /* Step 1: protect function names with a placeholder.
+     IMPORTANT: placeholder must contain NO digit characters to avoid
+     the implicit-mult rule `(\d)([A-Za-z\x01])` firing inside the placeholder
+     and breaking the key used for restoration. Use letter-only index. */
   const _fnRe = new RegExp('\\b(' + FUNS.join('|') + ')\\b', 'g');
   const tokens = [], placeholders = {};
   let pidx = 0;
-  s = s.replace(_fnRe, m => { const ph = `\x00F${pidx++}\x00`; placeholders[ph] = m; tokens.push(ph); return ph; });
-  /* Step 2: implicit mul */
+  function _pi2l(n){let s='';do{s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);}while(n>0);return s;}
+  s = s.replace(_fnRe, m => { const ph = `\x01${_pi2l(pidx++)}\x01`; placeholders[ph] = m; tokens.push(ph); return ph; });
+  /* Step 2: implicit mul — use \x01 as placeholder delimiter (not in normal math) */
   s = s
-    .replace(/(\d)\s*([A-Za-z\x00])/g, '$1*$2')   // 2x, 2pi, 2sqrt…
+    .replace(/(\d)\s*([A-Za-z\x01])/g, '$1*$2')   // 2x, 2pi, 2sqrt…
     .replace(/(\d)\s*(\()/g, '$1*$2')              // 2(x+1) → 2*(x+1)
     .replace(/(\))\s*(\d)/g, '$1*$2')              // )2
-    .replace(/(\))\s*([A-Za-z\x00])/g, '$1*$2')   // )x, )pi, )sqrt…
+    .replace(/(\))\s*([A-Za-z\x01])/g, '$1*$2')   // )x, )pi, )sqrt…
     .replace(/(\))\s*(\()/g, '$1*$2')              // )(
     .replace(/([A-Za-z])\s*(\()/g, (m,a,b) => {   // x( but not protected fn
       return `${a}*${b}`;
@@ -1935,7 +1939,14 @@ function _preprocess(s) {
   return s;
 }
 
-function mathEval(expr, xVal, yVal) {
+/* Cache for compiled mathEval functions — avoids `new Function` on every graph point */
+const _mathEvalFnCache = new Map();
+/* Cache for graph display-coord paths — avoids 600 mathEval calls on every redraw */
+const _graphPathCache = new Map();
+
+function _compileMathFn(expr) {
+  let fn = _mathEvalFnCache.get(expr);
+  if (fn) return fn;
   try {
     let code = _preprocess(expr);
     code = code
@@ -1954,10 +1965,10 @@ function mathEval(expr, xVal, yVal) {
       .replace(/\btan\b/g,   'Math.tan')
       .replace(/\babs\b/g,   'Math.abs')
       .replace(/\bexp\b/g,   'Math.exp')
-      .replace(/\bln\b/g,    'Math.log')
       .replace(/\blog10\b/g, 'Math.log10')
       .replace(/\blog2\b/g,  'Math.log2')
       .replace(/\blog\b/g,   'Math.log10')
+      .replace(/\bln\b/g,    'Math.log')
       .replace(/\bsign\b/g,  'Math.sign')
       .replace(/\bfloor\b/g, 'Math.floor')
       .replace(/\bceil\b/g,  'Math.ceil')
@@ -1967,10 +1978,20 @@ function mathEval(expr, xVal, yVal) {
       .replace(/\bpi\b/gi,   'Math.PI')
       .replace(/(?<![A-Za-z_\d\.])e(?![A-Za-z_0-9])/g, 'Math.E');
     // eslint-disable-next-line no-new-func
-    return new Function('x','y', '"use strict";'+
+    fn = new Function('x','y', '"use strict";'+
       'const cot=v=>1/Math.tan(v),arccot=v=>Math.PI/2-Math.atan(v),acot=arccot;'+
       'const arcsinh=Math.asinh,arccosh=Math.acosh,arctanh=Math.atanh;'+
-      'return (' + code + ');')(xVal, yVal);
+      'return (' + code + ');');
+    _mathEvalFnCache.set(expr, fn);
+    return fn;
+  } catch { return null; }
+}
+
+function mathEval(expr, xVal, yVal) {
+  try {
+    const fn = _compileMathFn(expr);
+    if (!fn) return NaN;
+    return fn(xVal, yVal);
   } catch { return NaN; }
 }
 
@@ -3808,28 +3829,39 @@ function drawCSGraph(O, uA, uB, scaleA, scaleB, graph, offA, offB) {
     const GRID = Math.min(120, Math.max(60, Math.round(Math.max(rangeA,rangeB)*4)));
     marchingSquares(fn, rangeA, rangeB, toWorld, GRID);
   } else {
-    /* ── parametric plot: sweep display coords, evaluate at shifted CS values ── */
+    /* ── parametric plot: sweep display coords, evaluate at shifted CS values ──
+       Path is cached by equation+range+offset so mathEval is skipped on redraws
+       where only vz/pan changed (world coords are stable, only screen mapping changes) */
     const STEPS = 600;
     const independent = (mode==='yfx') ? rangeA : rangeB;
-    const step = 2*independent/STEPS;
-    let penDown = false;
+    const cacheKey = `${graph.eq}|${mode}|${ao}|${bo}|${scaleA}|${scaleB}|${independent.toFixed(4)}`;
+    let path = _graphPathCache.get(cacheKey);
+    if (!path) {
+      /* Compute and cache the path in display (a,b) coords — vz-independent */
+      path = [];
+      const step = 2*independent/STEPS;
+      const evalFn = _compileMathFn(parsed.rhs);
+      for (let i = 0; i <= STEPS; i++) {
+        const v = -independent + i*step;
+        let a, b;
+        if (mode==='yfx') {
+          a = v;
+          try { b = (evalFn ? evalFn(a+ao, 0) : mathEval(parsed.rhs, a+ao, 0)) - bo; } catch { b = NaN; }
+        } else {
+          b = v;
+          try { a = (evalFn ? evalFn(0, b+bo) : mathEval(parsed.rhs, 0, b+bo)) - ao; } catch { a = NaN; }
+        }
+        path.push(isFinite(a)&&isFinite(b)&&Math.abs(b)<=rangeB*50&&Math.abs(a)<=rangeA*50 ? {a,b} : null);
+      }
+      /* Limit cache size to avoid memory bloat */
+      if (_graphPathCache.size > 200) _graphPathCache.clear();
+      _graphPathCache.set(cacheKey, path);
+    }
     ctx.beginPath();
-    for (let i = 0; i <= STEPS; i++) {
-      const v = -independent + i*step;   // display coord in [-range, +range]
-      let a, b;
-      if (mode==='yfx') {
-        a = v;
-        const x_cs = a + ao;              // mathematical x
-        b = mathEval(parsed.rhs, x_cs, 0) - bo; // display b = f(x_cs) - bo
-      } else {
-        b = v;
-        const y_cs = b + bo;              // mathematical y
-        a = mathEval(parsed.rhs, 0, y_cs) - ao; // display a = g(y_cs) - ao
-      }
-      if (!isFinite(a)||!isFinite(b)||Math.abs(b)>rangeB*50||Math.abs(a)>rangeA*50) {
-        penDown=false; continue;
-      }
-      const _w=toWorld(a,b); const sp=ts(_w.x,_w.y);
+    let penDown = false;
+    for (const pt of path) {
+      if (!pt) { penDown=false; continue; }
+      const _w=toWorld(pt.a,pt.b); const sp=ts(_w.x,_w.y);
       if (!penDown) { ctx.moveTo(sp.x,sp.y); penDown=true; }
       else ctx.lineTo(sp.x,sp.y);
     }
@@ -6027,6 +6059,7 @@ function eraseAt(sx, sy) {
   const r = (penSize + 6) / vz;
   for (let i = all.length - 1; i >= 0; i--) {
     const el = all[i];
+    if (el.type === 'image') continue;  // ластик не стирает картинки
     const hit = hitTest(el, w.x, w.y) ||
                 (el.type === 'stroke' && el.pts?.some(p => Math.hypot(p.x-w.x, p.y-w.y) < r));
     if (hit) {
@@ -6360,7 +6393,10 @@ document.addEventListener('keydown', e => {
     if (e.code === 'KeyZ')                           { e.preventDefault(); doUndo(true,true);   return; }
     if (e.code === 'KeyC') { e.preventDefault(); doCopy(); return; }
     if (e.code === 'KeyX') { e.preventDefault(); doCut();  return; }
-    /* Ctrl+V is handled by document 'paste' event listener */
+    /* Ctrl+V: если есть board-clipboard — вставляем его напрямую (не ждём paste-event,
+       который может перехватить HTML/image из системного буфера) */
+    if (e.code === 'KeyV' && clipboard.length) { e.preventDefault(); doPaste(); return; }
+    /* Ctrl+V без board-clipboard: handled by document 'paste' event listener */
     return; // остальные Ctrl+key не пробрасываем как инструменты
   }
 
@@ -6570,14 +6606,26 @@ function updateCodeWidgets() {
 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const tok   = localStorage.getItem('token');
 let ws = null, rc = 0;
+/* Буфер сообщений: накапливает stroke/erase_stroke/stroke_update пока WS не готов */
+let _wsBuf = [];
 
 function connect() {
   const wsUrl = IS_PERSONAL
     ? `${proto}//${location.host}/ws/personal-board/${PERSONAL_ID}?token=${tok}`
     : `${proto}//${location.host}/ws/board/${SID}?token=${tok}`;
   ws = new WebSocket(wsUrl);
-  ws.onopen  = () => { const _s=document.getElementById('status'); _s.style.display='none'; _s.textContent=''; rc = 0; ws.send(JSON.stringify({ type: 'load' })); };
-  ws.onclose = () => { const _s=document.getElementById('status'); _s.style.display='block'; _s.style.color='#f87171'; _s.textContent='⚠ нет связи'; setTimeout(() => { rc++; if (rc < 30) connect(); }, 1000 * Math.min(rc+1, 5)); };
+  ws.onopen  = () => {
+    const _s=document.getElementById('status'); _s.style.display='none'; _s.textContent=''; rc = 0;
+    /* При реконнекте запрашиваем полное состояние — это решает рассинхрон */
+    ws.send(JSON.stringify({ type: 'load' }));
+    /* После получения strokes сервер сам пришлёт актуальное состояние;
+       буферизованные изменения больше не нужны — они уже в БД */
+    _wsBuf = [];
+  };
+  ws.onclose = () => {
+    const _s=document.getElementById('status'); _s.style.display='block'; _s.style.color='#f87171'; _s.textContent='⚠ нет связи — переподключение...';
+    setTimeout(() => { rc++; if (rc < 60) connect(); }, 1000 * Math.min(rc+1, 5));
+  };
   ws.onerror = () => ws.close();
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
@@ -6634,7 +6682,13 @@ function connect() {
 connect();
 
 function wsSend(m) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(m));
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify(m));
+  } else if (m.type === 'stroke' || m.type === 'erase_stroke' || m.type === 'stroke_update') {
+    /* Буферизуем важные изменения — при реконнекте они будут сброшены
+       (т.к. load запросит актуальное состояние с сервера) */
+    _wsBuf.push(m);
+  }
   /* Track elements touched by ME (for local undo filtering) */
   if (!_inUndoRedo) {
     if (m.type==='stroke')        _myTouchedIds.add(m.data.id);

@@ -27,5 +27,9 @@ def require_owner(user: User = Depends(get_current_user)):
     if user.role != "owner": raise HTTPException(403, "Только для владельца")
     return user
 def require_tutor_or_owner(user: User = Depends(get_current_user)):
-    if user.role not in ("owner", "tutor"): raise HTTPException(403, "Только для преподавателей")
+    if user.role not in ("owner", "tutor", "teamlead"): raise HTTPException(403, "Только для преподавателей")
+    return user
+
+def require_teamlead_or_owner(user: User = Depends(get_current_user)):
+    if user.role not in ("owner", "teamlead"): raise HTTPException(403, "Только для teamlead или владельца")
     return user

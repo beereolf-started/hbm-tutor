@@ -125,8 +125,14 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
 /* MODALS */
 .modal-bg{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:200}
 .modal-bg.show{display:flex}
+.modal-overlay{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:300}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:460px;max-width:94vw;max-height:86vh;overflow-y:auto}
 .modal h2{font-size:1.1em;font-weight:600;margin-bottom:20px;color:var(--text)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.modal-header h3{margin:0;font-size:1.05em;font-weight:600;color:var(--text)}
+.modal-body{display:flex;flex-direction:column;gap:10px}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.3em;line-height:1;padding:3px 7px;border-radius:6px;transition:background .15s,color .15s;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--surface-2);color:var(--text)}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .tab-bar{display:flex;gap:4px;margin-bottom:16px;background:var(--surface-2);padding:4px;border-radius:8px}
 .tab-bar button{flex:1;padding:7px;border:none;border-radius:6px;background:none;color:var(--muted);cursor:pointer;font-size:.85em;font-weight:500}
@@ -342,13 +348,14 @@ label{display:block;color:var(--muted);font-size:.82em;margin:10px 0 4px;font-we
 
 <script src="/api.js"></script>
 <script>
-if(!requireAuth(['owner','tutor']))throw'';
-const R=role(),isOwner=R==='owner';
+if(!requireAuth(['owner','tutor','teamlead']))throw'';
+const R=role(),isOwner=R==='owner',isTL=R==='teamlead';
 const uname=localStorage.getItem('name');
 document.getElementById('userName').textContent=uname;
 const rp=document.getElementById('userRole');
-rp.textContent=isOwner?'Владелец':'Преподаватель';
+rp.textContent=isOwner?'Владелец':isTL?'Тимлид':'Преподаватель';
 if(isOwner) rp.classList.add('owner');
+if(isTL) rp.style.cssText='background:#1f3350;color:#60a5fa;border-color:#2d5a8a';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 let subjects=[],students=[],users=[];
@@ -364,6 +371,7 @@ function goSection(s){
   if(s==='contacts'){loadContacts();loadConvos();}
   if(s==='schedule')loadSchedule();
   if(s==='finances')loadFinances();
+  if(s==='team')loadTeam();
   render()}
 function render(){
   if(curSection===null) renderHome();
@@ -373,7 +381,8 @@ function render(){
   else if(curSection==='messages') renderMessages();
   else if(curSection==='contacts') renderContacts();
   else if(curSection==='schedule') renderSchedule()
-  else if(curSection==='finances') renderFinances()}
+  else if(curSection==='finances') renderFinances()
+  else if(curSection==='team') renderTeam()}
 
 // ─── HOME ─────────────────────────────────────────────────────────────────
 function renderHome(){
@@ -384,9 +393,10 @@ function renderHome(){
     {key:'courses',icon:'📚',title:'Курсы',count:null,desc:'Учебные программы',href:'/courses.html'},
     {key:'contacts',icon:'💬',title:'Контакты',count:null,desc:'Написать ученику или родителю',badge:'contacts'},
     {key:'schedule',icon:'📅',title:'Расписание',count:null,desc:'Занятия по дням недели'},
-    {key:'finances',icon:'💰',title:'Финансы',count:null,desc:'Счета комиссии'},
+    {key:'finances',icon:'💰',title:'Финансы',count:null,desc:isTL?'Доходы команды':'Счета комиссии'},
     {key:'workshop',icon:'🛠',title:'Мастерская',count:null,desc:'Мои личные доски',href:'/workshop.html'},
   ];
+  if(isTL) sections.push({key:'team',icon:'👔',title:'Команда',count:null,desc:'Преподаватели и управление'});
   if(isOwner) sections.push({key:'subjects',icon:'📐',title:'Предметы',count:subjects.length,desc:'Учебные предметы'});
   let cards='';
   for(const s of sections){
@@ -754,7 +764,7 @@ function fillChildrenSelect(){
   document.getElementById('uChildren').innerHTML=students.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
 function buildRoleOptions(){
   const sel=document.getElementById('uRole');
-  const opts=isOwner?[['tutor','👨‍🏫 Преподаватель'],['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель'],['board_user','🛠 Польз. доски']]:[['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель']];
+  const opts=isOwner?[['teamlead','🏢 Тимлид'],['tutor','👨‍🏫 Преподаватель'],['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель'],['board_user','🛠 Польз. доски']]:[['student','🎓 Ученик'],['parent','👨‍👩‍👧 Родитель']];
   sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}
 function onRoleChange(){
   const r=document.getElementById('uRole').value;
@@ -851,6 +861,7 @@ function renderContacts(){
     ${subtitle}
   </div>
   <button class="btn btn-p" style="padding:5px 12px;font-size:.82em" onclick="openContactChat('${c.id}','${esc(c.name)}')">Написать</button>
+  <button class="hbm-call-btn secondary" style="padding:5px 10px;font-size:.82em" data-call-uid="${c.id}" data-call-name="${esc(c.name)}" title="Позвонить">📞</button>
 </div>`;}
   h+='</div>';
   m.innerHTML=h}
@@ -1295,8 +1306,152 @@ async function loadFinances(){
   if(curSection==='finances') renderFinances()
 }
 
+let tlFinStats=null,tlFinLessons=[],tlFinDateFrom='',tlFinDateTo='',tlFinTutorF='';
+async function loadFinances(){
+  if(isTL){
+    const p=new URLSearchParams();
+    if(tlFinDateFrom)p.set('date_from',tlFinDateFrom);
+    if(tlFinDateTo)p.set('date_to',tlFinDateTo);
+    if(tlFinTutorF)p.set('tutor_id',tlFinTutorF);
+    [tlFinStats,tlFinLessons]=await Promise.all([
+      get('/api/teamlead/stats?'+p).catch(()=>null),
+      get('/api/lessons?'+p).catch(()=>[])
+    ]);
+    if(curSection==='finances') renderFinances();
+    return;
+  }
+  [finBills,finSessions]=await Promise.all([
+    get('/api/bills').catch(()=>[]),
+    get('/api/lesson-sessions').catch(()=>[])
+  ]);
+  if(curSection==='finances') renderFinances()
+}
+
+function renderTeamFinances(m){
+  const stats=tlFinStats;
+  const lessons=tlFinLessons||[];
+  const tutors=[...new Map((teamData||[]).map(t=>[t.id,t])).values()];
+
+  const statsCards=stats?`
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+      <div style="font-size:.75em;color:var(--muted);margin-bottom:4px">Занятий за период</div>
+      <div style="font-size:1.7em;font-weight:700">${stats.total_lessons}</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+      <div style="font-size:.75em;color:var(--muted);margin-bottom:4px">Доход команды</div>
+      <div style="font-size:1.7em;font-weight:700;color:var(--green-t)">${(stats.total_amount||0).toLocaleString('ru')} ₽</div>
+    </div>
+    ${stats.by_tutor&&stats.by_tutor.length?stats.by_tutor.map(t=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+      <div style="font-size:.75em;color:var(--muted);margin-bottom:4px">${esc(t.tutor_name)}</div>
+      <div style="font-size:1.3em;font-weight:700">${t.lessons_count} зан.</div>
+      <div style="font-size:.9em;color:var(--green-t)">${(t.amount||0).toLocaleString('ru')} ₽</div>
+    </div>`).join(''):''}
+  </div>
+  ${stats.by_week&&stats.by_week.length?`
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px">
+    <div style="font-size:.8em;font-weight:600;color:var(--muted);margin-bottom:12px">ДОХОД ПО НЕДЕЛЯМ</div>
+    <div style="display:flex;align-items:flex-end;gap:5px;height:90px">
+      ${(()=>{const max=Math.max(...stats.by_week.map(w=>w.amount),1);return stats.by_week.map(w=>`<div style="flex:1;min-width:20px;display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div title="${w.week_start}: ${(w.amount||0).toLocaleString('ru')} ₽ · ${w.count} зан." style="width:100%;background:var(--green-t);opacity:.8;border-radius:3px 3px 0 0;height:${Math.max(6,Math.round((w.amount/max)*72))}px"></div>
+        <div style="font-size:.6em;color:var(--muted);white-space:nowrap">${w.week_start.slice(5)}</div>
+      </div>`).join('');})()}
+    </div>
+  </div>`:''}
+  `:'<div style="color:var(--muted);font-size:.9em;margin-bottom:16px">Нет данных за период</div>';
+
+  const tutorOpts=tutors.map(t=>`<option value="${t.id}"${tlFinTutorF===t.id?' selected':''}>${esc(t.name)}</option>`).join('');
+  const lessonRows=lessons.map(l=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:7px 10px;font-size:.85em">${l.held_at?new Date(l.held_at).toLocaleDateString('ru'):'-'}</td>
+    <td style="padding:7px 10px;font-size:.85em">${esc(l.tutor_name||'-')}</td>
+    <td style="padding:7px 10px;font-size:.85em">${esc(l.student_name||'-')}</td>
+    <td style="padding:7px 10px;font-size:.85em">${l.duration_min} мин</td>
+    <td style="padding:7px 10px;font-size:.85em;color:var(--green-t);font-weight:600">${(l.amount||0).toLocaleString('ru')} ₽</td>
+    <td style="padding:7px 10px;font-size:.8em;color:var(--muted)">${esc(l.note||'')}</td>
+  </tr>`).join('');
+
+  m.innerHTML=`
+  <div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">💰 Финансы команды</span>
+    <button class="btn-primary" onclick="showAddLesson()">+ Занятие</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+    <input type="date" value="${tlFinDateFrom}" placeholder="Дата от" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="tlFinDateFrom=this.value;loadFinances()">
+    <input type="date" value="${tlFinDateTo}" placeholder="Дата до" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="tlFinDateTo=this.value;loadFinances()">
+    <select style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="tlFinTutorF=this.value;loadFinances()">
+      <option value="">Все преподаватели</option>${tutorOpts}
+    </select>
+  </div>
+  ${statsCards}
+  ${lessons.length?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border);font-size:.75em;color:var(--muted)">
+        <th style="padding:7px 10px;text-align:left">ДАТА</th>
+        <th style="padding:7px 10px;text-align:left">ПРЕПОДАВАТЕЛЬ</th>
+        <th style="padding:7px 10px;text-align:left">УЧЕНИК</th>
+        <th style="padding:7px 10px;text-align:left">ДЛИТ.</th>
+        <th style="padding:7px 10px;text-align:left">СУММА</th>
+        <th style="padding:7px 10px;text-align:left">ЗАМЕТКА</th>
+      </tr></thead>
+      <tbody>${lessonRows}</tbody>
+    </table>
+  </div>`:'<div class="empty">Нет записей за период</div>'}`;
+}
+
+function showAddLesson(){
+  const tutors=teamData||[];
+  const tutorOpts=tutors.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';modal.id='mAddLesson';
+  modal.onclick=e=>{if(e.target===modal)modal.remove()};
+  modal.innerHTML=`<div class="modal" style="max-width:420px">
+    <div class="modal-header"><h3>Добавить занятие</h3><button class="modal-close" onclick="document.getElementById('mAddLesson').remove()">✕</button></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+      <select id="alTutor" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)" onchange="updateAlStudents()">
+        <option value="">— преподаватель —</option>${tutorOpts}
+      </select>
+      <select id="alStudent" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+        <option value="">— сначала выберите преподавателя —</option>
+      </select>
+      <input type="datetime-local" id="alDate" value="${new Date().toISOString().slice(0,16)}" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <input type="number" id="alDur" value="60" placeholder="Длительность (мин)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <input type="number" id="alRate" value="1500" placeholder="Ставка (₽)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <input id="alNote" placeholder="Заметка (необяз.)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <p id="alErr" style="color:#f87171;font-size:.85em;display:none"></p>
+    </div>
+    <div class="modal-footer"><button class="btn-primary" onclick="doAddLesson()">Сохранить</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+function updateAlStudents(){
+  const tid=document.getElementById('alTutor').value;
+  const t=teamData.find(x=>x.id===tid);
+  const sel=document.getElementById('alStudent');
+  if(!t){sel.innerHTML='<option value="">— сначала выберите преподавателя —</option>';return;}
+  sel.innerHTML='<option value="">— ученик —</option>'+
+    t.students.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+}
+async function doAddLesson(){
+  const e=document.getElementById('alErr');e.style.display='none';
+  const tid=document.getElementById('alTutor').value;
+  const sid=document.getElementById('alStudent').value;
+  const date=document.getElementById('alDate').value;
+  const dur=parseInt(document.getElementById('alDur').value)||60;
+  const rate=parseInt(document.getElementById('alRate').value)||1500;
+  const note=document.getElementById('alNote').value.trim();
+  if(!tid||!sid){e.textContent='Выберите преподавателя и ученика';e.style.display='block';return;}
+  try{
+    await post('/api/lessons',{tutor_id:tid,student_id:sid,held_at:date?new Date(date).toISOString():undefined,duration_min:dur,rate,note:note||undefined});
+    const el=document.getElementById('mAddLesson');if(el)el.remove();loadFinances();
+  }catch(x){e.textContent=x.detail||'Ошибка';e.style.display='block';}
+}
+
 function renderFinances(){
   const m=document.getElementById('main');
+  // Teamlead видит статистику команды, не счета комиссии
+  if(isTL){renderTeamFinances(m);return;}
   const STATUS={open:'Открыт',reported:'Оплата заявлена',closed:'Закрыт',archived:'В архиве'};
   const SC={open:'#1f6feb',reported:'#d29922',closed:'#1a7f37',archived:'#7d8590'};
   const finStatusF=document.getElementById('finStatusF')?.value||'active';
@@ -1659,12 +1814,155 @@ async function clearSchedSlot(){
     closeM('mSched'); await loadSchedule();
   }catch(e){alert('Ошибка удаления')}}
 
+// ─── TEAM (teamlead) ───────────────────────────────────────────────────────
+let teamData=[],teamStats=null,tlStatsDateFrom='',tlStatsDateTo='';
+async function loadTeam(){
+  [teamData,teamStats]=await Promise.all([
+    get('/api/teamlead/team').catch(()=>[]),
+    (()=>{const p=new URLSearchParams();if(tlStatsDateFrom)p.set('date_from',tlStatsDateFrom);if(tlStatsDateTo)p.set('date_to',tlStatsDateTo);return get('/api/teamlead/stats?'+p).catch(()=>null);})()
+  ]);
+  if(curSection==='team') renderTeam();
+}
+
+function renderTeam(){
+  const m=document.getElementById('main');
+  const stats=teamStats;
+  const statsHtml=stats?`
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+      <div style="font-size:.78em;color:var(--muted);margin-bottom:4px">Занятий за период</div>
+      <div style="font-size:1.6em;font-weight:700;color:var(--fg)">${stats.total_lessons}</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+      <div style="font-size:.78em;color:var(--muted);margin-bottom:4px">Доход команды</div>
+      <div style="font-size:1.6em;font-weight:700;color:var(--green-t)">${(stats.total_amount||0).toLocaleString('ru')} ₽</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+      <div style="font-size:.78em;color:var(--muted);margin-bottom:4px">Преподавателей</div>
+      <div style="font-size:1.6em;font-weight:700;color:var(--fg)">${teamData.length}</div>
+    </div>
+  </div>
+  ${stats.by_week&&stats.by_week.length?`
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:20px">
+    <div style="font-size:.82em;font-weight:600;margin-bottom:10px;color:var(--muted)">ДОХОД ПО НЕДЕЛЯМ</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:80px;overflow-x:auto">
+      ${(()=>{const max=Math.max(...stats.by_week.map(w=>w.amount),1);return stats.by_week.map(w=>`<div title="${w.week_start}: ${w.amount.toLocaleString('ru')} ₽ (${w.count} зан.)" style="flex:1;min-width:24px;background:var(--green-t);opacity:.85;border-radius:3px 3px 0 0;height:${Math.max(8,Math.round(w.amount/max*76))}px"></div>`).join('');})()}
+    </div>
+  </div>`:''}`:'';
+
+  const tutorRows=teamData.map(t=>{
+    const ts=stats&&stats.by_tutor?stats.by_tutor.find(x=>x.tutor_id===t.id):null;
+    const online=t.last_seen&&(Date.now()-new Date(t.last_seen).getTime())<5*60000;
+    return`<tr>
+      <td style="padding:8px 10px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${online?'#3fb950':'#555'};display:inline-block;margin-right:6px"></span>
+        <a href="/profile.html?uid=${t.id}" style="color:var(--fg);font-weight:500">${esc(t.name)}</a>
+      </td>
+      <td style="padding:8px 10px;color:var(--muted);font-size:.85em">${t.students.length} учен.</td>
+      <td style="padding:8px 10px;color:var(--muted);font-size:.85em">${ts?ts.lessons_count+' зан.':'—'}</td>
+      <td style="padding:8px 10px;color:var(--green-t);font-size:.85em">${ts?(ts.amount||0).toLocaleString('ru')+' ₽':'—'}</td>
+      <td style="padding:8px 10px">
+        <button class="btn-sm" onclick="showCredModal('${t.id}','${esc(t.name)}')">Доступ</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  m.innerHTML=`
+  <div class="sec-header">
+    <button class="back-btn" onclick="goHome()">← Главная</button>
+    <span class="sec-title">👔 Команда</span>
+    <button class="btn-primary" onclick="showInviteTutor()">+ Пригласить преподавателя</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <input type="date" id="tlDateFrom" value="${tlStatsDateFrom}" placeholder="Дата от" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="tlStatsDateFrom=this.value;loadTeam()">
+    <input type="date" id="tlDateTo" value="${tlStatsDateTo}" placeholder="Дата до" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--fg);font-size:.88em" onchange="tlStatsDateTo=this.value;loadTeam()">
+  </div>
+  ${statsHtml}
+  ${teamData.length?`
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border);font-size:.78em;color:var(--muted)">
+        <th style="padding:8px 10px;text-align:left;font-weight:600">ИМЯ</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600">УЧЕНИКИ</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600">ЗАНЯТИЙ</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600">ДОХОД</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600">ДЕЙСТВИЯ</th>
+      </tr></thead>
+      <tbody>${tutorRows}</tbody>
+    </table>
+  </div>`:'<div class="empty">Пока нет преподавателей в команде</div>'}`;
+}
+
+function showInviteTutor(){
+  const m=document.getElementById('main');
+  const subOpts=subjects.map(s=>`<option value="${s.id}">${esc(s.icon)} ${esc(s.name)}</option>`).join('');
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';modal.id='mInviteTutor';
+  modal.onclick=e=>{if(e.target===modal)modal.remove()};
+  modal.innerHTML=`<div class="modal" style="max-width:400px">
+    <div class="modal-header"><h3>Пригласить преподавателя</h3><button class="modal-close" onclick="document.getElementById('mInviteTutor').remove()">✕</button></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+      <input id="itName" placeholder="Имя" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <input id="itLogin" placeholder="Логин" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <input id="itPw" type="password" placeholder="Пароль (мин. 6 символов)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <select id="itSubj" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+        <option value="">— предмет (необяз.) —</option>${subOpts}
+      </select>
+      <p id="itErr" style="color:#f87171;font-size:.85em;display:none"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="doInviteTutor()">Создать аккаунт</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+async function doInviteTutor(){
+  const e=document.getElementById('itErr');e.style.display='none';
+  const name=document.getElementById('itName').value.trim();
+  const login=document.getElementById('itLogin').value.trim();
+  const pw=document.getElementById('itPw').value;
+  const subj=document.getElementById('itSubj').value;
+  if(!name||!login||!pw){e.textContent='Заполните все поля';e.style.display='block';return}
+  try{
+    await post('/api/users',{name,login,password:pw,role:'tutor',subject_ids:subj?[subj]:[]});
+    const el=document.getElementById('mInviteTutor');if(el)el.remove();await loadTeam();
+  }catch(x){e.textContent=x.detail||'Ошибка';e.style.display='block'}
+}
+
+function showCredModal(uid,name){
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';modal.id='mCreds';
+  modal.onclick=e=>{if(e.target===modal)modal.remove()};
+  modal.innerHTML=`<div class="modal" style="max-width:380px">
+    <div class="modal-header"><h3>Доступ: ${esc(name)}</h3><button class="modal-close" onclick="document.getElementById('mCreds').remove()">✕</button></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+      <input id="crLogin" placeholder="Новый логин (оставьте пустым если не менять)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <input id="crPw" type="password" placeholder="Новый пароль (оставьте пустым если не менять)" style="padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--fg)">
+      <p id="crErr" style="color:#f87171;font-size:.85em;display:none"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="doUpdateCreds('${uid}')">Сохранить</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+async function doUpdateCreds(uid){
+  const e=document.getElementById('crErr');e.style.display='none';
+  const login=document.getElementById('crLogin').value.trim();
+  const pw=document.getElementById('crPw').value;
+  if(!login&&!pw){e.textContent='Введите логин или пароль';e.style.display='block';return}
+  try{
+    await patch('/api/teamlead/team/'+uid+'/credentials',{...(login?{login}:{}),...(pw?{password:pw}:{})});
+    const el=document.getElementById('mCreds');if(el)el.remove();alert('Сохранено');
+  }catch(x){e.textContent=x.detail||'Ошибка';e.style.display='block'}
+}
+
 // ─── LOAD ──────────────────────────────────────────────────────────────────
 async function load(){
   [subjects,students,users]=await Promise.all([
     get('/api/subjects').catch(()=>[]),
     get('/api/students').catch(()=>[]),
-    (isOwner||R==='tutor')?get('/api/users').catch(()=>[]):Promise.resolve([])]);
+    (isOwner||R==='tutor'||isTL)?get('/api/users').catch(()=>[]):Promise.resolve([])]);
   render();
   // Handle ?chat=uid&name=name from profile page
   const _qp=new URLSearchParams(location.search);
@@ -1674,4 +1972,4 @@ async function load(){
   if(_initSec){history.replaceState(null,'',location.pathname);goSection(_initSec);}}
 
 load();pollNotifs();loadContacts();
-</script></body></html>
+</script><script src="/call.js"></script></body></html>

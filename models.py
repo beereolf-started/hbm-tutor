@@ -19,6 +19,7 @@ class ControlStatus(str, enum.Enum):
     none="none"; passed="passed"; failed="failed"
 class UserRole(str, enum.Enum):
     owner="owner"; tutor="tutor"; parent="parent"; student="student"; board_user="board_user"
+    teamlead="teamlead"
 class CourseAccess(str, enum.Enum):
     public="public"; internal="internal"; private="private"
 
@@ -48,6 +49,8 @@ class User(Base):
     student_profile=relationship("Student",foreign_keys=[student_id])
     subject_id=Column(String(12),ForeignKey("subjects.id",ondelete="SET NULL"),nullable=True)
     subject=relationship("Subject",back_populates="tutors")
+    # Teamlead: ссылка для приглашённых тьюторов (NULL = независимый тьютор или teamlead)
+    teamlead_id=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
 
 class Subject(Base):
     __tablename__="subjects"
@@ -285,3 +288,33 @@ class GroupMessage(Base):
     text=Column(Text,nullable=False)
     created_at=Column(DateTime(timezone=True),server_default=func.now())
     sender=relationship("User",foreign_keys=[from_id])
+
+class LessonRecord(Base):
+    """Учёт проведённых занятий — для финансовой статистики teamlead."""
+    __tablename__="lesson_records"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    tutor_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    student_id=Column(String(12),ForeignKey("students.id",ondelete="CASCADE"),nullable=False)
+    slot_id=Column(String(12),ForeignKey("schedule_slots.id",ondelete="SET NULL"),nullable=True)
+    held_at=Column(DateTime(timezone=True),nullable=False,server_default=func.now())
+    duration_min=Column(Integer,nullable=False,default=60)
+    rate=Column(Integer,nullable=False,default=1500)
+    amount=Column(Integer,nullable=False,default=1500)
+    note=Column(Text,nullable=True)
+    created_by=Column(String(12),ForeignKey("users.id",ondelete="SET NULL"),nullable=True)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    tutor=relationship("User",foreign_keys=[tutor_id])
+    student_obj=relationship("Student",foreign_keys=[student_id])
+
+class TeamLeadSubscription(Base):
+    """Подписка teamlead — хранит период активности."""
+    __tablename__="teamlead_subscriptions"
+    id=Column(String(12),primary_key=True,default=gen_id)
+    teamlead_id=Column(String(12),ForeignKey("users.id",ondelete="CASCADE"),nullable=False)
+    starts_at=Column(DateTime(timezone=True),nullable=False)
+    ends_at=Column(DateTime(timezone=True),nullable=False)
+    plan=Column(String(50),nullable=False,default="monthly")
+    price=Column(Integer,nullable=False,default=0)
+    is_active=Column(Boolean,nullable=False,default=True)
+    created_at=Column(DateTime(timezone=True),server_default=func.now())
+    teamlead=relationship("User",foreign_keys=[teamlead_id])

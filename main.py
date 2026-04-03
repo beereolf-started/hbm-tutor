@@ -10,7 +10,7 @@ from database import get_db,SessionLocal,engine,Base
 from models import *
 from schemas import *
 from auth import (hash_password,verify_password,create_token,get_current_user,
-    require_owner,require_tutor_or_owner,decode_token,SECRET_KEY,ALGORITHM)
+    require_owner,require_tutor_or_owner,require_teamlead_or_owner,decode_token,SECRET_KEY,ALGORITHM)
 
 app=FastAPI(title="HBM Репетитор API",version="2.0")
 app.add_middleware(GZipMiddleware,minimum_size=512)
@@ -37,6 +37,34 @@ async def _startup_migrate():
         "CREATE TABLE IF NOT EXISTS group_message_reads (group_id varchar(12) NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE, user_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE, last_read_at timestamptz DEFAULT now(), PRIMARY KEY (group_id, user_id))",
         "ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS photo TEXT",
         "ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS tutor_id varchar(12) REFERENCES users(id) ON DELETE SET NULL",
+        # Teamlead
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='teamlead' AND enumtypid=(SELECT oid FROM pg_type WHERE typname='userrole')) THEN ALTER TYPE userrole ADD VALUE 'teamlead'; END IF; END $$",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS teamlead_id varchar(12) REFERENCES users(id) ON DELETE SET NULL",
+        """CREATE TABLE IF NOT EXISTS lesson_records (
+            id varchar(12) PRIMARY KEY,
+            tutor_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            student_id varchar(12) NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            slot_id varchar(12) REFERENCES schedule_slots(id) ON DELETE SET NULL,
+            held_at timestamptz NOT NULL DEFAULT now(),
+            duration_min integer NOT NULL DEFAULT 60,
+            rate integer NOT NULL DEFAULT 1500,
+            amount integer NOT NULL DEFAULT 1500,
+            note text,
+            created_by varchar(12) REFERENCES users(id) ON DELETE SET NULL,
+            created_at timestamptz NOT NULL DEFAULT now()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_lr_tutor_date ON lesson_records(tutor_id, held_at)",
+        "CREATE INDEX IF NOT EXISTS idx_lr_student_date ON lesson_records(student_id, held_at)",
+        """CREATE TABLE IF NOT EXISTS teamlead_subscriptions (
+            id varchar(12) PRIMARY KEY,
+            teamlead_id varchar(12) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            starts_at timestamptz NOT NULL,
+            ends_at timestamptz NOT NULL,
+            plan varchar(50) NOT NULL DEFAULT 'monthly',
+            price integer NOT NULL DEFAULT 0,
+            is_active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now()
+        )""",
     ]
     _db=SessionLocal()
     for _sql in _steps:
@@ -64,7 +92,32 @@ def _abs(rel): return os.path.join(BASE_DIR,rel.replace("/",os.sep)) if rel else
 def _rm(rel):
     fp=_abs(rel)
     if fp and os.path.exists(fp): os.remove(fp)
-def is_tr(u): return u.role in ("owner","tutor")
+def is_tr(u): return u.role in ("owner","tutor","teamlead")
+def is_tl(u): return u.role in ("owner","teamlead")
+
+def _team_tutor_ids(teamlead_id, db):
+    """Возвращает список id тьюторов команды teamlead."""
+    return [r.id for r in db.query(User.id).filter(User.teamlead_id==teamlead_id, User.role=="tutor").all()]
+
+def _teamlead_student_ids(teamlead_id, db):
+    """Возвращает все student.id доступные данному teamlead (через его тьюторов)."""
+    tids = _team_tutor_ids(teamlead_id, db)
+    if not tids: return []
+    sids = set()
+    for tid in tids:
+        sids.update(_tutor_student_ids(tid, db))
+    return list(sids)
+
+def _notify_teamlead_or_owner(tutor, text, notif_type, link, db):
+    """Уведомляет teamlead тьютора или owner, если тьютор независимый."""
+    if tutor and tutor.teamlead_id:
+        uid = tutor.teamlead_id
+    else:
+        owner = db.query(User).filter(User.role=="owner").first()
+        uid = owner.id if owner else None
+    if uid:
+        n = Notification(user_id=uid, text=text, notif_type=notif_type, link=link)
+        db.add(n)
 
 # ═══ LAST SEEN MIDDLEWARE ═══
 @app.middleware("http")
@@ -113,11 +166,20 @@ def _tutor_student_ids(uid,db):
 def _user_out(u,db):
     sids=[r.subject_id for r in db.execute(tutor_subject_link.select().where(tutor_subject_link.c.tutor_id==u.id)).fetchall()]
     return UserOut(id=u.id,login=u.login,role=u.role,name=u.name,must_change_password=u.must_change_password,
-        student_id=u.student_id,subject_id=u.subject_id,created_at=u.created_at,subject_ids=sids)
+        student_id=u.student_id,subject_id=u.subject_id,created_at=u.created_at,subject_ids=sids,
+        teamlead_id=u.teamlead_id)
 
 @app.get("/api/users",response_model=list[UserOut])
 def list_users(u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
     if u.role=="owner": users=db.query(User).order_by(User.created_at.desc()).all()
+    elif u.role=="teamlead":
+        # Тьюторы команды + их студенты/родители
+        tids=_team_tutor_ids(u.id,db)
+        sids=_teamlead_student_ids(u.id,db)
+        student_uids=[r.id for r in db.query(User.id).filter(User.student_id.in_(sids)).all()] if sids else []
+        parent_ids=[r.parent_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(sids))).fetchall()] if sids else []
+        visible=set(tids)|set(student_uids)|set(parent_ids)|{u.id}
+        users=db.query(User).filter(User.id.in_(visible)).order_by(User.created_at.desc()).all()
     else:
         stids=_tutor_student_ids(u.id,db)
         student_uids=[r.id for r in db.query(User.id).filter(User.student_id.in_(stids)).all()] if stids else []
@@ -128,9 +190,10 @@ def list_users(u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)
 
 @app.post("/api/users",response_model=UserOut,status_code=201)
 def create_user(d:UserCreate,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
-    if d.role=="tutor" and u.role!="owner": raise HTTPException(403,"Только владелец может создавать преподавателей")
+    if d.role=="tutor" and u.role not in ("owner","teamlead"): raise HTTPException(403,"Только владелец или teamlead может создавать преподавателей")
     if d.role=="board_user" and u.role!="owner": raise HTTPException(403,"Только владелец может создавать пользователей доски")
-    if d.role not in ("tutor","student","parent","board_user"): raise HTTPException(400,"Роль: tutor/student/parent/board_user")
+    if d.role=="teamlead" and u.role!="owner": raise HTTPException(403,"Только владелец может создавать teamlead")
+    if d.role not in ("tutor","student","parent","board_user","teamlead"): raise HTTPException(400,"Роль: tutor/student/parent/board_user/teamlead")
     if db.query(User).filter(User.login==d.login).first(): raise HTTPException(409,"Логин занят")
     if len(d.password)<6: raise HTTPException(400,"Минимум 6 символов")
     # Tutor can only link parent to their own students
@@ -139,6 +202,15 @@ def create_user(d:UserCreate,u:User=Depends(require_tutor_or_owner),db:Session=D
         for sid in d.children_ids:
             if sid not in allowed: raise HTTPException(403,"Нет доступа к этому ученику")
     nu=User(login=d.login,password_hash=hash_password(d.password),role=d.role,name=d.name,must_change_password=True)
+    # Приглашённый тьютор teamlead — привязываем к его команде
+    if d.role=="tutor" and u.role=="teamlead":
+        nu.teamlead_id=u.id
+    # teamlead может также добавить parent/student в рамках своих тьюторов
+    if d.role=="parent" and u.role=="teamlead":
+        if d.children_ids:
+            allowed=set(_teamlead_student_ids(u.id,db))
+            for sid in d.children_ids:
+                if sid not in allowed: raise HTTPException(403,"Нет доступа к этому ученику")
     sids=d.subject_ids or ([d.subject_id] if d.subject_id else [])
     if d.role=="tutor" and sids:
         nu.subject_id=sids[0]
@@ -191,7 +263,15 @@ def del_user(uid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(g
     t=db.query(User).filter(User.id==uid).first()
     if not t: raise HTTPException(404)
     if t.role=="owner": raise HTTPException(400,"Нельзя удалить владельца")
-    if t.role=="tutor" and u.role!="owner": raise HTTPException(403,"Только владелец может удалять преподавателей")
+    if t.role=="teamlead" and u.role!="owner": raise HTTPException(403,"Только владелец может удалять teamlead")
+    if t.role=="tutor" and u.role not in ("owner","teamlead"): raise HTTPException(403,"Только владелец или teamlead может удалять преподавателей")
+    if u.role=="teamlead":
+        # Teamlead может удалять только членов своей команды
+        allowed_tids=set(_team_tutor_ids(u.id,db))
+        allowed_sids=set(_teamlead_student_ids(u.id,db))
+        allowed_suids={r.id for r in db.query(User.id).filter(User.student_id.in_(allowed_sids)).all()} if allowed_sids else set()
+        allowed_pids={r.parent_id for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(allowed_sids))).fetchall()} if allowed_sids else set()
+        if t.id not in allowed_tids|allowed_suids|allowed_pids: raise HTTPException(403,"Нет доступа")
     if u.role=="tutor":
         # Tutor can only delete users visible to them
         stids=_tutor_student_ids(u.id,db)
@@ -531,6 +611,11 @@ def check_code_item(iid:str,d:CodeCheckRequest,u:User=Depends(get_current_user),
 # ═══ ACCESS CHECK ═══
 def chk_acc(stid,u,db):
     if u.role=="owner": return
+    if u.role=="teamlead":
+        st=db.query(Student).filter(Student.id==stid).first()
+        if not st: raise HTTPException(404)
+        if stid in _teamlead_student_ids(u.id, db): return
+        raise HTTPException(403,"Нет доступа")
     if u.role=="tutor":
         st=db.query(Student).filter(Student.id==stid).first()
         if not st: raise HTTPException(404)
@@ -547,6 +632,9 @@ def chk_acc(stid,u,db):
 @app.get("/api/students",response_model=list[StudentListItem])
 def list_students(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
     if u.role=="owner": return db.query(Student).order_by(Student.created_at.desc()).all()
+    if u.role=="teamlead":
+        sids=_teamlead_student_ids(u.id,db)
+        return db.query(Student).filter(Student.id.in_(sids)).order_by(Student.created_at.desc()).all() if sids else []
     if u.role=="tutor":
         own=db.query(Student).filter(Student.created_by==u.id)
         lids=[r.student_id for r in db.execute(tutor_student_link.select().where(tutor_student_link.c.tutor_id==u.id)).fetchall()]
@@ -831,6 +919,48 @@ def _cln_sec(sec,db):
     for it in db.query(Item).filter(Item.section_id==sec.id).all(): _cln_it(it,db)
 def _cln_stu(st,db):
     for sec in db.query(Section).filter(Section.student_id==st.id).all(): _cln_sec(sec,db)
+
+# ═══ GLOBAL USER CONNECTIONS (for calls / notifications) ═══
+user_global_conns: dict[str, WebSocket] = {}  # uid -> ws
+
+async def _send_to_user(uid: str, msg: dict):
+    ws = user_global_conns.get(uid)
+    if ws:
+        try: await ws.send_text(json.dumps(msg))
+        except: pass
+
+@app.websocket("/ws/user/{uid}")
+async def user_global_ws(ws: WebSocket, uid: str):
+    token = ws.query_params.get("token","")
+    await ws.accept()
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub = payload.get("sub")
+    except:
+        await ws.close(code=4001); return
+    if sub != uid:
+        await ws.close(code=4003); return
+    user_global_conns[uid] = ws
+    try:
+        while True:
+            raw = await ws.receive_text()
+            try: msg = json.loads(raw)
+            except: continue
+            mtype = msg.get("type","")
+            # Call signaling: forward to target user
+            if mtype in ("call_offer","call_answer","call_ice","call_reject","call_end","call_busy"):
+                to_uid = msg.get("to")
+                if to_uid:
+                    msg["from"] = uid
+                    if user_global_conns.get(to_uid):
+                        await _send_to_user(to_uid, msg)
+                    elif mtype == "call_offer":
+                        await ws.send_text(json.dumps({"type":"call_unavailable","to":to_uid}))
+    except WebSocketDisconnect: pass
+    except Exception as e: print(f"[USER_WS] {e}")
+    finally:
+        if user_global_conns.get(uid) is ws:
+            del user_global_conns[uid]
 
 # ═══ BOARD ═══
 brd_conns: dict[str,set[WebSocket]] = defaultdict(set)
@@ -1600,27 +1730,30 @@ def create_change_request(d:ChangeRequestCreate,u:User=Depends(get_current_user)
         existing.new_value=d.new_value; db.commit(); return {"ok":True}
     cr=ChangeRequest(user_id=u.id,req_type=d.req_type,new_value=d.new_value)
     db.add(cr); db.flush()
-    owner=db.query(User).filter(User.role=="owner").first()
-    if owner:
-        label="логина" if d.req_type=="login" else "пароля"
-        n=Notification(user_id=owner.id,text=f"Пользователь {u.name} запросил смену {label}",
-            notif_type="change_request",link=f"/profile.html?uid={u.id}")
-        db.add(n)
+    label="логина" if d.req_type=="login" else "пароля"
+    _notify_teamlead_or_owner(u,f"Пользователь {u.name} запросил смену {label}","change_request",f"/profile.html?uid={u.id}",db)
     db.commit(); return {"ok":True}
 
 @app.get("/api/change-requests")
-def list_change_requests(u:User=Depends(require_owner),db:Session=Depends(get_db)):
-    reqs=db.query(ChangeRequest).filter(ChangeRequest.status=="pending").order_by(ChangeRequest.created_at.desc()).all()
+def list_change_requests(u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db)):
+    if u.role=="owner":
+        reqs=db.query(ChangeRequest).filter(ChangeRequest.status=="pending").order_by(ChangeRequest.created_at.desc()).all()
+    else:
+        # Teamlead видит запросы только своей команды
+        tids=_team_tutor_ids(u.id,db)
+        reqs=db.query(ChangeRequest).filter(ChangeRequest.status=="pending",ChangeRequest.user_id.in_(tids+[u.id])).order_by(ChangeRequest.created_at.desc()).all()
     return [{"id":r.id,"user_id":r.user_id,"user_name":r.req_user.name,"req_type":r.req_type,
              "new_value":r.new_value if r.req_type=="login" else "••••••",
              "created_at":r.created_at.isoformat() if r.created_at else None} for r in reqs]
 
 @app.post("/api/change-requests/{rid}/approve")
-def approve_change_request(rid:str,u:User=Depends(require_owner),db:Session=Depends(get_db)):
+def approve_change_request(rid:str,u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db)):
     r=db.query(ChangeRequest).filter(ChangeRequest.id==rid).first()
     if not r: raise HTTPException(404)
     t=db.query(User).filter(User.id==r.user_id).first()
     if not t: raise HTTPException(404)
+    # Teamlead одобряет только запросы своей команды
+    if u.role=="teamlead" and t.teamlead_id!=u.id and t.id!=u.id: raise HTTPException(403,"Нет доступа")
     if r.req_type=="login":
         if db.query(User).filter(User.login==r.new_value,User.id!=t.id).first(): raise HTTPException(409,"Логин занят")
         t.login=r.new_value
@@ -1632,10 +1765,11 @@ def approve_change_request(rid:str,u:User=Depends(require_owner),db:Session=Depe
     db.add(n); db.commit(); return {"ok":True}
 
 @app.post("/api/change-requests/{rid}/reject")
-def reject_change_request(rid:str,u:User=Depends(require_owner),db:Session=Depends(get_db)):
+def reject_change_request(rid:str,u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db)):
     r=db.query(ChangeRequest).filter(ChangeRequest.id==rid).first()
     if not r: raise HTTPException(404)
     t=db.query(User).filter(User.id==r.user_id).first()
+    if u.role=="teamlead" and t and t.teamlead_id!=u.id and t.id!=u.id: raise HTTPException(403,"Нет доступа")
     r.status="rejected"
     if t:
         label="логина" if r.req_type=="login" else "пароля"
@@ -1652,6 +1786,15 @@ def get_contacts(u:User=Depends(get_current_user),db:Session=Depends(get_db)):
         all_u=db.query(User).filter(User.id!=u.id).all()
         users=all_u
     else:
+        if u.role=="teamlead":
+            tids=_team_tutor_ids(u.id,db)
+            sids=_teamlead_student_ids(u.id,db)
+            for tid in tids: ids.add(tid)
+            if sids:
+                for r in db.query(User).filter(User.student_id.in_(sids)).all(): ids.add(r.id)
+                for r in db.execute(parent_student_link.select().where(parent_student_link.c.student_id.in_(sids))).fetchall(): ids.add(r.parent_id)
+            owner=db.query(User).filter(User.role=="owner").first()
+            if owner: ids.add(owner.id)
         if u.role=="tutor":
             stids=set(_tutor_student_ids(u.id,db))
             if stids:
@@ -2069,6 +2212,21 @@ async def personal_board_ws(ws:WebSocket,bid:str):
                     if b: b.strokes=json.dumps([s for s in json.loads(b.strokes) if s.get("id")!=eid]); db.commit()
                 finally: db.close()
                 await _pb_bcast(bid,json.dumps({"type":"erase_stroke","id":eid}),ws)
+            elif mt=="stroke_update":
+                sd=msg.get("data",{}); eid=sd.get("id")
+                if not eid: continue
+                if not sd.get("user_id"): sd["user_id"]=uid
+                db=SessionLocal()
+                try:
+                    b=db.query(PersonalBoard).filter(PersonalBoard.id==bid).first()
+                    if b:
+                        c=json.loads(b.strokes)
+                        idx=next((i for i,s in enumerate(c) if s.get("id")==eid),-1)
+                        if idx>=0: c[idx]=sd
+                        else: c.append(sd)
+                        b.strokes=json.dumps(c); db.commit()
+                finally: db.close()
+                await _pb_bcast(bid,json.dumps({"type":"stroke_update","data":sd}),ws)
             elif mt=="clear":
                 db=SessionLocal()
                 try:
@@ -2210,6 +2368,189 @@ def del_student_course(cid:str,u:User=Depends(require_tutor_or_owner),db:Session
     chk_acc(c.student_id,u,db)
     db.delete(c); db.commit()
 
+# ═══ TEAMLEAD API ═══
+
+@app.get("/api/teamlead/team")
+def get_team(u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db)):
+    """Список тьюторов команды teamlead с их студентами."""
+    if u.role=="owner":
+        tutors=db.query(User).filter(User.role=="tutor",User.teamlead_id!=None).order_by(User.created_at).all()
+    else:
+        tutors=db.query(User).filter(User.teamlead_id==u.id,User.role=="tutor").order_by(User.created_at).all()
+    result=[]
+    for t in tutors:
+        stids=_tutor_student_ids(t.id,db)
+        students=db.query(Student).filter(Student.id.in_(stids)).all() if stids else []
+        result.append({"id":t.id,"name":t.name,"login":t.login,"role":t.role,
+                       "last_seen":t.last_seen.isoformat() if t.last_seen else None,
+                       "subject_id":t.subject_id,"teamlead_id":t.teamlead_id,
+                       "students":[{"id":s.id,"name":s.name,"base_rate":s.base_rate} for s in students]})
+    return result
+
+@app.patch("/api/teamlead/team/{uid}/credentials")
+def update_team_credentials(uid:str,d:dict=Body(...),u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db)):
+    """Teamlead меняет логин/пароль члена своей команды без change-request."""
+    t=db.query(User).filter(User.id==uid).first()
+    if not t: raise HTTPException(404)
+    # Teamlead может менять только членов своей команды
+    if u.role=="teamlead" and t.teamlead_id!=u.id and t.id!=u.id:
+        raise HTTPException(403,"Нет доступа")
+    if "login" in d and d["login"]:
+        new_login=str(d["login"]).strip()
+        if db.query(User).filter(User.login==new_login,User.id!=t.id).first(): raise HTTPException(409,"Логин занят")
+        t.login=new_login
+    if "password" in d and d["password"]:
+        new_pw=str(d["password"])
+        if len(new_pw)<6: raise HTTPException(400,"Минимум 6 символов")
+        t.password_hash=hash_password(new_pw); t.must_change_password=False
+    db.commit()
+    return {"ok":True}
+
+@app.get("/api/teamlead/subscription")
+def get_subscription(u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db)):
+    """Текущая подписка teamlead."""
+    tid=u.id if u.role=="teamlead" else None
+    if not tid: return {"is_active":True,"plan":"owner","days_left":9999}
+    sub=db.query(TeamLeadSubscription).filter(
+        TeamLeadSubscription.teamlead_id==tid,
+        TeamLeadSubscription.is_active==True
+    ).order_by(TeamLeadSubscription.ends_at.desc()).first()
+    now=datetime.now(timezone.utc)
+    if not sub: return {"is_active":False,"plan":None,"days_left":0}
+    days=(sub.ends_at.replace(tzinfo=timezone.utc)-now).days
+    return {"id":sub.id,"is_active":days>0,"plan":sub.plan,"starts_at":sub.starts_at.isoformat(),
+            "ends_at":sub.ends_at.isoformat(),"days_left":max(0,days)}
+
+@app.post("/api/teamlead/subscription",status_code=201)
+def create_subscription(d:dict=Body(...),o:User=Depends(require_owner),db:Session=Depends(get_db)):
+    """Owner создаёт/продлевает подписку для teamlead."""
+    tl=db.query(User).filter(User.id==d.get("teamlead_id"),User.role=="teamlead").first()
+    if not tl: raise HTTPException(404,"Teamlead не найден")
+    from datetime import datetime as _dt
+    starts=_dt.fromisoformat(d.get("starts_at",datetime.now(timezone.utc).isoformat()))
+    ends=_dt.fromisoformat(d.get("ends_at"))
+    sub=TeamLeadSubscription(id=gen_id(),teamlead_id=tl.id,starts_at=starts,ends_at=ends,
+                              plan=d.get("plan","monthly"),price=int(d.get("price",0)))
+    db.add(sub); db.commit(); db.refresh(sub)
+    return {"id":sub.id,"ok":True}
+
+# ═══ LESSON RECORDS ═══
+
+@app.get("/api/lessons")
+def list_lessons(u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db),
+                 tutor_id:str=None,student_id:str=None,date_from:str=None,date_to:str=None):
+    from sqlalchemy import and_
+    q=db.query(LessonRecord)
+    if u.role=="tutor": q=q.filter(LessonRecord.tutor_id==u.id)
+    elif u.role=="teamlead":
+        tids=_team_tutor_ids(u.id,db)
+        q=q.filter(LessonRecord.tutor_id.in_(tids))
+        if tutor_id and tutor_id in tids: q=q.filter(LessonRecord.tutor_id==tutor_id)
+    else: # owner
+        if tutor_id: q=q.filter(LessonRecord.tutor_id==tutor_id)
+    if student_id: q=q.filter(LessonRecord.student_id==student_id)
+    if date_from:
+        try:
+            from datetime import datetime as _dt
+            q=q.filter(LessonRecord.held_at>=_dt.fromisoformat(date_from))
+        except: pass
+    if date_to:
+        try:
+            from datetime import datetime as _dt
+            q=q.filter(LessonRecord.held_at<=_dt.fromisoformat(date_to))
+        except: pass
+    records=q.order_by(LessonRecord.held_at.desc()).limit(500).all()
+    result=[]
+    for r in records:
+        tutor=db.query(User).filter(User.id==r.tutor_id).first()
+        st=db.query(Student).filter(Student.id==r.student_id).first()
+        result.append({"id":r.id,"tutor_id":r.tutor_id,"tutor_name":tutor.name if tutor else None,
+                       "student_id":r.student_id,"student_name":st.name if st else None,
+                       "held_at":r.held_at.isoformat() if r.held_at else None,
+                       "duration_min":r.duration_min,"rate":r.rate,"amount":r.amount,
+                       "note":r.note,"slot_id":r.slot_id})
+    return result
+
+@app.post("/api/lessons",status_code=201)
+def create_lesson(d:dict=Body(...),u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    tutor_id=d.get("tutor_id",u.id)
+    if u.role=="tutor" and tutor_id!=u.id: raise HTTPException(403,"Тьютор может логировать только свои занятия")
+    if u.role=="teamlead":
+        tids=_team_tutor_ids(u.id,db)
+        if tutor_id not in tids: raise HTTPException(403,"Тьютор не в вашей команде")
+    tutor=db.query(User).filter(User.id==tutor_id).first()
+    if not tutor: raise HTTPException(404,"Тьютор не найден")
+    student_id=d.get("student_id")
+    if not student_id or not db.query(Student).filter(Student.id==student_id).first(): raise HTTPException(404,"Ученик не найден")
+    from datetime import datetime as _dt
+    held_at_str=d.get("held_at")
+    held_at=_dt.fromisoformat(held_at_str) if held_at_str else _dt.now(timezone.utc)
+    rate=int(d.get("rate",1500)); duration_min=int(d.get("duration_min",60))
+    lr=LessonRecord(id=gen_id(),tutor_id=tutor_id,student_id=student_id,held_at=held_at,
+                    duration_min=duration_min,rate=rate,amount=rate,
+                    note=d.get("note"),slot_id=d.get("slot_id"),created_by=u.id)
+    db.add(lr); db.commit(); db.refresh(lr)
+    return {"id":lr.id,"ok":True}
+
+@app.delete("/api/lessons/{lid}",status_code=204)
+def delete_lesson(lid:str,u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
+    r=db.query(LessonRecord).filter(LessonRecord.id==lid).first()
+    if not r: raise HTTPException(404)
+    if u.role=="tutor" and r.tutor_id!=u.id: raise HTTPException(403)
+    if u.role=="teamlead":
+        tids=_team_tutor_ids(u.id,db)
+        if r.tutor_id not in tids: raise HTTPException(403)
+    db.delete(r); db.commit()
+
+@app.get("/api/teamlead/stats")
+def teamlead_stats(u:User=Depends(require_teamlead_or_owner),db:Session=Depends(get_db),
+                   date_from:str=None,date_to:str=None,tutor_id:str=None):
+    from sqlalchemy import func as sqlfunc
+    from datetime import datetime as _dt
+    now=_dt.now(timezone.utc)
+    df=_dt.fromisoformat(date_from) if date_from else _dt(now.year,now.month,1,tzinfo=timezone.utc)
+    dt=_dt.fromisoformat(date_to) if date_to else now
+    if u.role=="teamlead":
+        tids=_team_tutor_ids(u.id,db)
+    else: # owner viewing a specific team
+        tids=[r.id for r in db.query(User.id).filter(User.role=="tutor",User.teamlead_id!=None).all()]
+    if tutor_id and tutor_id in tids: tids=[tutor_id]
+    if not tids: return {"total_lessons":0,"total_amount":0,"by_tutor":[],"by_week":[],"by_student":[]}
+    q=db.query(LessonRecord).filter(LessonRecord.tutor_id.in_(tids),LessonRecord.held_at>=df,LessonRecord.held_at<=dt)
+    records=q.all()
+    total_lessons=len(records)
+    total_amount=sum(r.amount for r in records)
+    # By tutor
+    tutor_map={}
+    for r in records:
+        if r.tutor_id not in tutor_map: tutor_map[r.tutor_id]={"count":0,"amount":0}
+        tutor_map[r.tutor_id]["count"]+=1; tutor_map[r.tutor_id]["amount"]+=r.amount
+    by_tutor=[]
+    for tid,v in tutor_map.items():
+        t=db.query(User).filter(User.id==tid).first()
+        by_tutor.append({"tutor_id":tid,"tutor_name":t.name if t else tid,"lessons_count":v["count"],"amount":v["amount"]})
+    # By student
+    student_map={}
+    for r in records:
+        if r.student_id not in student_map: student_map[r.student_id]={"count":0,"amount":0}
+        student_map[r.student_id]["count"]+=1; student_map[r.student_id]["amount"]+=r.amount
+    by_student=[]
+    for sid,v in student_map.items():
+        s=db.query(Student).filter(Student.id==sid).first()
+        by_student.append({"student_id":sid,"student_name":s.name if s else sid,"lessons_count":v["count"],"amount":v["amount"]})
+    # By week (ISO week)
+    week_map={}
+    for r in records:
+        if not r.held_at: continue
+        week_key=r.held_at.strftime("%Y-W%V")
+        week_start=r.held_at.strftime("%Y-%m-%d")
+        if week_key not in week_map: week_map[week_key]={"week_start":week_start,"count":0,"amount":0}
+        week_map[week_key]["count"]+=1; week_map[week_key]["amount"]+=r.amount
+    by_week=sorted(week_map.values(),key=lambda x:x["week_start"])
+    return {"total_lessons":total_lessons,"total_amount":total_amount,
+            "by_tutor":by_tutor,"by_week":by_week,"by_student":by_student,
+            "date_from":df.isoformat(),"date_to":dt.isoformat()}
+
 # ═══ STATIC ═══
 app.mount("/uploads",StaticFiles(directory=UPLOAD_DIR),name="uploads")
 app.mount("/cm",StaticFiles(directory="static/cm"),name="cm")
@@ -2219,6 +2560,8 @@ if os.path.isdir(SD):
     _NC={"Cache-Control":"no-cache, no-store, must-revalidate","Pragma":"no-cache","Expires":"0"}
     @app.get("/api.js")
     async def sjs(): return FileResponse(os.path.join(SD,"api.js"),media_type="application/javascript",headers=_NC)
+    @app.get("/call.js")
+    async def scalljs(): return FileResponse(os.path.join(SD,"call.js"),media_type="application/javascript",headers=_NC)
     @app.get("/{p}.html")
     async def shtml(p:str):
         fp=os.path.join(SD,f"{p}.html")

@@ -18,6 +18,7 @@ class UserOut(BaseModel):
     student_id: Optional[str]=None; subject_id: Optional[str]=None; created_at: Optional[datetime]=None
     last_seen: Optional[datetime]=None; subject_ids: list[str]=[]
     about: Optional[str]=None; photo: Optional[str]=None
+    teamlead_id: Optional[str]=None
     model_config = {"from_attributes": True}
 
 class ProfileUpdate(BaseModel):

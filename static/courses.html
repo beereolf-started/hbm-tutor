@@ -152,7 +152,7 @@ textarea{resize:vertical;min-height:52px;width:100%}
 
 <script src="/api.js"></script>
 <script>
-if(!requireAuth(['owner','tutor']))throw'';
+if(!requireAuth(['owner','tutor','teamlead']))throw'';
 let subjects=[],courses=[],curCourse=null,editingId=null,myId=null;
 
 async function load(){

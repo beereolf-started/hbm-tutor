@@ -36,7 +36,7 @@ button:hover{background:var(--green-h)}
 </div>
 <script src="/api.js"></script>
 <script>
-const ROUTES={owner:'/hbm_tutor.html',tutor:'/hbm_tutor.html',student:'/student_lk.html',parent:'/parent_lk.html',board_user:'/board_user_lk.html'};
+const ROUTES={owner:'/hbm_tutor.html',tutor:'/hbm_tutor.html',teamlead:'/hbm_tutor.html',student:'/student_lk.html',parent:'/parent_lk.html',board_user:'/board_user_lk.html'};
 if(localStorage.getItem('token')){const r=role();if(r&&ROUTES[r])location.href=ROUTES[r]}
 async function doLogin(){
     const e=document.getElementById('err');e.style.display='none';
