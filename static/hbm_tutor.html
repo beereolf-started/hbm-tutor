@@ -542,7 +542,6 @@ function renderUsers(){
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <a class="btn btn-s btn-sm" href="/profile.html?uid=${u.id}" title="Профиль">👤</a>
     ${u.role==='tutor'&&isOwner?`<button class="btn btn-s btn-sm" onclick="openTutorSubjects('${u.id}','${esc(u.name)}')">📐</button>`:''}
-    ${u.role==='tutor'&&isOwner?`<button class="btn btn-s btn-sm" onclick="toggleCommission('${u.id}',${!!u.no_commission})" title="${u.no_commission?'Включить комиссию (сейчас отключена)':'Отключить комиссию'}" style="color:${u.no_commission?'var(--green-t)':'var(--muted)'}">%</button>`:''}
     ${u.role==='student'?`<button class="btn btn-s btn-sm" onclick="openLinkStudent('${u.id}','${esc(u.name)}','${u.student_id||''}')">🔗 ${u.student_id?'Сменить':'Привязать'}</button>`:''}
     ${u.role==='student'&&u.student_id?`<button class="btn btn-s btn-sm" onclick="unlinkStudent('${u.id}','${esc(u.name)}')" title="Отвязать профиль">✂</button>`:''}
     ${canDel?`<button class="btn btn-d btn-sm" onclick="delUser('${u.id}')">✕</button>`:''}

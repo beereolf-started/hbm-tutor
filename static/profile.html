@@ -142,6 +142,13 @@ input:focus{border-color:var(--blue)}
       <label>Новый пароль <span style="color:var(--muted)">(оставьте пустым, чтобы не менять)</span></label>
       <input id="oePassword" type="password" placeholder="минимум 6 символов" autocomplete="new-password">
     </div>
+    <div id="oeNoCommWrap" style="display:none;margin:12px 0 4px">
+      <hr style="border:none;border-top:1px solid var(--border);margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="oeNoComm" style="width:16px;height:16px;accent-color:var(--green-t);cursor:pointer">
+        <span style="font-size:.88em">Не взимать комиссию с этого преподавателя</span>
+      </label>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-s" onclick="closeModal('mOwnerEdit')">Отмена</button>
       <button class="btn btn-p" onclick="saveOwnerEdit()">Сохранить</button>
@@ -250,7 +257,7 @@ function render(){
       <span>В системе с ${fmtDate(p.created_at)}</span>
     </div>
     <div class="prof-actions">
-      ${!IS_OWN?`<button class="btn btn-s" onclick="goToChat('${p.id}','${esc(p.name)}')">✉ Написать</button>`:''}
+      ${!IS_OWN?`<button class="btn btn-s" onclick="goToChat('${p.id}','${esc(p.name)}')">✉ Написать</button><button class="hbm-call-btn secondary" style="padding:5px 12px;font-size:.85em;margin-left:6px" data-call-uid="${p.id}" data-call-name="${esc(p.name)}" title="Позвонить">📞 Позвонить</button>`:''}
       ${canDirectEdit?`<button class="btn btn-s" onclick="openOwnerEdit()">✏ Редактировать профиль</button>`:''}
     </div>
   </div>
@@ -554,6 +561,11 @@ function openOwnerEdit(){
   document.getElementById('oeAbout').value=p.about||'';
   document.getElementById('oeLogin').value=p.login||'';
   document.getElementById('oePassword').value='';
+  const noCommWrap=document.getElementById('oeNoCommWrap');
+  if(p.role==='tutor'&&!IS_OWN){
+    noCommWrap.style.display='block';
+    document.getElementById('oeNoComm').checked=!!p.no_commission;
+  } else { noCommWrap.style.display='none'; }
   openModal('mOwnerEdit');
 }
 async function saveOwnerEdit(){
@@ -566,6 +578,11 @@ async function saveOwnerEdit(){
   if(about!==profile.about) data.about=about;
   if(login&&login!==profile.login) data.login=login;
   if(pw) data.password=pw;
+  const noCommWrap=document.getElementById('oeNoCommWrap');
+  if(noCommWrap.style.display!=='none'){
+    const nc=document.getElementById('oeNoComm').checked;
+    if(nc!==!!profile.no_commission) data.no_commission=nc;
+  }
   if(!Object.keys(data).length){closeModal('mOwnerEdit');return;}
   // owner edits via /api/users/{uid}/profile (works for own uid too)
   const uid=IS_OWN?(await get('/api/auth/me').catch(()=>({id:null}))).id||TARGET_UID:TARGET_UID;
@@ -703,4 +720,4 @@ function showToast(msg){
 }
 
 load();
-</script></body></html>
+</script><script src="/call.js"></script></body></html>

@@ -168,7 +168,7 @@ def _user_out(u,db):
     sids=[r.subject_id for r in db.execute(tutor_subject_link.select().where(tutor_subject_link.c.tutor_id==u.id)).fetchall()]
     return UserOut(id=u.id,login=u.login,role=u.role,name=u.name,must_change_password=u.must_change_password,
         student_id=u.student_id,subject_id=u.subject_id,created_at=u.created_at,subject_ids=sids,
-        teamlead_id=u.teamlead_id)
+        teamlead_id=u.teamlead_id,no_commission=bool(u.no_commission))
 
 @app.get("/api/users",response_model=list[UserOut])
 def list_users(u:User=Depends(require_tutor_or_owner),db:Session=Depends(get_db)):
