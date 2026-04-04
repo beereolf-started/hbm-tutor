@@ -161,19 +161,15 @@ canvas{position:fixed;top:52px;left:56px}
 /* ─── Inline text editor ─── */
 #ted-wrap{
   position:fixed;display:none;z-index:40;
-  border:2px dashed var(--accent);border-radius:5px;
-  background:var(--bg-ui);opacity:.96;
-  resize:both;overflow:hidden;min-width:80px;min-height:52px}
-#ted-bar{
-  padding:2px 8px;cursor:move;background:var(--accent);
-  color:#fff;font-size:.7em;user-select:none;
-  border-radius:3px 3px 0 0;display:flex;align-items:center;gap:4px}
+  border:2px dashed var(--accent);border-radius:3px;
+  background:transparent;overflow:hidden;
+  min-width:30px;min-height:16px;pointer-events:auto}
+#ted-bar{display:none}
 #ted{
-  display:block;width:100%;box-sizing:border-box;
+  display:block;width:100%;height:100%;box-sizing:border-box;
   border:none;background:transparent;color:var(--fg);
   font-family:system-ui,sans-serif;resize:none;outline:none;
-  padding:4px 6px;line-height:1.4;white-space:pre-wrap;
-  min-height:28px;overflow-y:auto}
+  padding:4px 6px;line-height:1.4;white-space:pre-wrap;overflow:hidden}
 
 /* ─── Selection properties bar ─── */
 #selBar{
@@ -4768,6 +4764,7 @@ function drawElem(el) {
 
 function redraw() {
   _validateCsIntersections();
+  if (tedEl && document.getElementById('ted-wrap').style.display !== 'none') _positionTedWrap();
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = (BOARD_THEMES[boardTheme] || BOARD_THEMES['dark-blue']).bg;
   ctx.fillRect(0, 0, W, H);
@@ -5266,6 +5263,10 @@ function applyResize(wx, wy) {
       else if (h.includes('b') || h.includes('t')) { const newW = Math.max(20, ht * ratio); if (h.includes('l')) x = s.x + s.w - newW; w = newW; }
     }
     el.x=x; el.y=y; el.w=w; el.h=ht;
+    /* Scale font size proportionally with height for text elements */
+    if (el.type === 'text' && s.h > 0 && s.fontSize) {
+      el.fontSize = Math.max(8, Math.round(s.fontSize * ht / s.h));
+    }
   } else if (el.type === 'stroke') {
     const bb = {x:s.x, y:s.y, w:s.w, h:s.h};
     let nx=bb.x, ny=bb.y, nw=bb.w, nh=bb.h;
@@ -5372,7 +5373,7 @@ let tedIsLabel = false;  // true when editing a shape label (not a text element)
 
 function updateTedStyle() {
   if (!tedEl) return;
-  ted.style.fontSize      = (tedEl.fontSize || textFontSize) * vz + 'px';
+  ted.style.fontSize      = (tedEl.fontSize || textFontSize) * vz + 'px';  // also set by _positionTedWrap
   ted.style.fontFamily    = tedEl.font || textFont;
   ted.style.fontWeight    = (tedEl.bold      || textBold)      ? 'bold'      : 'normal';
   ted.style.fontStyle     = (tedEl.italic    || textItalic)    ? 'italic'    : 'normal';
@@ -5381,19 +5382,25 @@ function updateTedStyle() {
 }
 
 function openTextEditor(el, isNew) {
-  tedEl = el; tedNew = isNew;
-  const sp = ts(el.x, el.y);
-  const wrap = document.getElementById('ted-wrap');
-  wrap.style.left   = (sp.x + 56) + 'px';   /* 56px = sidebar width */
-  wrap.style.top    = sp.y + 'px';
-  wrap.style.width  = (el.w || textBoxW) * vz + 'px';
-  wrap.style.height = 'auto';
+  tedEl = el; tedNew = false;  // always false — element pre-created for real-time sync
+  if (isNew) wsSend({ type: 'stroke', data: { ...el, text: '' } });
+  _positionTedWrap();
   updateTedStyle();
   ted.value = el.text || '';
-  ted.style.height = 'auto';
-  ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
-  wrap.style.display = 'block';
+  document.getElementById('ted-wrap').style.display = 'block';
   requestAnimationFrame(() => ted.focus());
+}
+
+function _positionTedWrap() {
+  if (!tedEl) return;
+  const sp = ts(tedEl.x, tedEl.y);
+  const wrap = document.getElementById('ted-wrap');
+  wrap.style.left   = (sp.x + 56) + 'px';
+  wrap.style.top    = (sp.y + 52) + 'px';
+  wrap.style.width  = (tedEl.w || textBoxW) * vz + 'px';
+  wrap.style.height = (tedEl.h || 60) * vz + 'px';
+  if (tedIsLabel) return;
+  ted.style.fontSize = (tedEl.fontSize || textFontSize) * vz + 'px';
 }
 
 /* Open inline editor for a shape label (dblclick on flowchart block) */
@@ -5464,7 +5471,13 @@ ted.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.ctrlKey)       { e.preventDefault(); ted.blur(); }
   e.stopPropagation();
 });
-ted.addEventListener('input', () => { ted.style.height = 'auto'; ted.style.height = ted.scrollHeight + 'px'; });
+ted.addEventListener('input', () => {
+  if (tedEl && !tedIsLabel) {
+    tedEl.text = ted.value;
+    wsSend({ type: 'stroke_update', data: { id: tedEl.id, text: ted.value } });
+    redraw();
+  }
+});
 
 // ══════════════════════════════════════════════════════════
 // §14  POINTER HELPERS
@@ -5577,6 +5590,7 @@ function onDown(e) {
         resizeSnap = el.type === 'stroke'
           ? { ...bb, pts: el.pts.map(p=>({...p})) }
           : el.type === 'shape' ? { x1:el.x1, y1:el.y1, x2:el.x2, y2:el.y2 }
+          : el.type === 'text'  ? { x:el.x, y:el.y, w:el.w, h:el.h, fontSize: el.fontSize||18 }
           : { x:el.x, y:el.y, w:el.w, h:el.h };
       }
       return;
@@ -6470,7 +6484,7 @@ function createCodeWidget(el) {
   cm.on('change', () => {
     el.code = cm.getValue();
     clearTimeout(_cmSt);
-    _cmSt = setTimeout(() => wsSend({ type: 'stroke_update', data: { ...el } }), 900);
+    _cmSt = setTimeout(() => wsSend({ type: 'stroke_update', data: { ...el } }), 80);
   });
   const langSel = div.querySelector('.cwo-lang');
   if (langSel) langSel.addEventListener('change', () => {
