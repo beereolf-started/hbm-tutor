@@ -5247,6 +5247,17 @@ function applyResizeLine(wx, wy) {
   }
 }
 
+/* Snap text box height to exactly fit its content at current fontSize + width */
+function autoFitTextHeight(el) {
+  if (el.type !== 'text' || !el.text) return;
+  const fs = (el.fontSize || 18) * vz;
+  ctx.save();
+  ctx.font = `${el.italic?'italic ':''}${el.bold?'bold ':''}${fs}px ${el.font||'system-ui,sans-serif'}`;
+  const lines = wrapText(el.text, (el.w || 200) * vz - 10);
+  ctx.restore();
+  el.h = Math.ceil(lines.length * fs * 1.35 / vz) + 10;
+}
+
 function applyResize(wx, wy) {
   const el = resizeEl, s = resizeSnap, h = resizeHandle;
   if (el.type === 'shape') {
@@ -5286,6 +5297,10 @@ function applyResize(wx, wy) {
       else if (h.includes('b') || h.includes('t')) { const newW = Math.max(20, ht * ratio); if (h.includes('l')) x = s.x + s.w - newW; w = newW; }
     }
     el.x=x; el.y=y; el.w=w; el.h=ht;
+    /* Scale font size proportionally with height change */
+    if (el.type === 'text' && s.h > 0 && s.fontSize) {
+      el.fontSize = Math.max(8, Math.round(s.fontSize * ht / s.h));
+    }
   } else if (el.type === 'stroke') {
     const bb = {x:s.x, y:s.y, w:s.w, h:s.h};
     let nx=bb.x, ny=bb.y, nw=bb.w, nh=bb.h;
@@ -6125,6 +6140,8 @@ function onUp(e) {
         undoStack.pop(); // click = toggle lock, not a real resize
         lineLockedHandles.has(_h) ? lineLockedHandles.delete(_h) : lineLockedHandles.add(_h);
       } else {
+        /* Snap text box height to content after resize */
+        if (_resEl.type === 'text') autoFitTextHeight(_resEl);
         /* code widgets: update-in-place so DOM overlay is preserved */
         if (_resEl.type === 'code') { wsSend({ type: 'stroke_update', data: { ..._resEl } }); }
         else {
