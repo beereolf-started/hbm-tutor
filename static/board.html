@@ -166,10 +166,10 @@ canvas{position:fixed;top:52px;left:56px}
   min-width:40px;min-height:1em;pointer-events:auto}
 #ted-bar{display:none}
 #ted{
-  display:block;width:100%;box-sizing:border-box;
+  display:block;box-sizing:border-box;
   border:none;background:transparent;color:var(--fg);
   font-family:system-ui,sans-serif;resize:none;outline:none;
-  padding:4px 6px;line-height:1.4;white-space:pre-wrap;overflow:hidden}
+  padding:4px 6px;line-height:1.4;white-space:pre;overflow:hidden}
 /* Mirror span for measuring text width during editing */
 #ted-mirror{position:fixed;visibility:hidden;pointer-events:none;
   white-space:pre;padding:4px 6px;line-height:1.4;top:-9999px;left:-9999px}
@@ -3555,12 +3555,9 @@ function drawText(t) {
   if (t.rotation) { const cx=sp.x+sw/2,cy=sp.y+sh/2; ctx.translate(cx,cy); ctx.rotate(t.rotation); ctx.translate(-cx,-cy); }
   ctx.font = `${t.italic?'italic ':''}${t.bold?'bold ':''}${fs}px ${t.font||'system-ui,sans-serif'}`;
   ctx.fillStyle = t.color || '#e2e8f0';
-  /* Clip to text box */
-  ctx.beginPath(); ctx.rect(sp.x, sp.y, sw, sh); ctx.clip();
   const lines = wrapText(t.text, sw - 10);
   let ly = sp.y + fs;
   for (const line of lines) {
-    if (ly - fs > sp.y + sh) break;
     ctx.fillText(line, sp.x + 5, ly);
     if (t.underline) {
       const mw = ctx.measureText(line).width;
@@ -4790,7 +4787,7 @@ function drawElem(el) {
 
 function redraw() {
   _validateCsIntersections();
-  if (tedEl && document.getElementById('ted-wrap').style.display !== 'none') _positionTedWrap();
+  if (tedEl && document.getElementById('ted-wrap').style.display !== 'none') { _positionTedWrap(); }
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = (BOARD_THEMES[boardTheme] || BOARD_THEMES['dark-blue']).bg;
   ctx.fillRect(0, 0, W, H);
@@ -5289,10 +5286,6 @@ function applyResize(wx, wy) {
       else if (h.includes('b') || h.includes('t')) { const newW = Math.max(20, ht * ratio); if (h.includes('l')) x = s.x + s.w - newW; w = newW; }
     }
     el.x=x; el.y=y; el.w=w; el.h=ht;
-    /* Scale font size proportionally with height for text elements */
-    if (el.type === 'text' && s.h > 0 && s.fontSize) {
-      el.fontSize = Math.max(8, Math.round(s.fontSize * ht / s.h));
-    }
   } else if (el.type === 'stroke') {
     const bb = {x:s.x, y:s.y, w:s.w, h:s.h};
     let nx=bb.x, ny=bb.y, nw=bb.w, nh=bb.h;
@@ -5408,31 +5401,49 @@ function updateTedStyle() {
 }
 
 function openTextEditor(el, isNew) {
-  tedEl = el; tedNew = false;  // always false — element pre-created for real-time sync
+  tedEl = el; tedNew = false;
   if (isNew) wsSend({ type: 'stroke', data: { ...el, text: '' } });
   ted.value = el.text || '';
   updateTedStyle();
   document.getElementById('ted-wrap').style.display = 'block';
-  _positionTedWrap(true);  // fullReset: set size after display:block so scrollHeight is measurable
-  redraw();                // clear canvas text under the transparent textarea
+  _positionTedWrap();
+  _sizeTedToContent();  // size after display:block so offsetWidth is measurable
+  redraw();
   requestAnimationFrame(() => ted.focus());
 }
 
-function _positionTedWrap(fullReset) {
+function _positionTedWrap() {
   if (!tedEl) return;
   const sp = ts(tedEl.x, tedEl.y);
   const wrap = document.getElementById('ted-wrap');
   wrap.style.left = (sp.x + 56) + 'px';
   wrap.style.top  = (sp.y + 52) + 'px';
-  if (!fullReset) return;   // called from redraw() — only reposition, don't reset size
-  const initW = Math.max((tedEl.w || textBoxW) * vz, 80);
-  wrap.style.width  = initW + 'px';
-  wrap.style.height = 'auto';
-  if (tedIsLabel) return;
-  ted.style.fontSize = (tedEl.fontSize || textFontSize) * vz + 'px';
-  ted.style.height = 'auto';
-  ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
-  wrap.style.height = ted.style.height;
+}
+
+/* Size the wrap + textarea to exactly fit the current text content */
+function _sizeTedToContent() {
+  if (!tedEl || tedIsLabel) return;
+  const mirror = document.getElementById('ted-mirror');
+  mirror.style.fontSize      = ted.style.fontSize;
+  mirror.style.fontFamily    = ted.style.fontFamily    || 'system-ui,sans-serif';
+  mirror.style.fontWeight    = ted.style.fontWeight    || 'normal';
+  mirror.style.fontStyle     = ted.style.fontStyle     || 'normal';
+  mirror.style.letterSpacing = ted.style.letterSpacing || '';
+  const lines = ted.value.split('\n');
+  let maxW = 60;
+  lines.forEach(line => {
+    mirror.textContent = line || '\u00a0';
+    maxW = Math.max(maxW, mirror.offsetWidth + 20); // 20 = padding 4+6 each side
+  });
+  const lineH = parseFloat(ted.style.fontSize) * 1.4;
+  const h = Math.max(28, lines.length * lineH + 10);
+  const wrap = document.getElementById('ted-wrap');
+  wrap.style.width  = maxW + 'px';
+  wrap.style.height = h + 'px';
+  ted.style.width   = maxW + 'px';
+  ted.style.height  = h + 'px';
+  tedEl.w = maxW / vz;
+  tedEl.h = h / vz;
 }
 
 /* Open inline editor for a shape label (dblclick on flowchart block) */
@@ -5478,15 +5489,7 @@ function commitTextEdit() {
     if (!_tedNew) wsSend({ type: 'erase_stroke', id: _tedEl.id });
   } else {
     _tedEl.text = text;
-    /* Auto-size box to natural text content */
-    const fs = (_tedEl.fontSize || 18) * vz;
-    ctx.save();
-    ctx.font = `${_tedEl.italic ? 'italic ' : ''}${_tedEl.bold ? 'bold ' : ''}${fs}px ${_tedEl.font || 'system-ui,sans-serif'}`;
-    const rawLines = text.split('\n');
-    const maxLineW = Math.max(20, ...rawLines.map(l => ctx.measureText(l).width));
-    ctx.restore();
-    _tedEl.w = Math.ceil(maxLineW / vz) + 16;          /* world px + padding */
-    _tedEl.h = Math.ceil(rawLines.length * fs * 1.35 / vz) + 10;
+    /* w/h already kept live by _sizeTedToContent() during editing */
     if (_tedNew) {
       wsSend({ type: 'stroke', data: _tedEl });
     } else {
@@ -5508,30 +5511,11 @@ ted.addEventListener('input', () => {
   if (tedIsLabel) {
     ted.style.height = 'auto';
     ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
-    const wrap = document.getElementById('ted-wrap');
-    wrap.style.height = ted.style.height;
+    document.getElementById('ted-wrap').style.height = ted.style.height;
     return;
   }
-  /* measure max line width via mirror span */
-  const mirror = document.getElementById('ted-mirror');
-  mirror.style.font        = ted.style.font || `${ted.style.fontSize} system-ui,sans-serif`;
-  mirror.style.fontSize    = ted.style.fontSize;
-  mirror.style.fontFamily  = ted.style.fontFamily || 'system-ui,sans-serif';
-  mirror.style.letterSpacing = ted.style.letterSpacing;
-  const lines = ted.value.split('\n');
-  let maxW = Math.max((tedEl.w || textBoxW) * vz, 80);
-  lines.forEach(line => {
-    mirror.textContent = line || '\u00a0';
-    maxW = Math.max(maxW, mirror.offsetWidth + 20);
-  });
-  const wrap = document.getElementById('ted-wrap');
-  wrap.style.width = maxW + 'px';
-  ted.style.height = 'auto';
-  ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
-  wrap.style.height = ted.style.height;
   tedEl.text = ted.value;
-  tedEl.w = maxW / vz;
-  tedEl.h = ted.scrollHeight / vz;
+  _sizeTedToContent();
   wsSend({ type: 'stroke_update', data: { id: tedEl.id, text: ted.value, w: tedEl.w, h: tedEl.h } });
   redraw();
 });
@@ -5562,21 +5546,22 @@ async function ipaTranscribe(el) {
 
   if (btn) { btn.disabled = false; btn.textContent = 'IPA'; }
 
-  /* One line per word: "word  ·  phonetic" */
-  const ipaText = results
-    .filter(r => r.phon)
-    .map(r => `${r.word}  ·  ${r.phon}`)
-    .join('\n')
-    || results.map(r => r.word).join(' ');
+  /* Format: each word on its own line — "word  /phon/" */
+  const withPhon = results.filter(r => r.phon);
+  const ipaText = withPhon.length
+    ? withPhon.map(r => `${r.word}   ${r.phon}`).join('\n')
+    : results.map(r => r.word).join(' ');
+  const ipaFs = Math.max(10, (el.fontSize || 18) - 2);
+  const ipaLines = ipaText.split('\n').length;
   const newEl = {
     id: 'el_' + Date.now(),
     type: 'text',
     x: el.x,
     y: el.y + (el.h || 40) + 8,
     w: el.w || 200,
-    h: 40,
+    h: Math.ceil(ipaLines * ipaFs * 1.4 + 10),
     text: ipaText,
-    fontSize: Math.max(10, (el.fontSize || 18) - 4),
+    fontSize: ipaFs,
     color: '#4ec9b0',
     font: el.font || 'system-ui,sans-serif',
     italic: true
@@ -5600,15 +5585,17 @@ async function translateEl(el, langPair) {
     const translated = d?.responseData?.translatedText;
     if (!translated || d.responseStatus !== 200) throw new Error(d.responseDetails || 'err');
 
+    const trLines = translated.split('\n').length;
+    const trFs = el.fontSize || 18;
     const newEl = {
       id: 'el_' + Date.now(),
       type: 'text',
       x: el.x,
       y: el.y + (el.h || 40) + 8,
       w: el.w || 200,
-      h: 40,
+      h: Math.ceil(trLines * trFs * 1.4 + 10),
       text: translated,
-      fontSize: el.fontSize || 18,
+      fontSize: trFs,
       color: '#f0a050',
       font: el.font || 'system-ui,sans-serif'
     };
