@@ -3512,6 +3512,8 @@ function wrapText(txt, maxW) {
 }
 
 function drawText(t) {
+  /* Skip canvas render while this element is open in the inline editor */
+  if (tedEl && tedEl.id === t.id && !tedIsLabel) return;
   const sp = ts(t.x, t.y);
   const sw = (t.w || 240) * vz, sh = (t.h || 60) * vz;
   if (t._drag) {
