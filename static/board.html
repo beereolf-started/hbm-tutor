@@ -162,14 +162,17 @@ canvas{position:fixed;top:52px;left:56px}
 #ted-wrap{
   position:fixed;display:none;z-index:40;
   border:2px dashed var(--accent);border-radius:3px;
-  background:transparent;overflow:hidden;
-  min-width:30px;min-height:16px;pointer-events:auto}
+  background:transparent;overflow:visible;
+  min-width:40px;min-height:1em;pointer-events:auto}
 #ted-bar{display:none}
 #ted{
-  display:block;width:100%;height:100%;box-sizing:border-box;
+  display:block;width:100%;box-sizing:border-box;
   border:none;background:transparent;color:var(--fg);
   font-family:system-ui,sans-serif;resize:none;outline:none;
   padding:4px 6px;line-height:1.4;white-space:pre-wrap;overflow:hidden}
+/* Mirror span for measuring text width during editing */
+#ted-mirror{position:fixed;visibility:hidden;pointer-events:none;
+  white-space:pre;padding:4px 6px;line-height:1.4;top:-9999px;left:-9999px}
 
 /* ─── Selection properties bar ─── */
 #selBar{
@@ -692,9 +695,9 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 
 <!-- ─── Inline text editor ─── -->
 <div id="ted-wrap">
-  <div id="ted-bar">↔ Текст</div>
   <textarea id="ted" rows="1" spellcheck="false"></textarea>
 </div>
+<span id="ted-mirror"></span>
 
 <!-- ─── Connector routing toggle bar ─── -->
 <div id="connRoutingBar">
@@ -2737,6 +2740,27 @@ function updateSelBar() {
     styRow.querySelector('#sbTI').onclick = e => togTxt('italic',    e.currentTarget);
     styRow.querySelector('#sbTU').onclick = e => togTxt('underline', e.currentTarget);
     bar.appendChild(styRow);
+
+    /* ── English tools: IPA + Translate ── */
+    const engRow = document.createElement('div'); engRow.className = 'sp-row';
+    engRow.style.cssText = 'gap:4px;flex-wrap:wrap';
+    engRow.innerHTML = `
+      <button class="tog" id="sbIPA" title="Фонетическая расшифровка (IPA)">IPA</button>
+      <button class="tog" id="sbTranslate" title="Перевести текст">🌐</button>
+      <select id="sbLangPair" title="Направление перевода" style="background:var(--input);color:var(--fg);border:1px solid var(--sep);border-radius:5px;padding:2px 4px;font-size:.75em">
+        <option value="en|ru">EN→RU</option>
+        <option value="ru|en">RU→EN</option>
+        <option value="en|de">EN→DE</option>
+        <option value="en|fr">EN→FR</option>
+        <option value="en|es">EN→ES</option>
+        <option value="en|zh">EN→ZH</option>
+      </select>`;
+    engRow.querySelector('#sbIPA').onclick    = () => ipaTranscribe(textEls[0]);
+    engRow.querySelector('#sbTranslate').onclick = () => {
+      const pair = document.getElementById('sbLangPair').value;
+      translateEl(textEls[0], pair);
+    };
+    bar.appendChild(engRow);
   }
 
   if (editable.length) {
@@ -5386,23 +5410,29 @@ function updateTedStyle() {
 function openTextEditor(el, isNew) {
   tedEl = el; tedNew = false;  // always false — element pre-created for real-time sync
   if (isNew) wsSend({ type: 'stroke', data: { ...el, text: '' } });
-  _positionTedWrap();
-  updateTedStyle();
   ted.value = el.text || '';
+  updateTedStyle();
   document.getElementById('ted-wrap').style.display = 'block';
+  _positionTedWrap(true);  // fullReset: set size after display:block so scrollHeight is measurable
+  redraw();                // clear canvas text under the transparent textarea
   requestAnimationFrame(() => ted.focus());
 }
 
-function _positionTedWrap() {
+function _positionTedWrap(fullReset) {
   if (!tedEl) return;
   const sp = ts(tedEl.x, tedEl.y);
   const wrap = document.getElementById('ted-wrap');
-  wrap.style.left   = (sp.x + 56) + 'px';
-  wrap.style.top    = (sp.y + 52) + 'px';
-  wrap.style.width  = (tedEl.w || textBoxW) * vz + 'px';
-  wrap.style.height = (tedEl.h || 60) * vz + 'px';
+  wrap.style.left = (sp.x + 56) + 'px';
+  wrap.style.top  = (sp.y + 52) + 'px';
+  if (!fullReset) return;   // called from redraw() — only reposition, don't reset size
+  const initW = Math.max((tedEl.w || textBoxW) * vz, 80);
+  wrap.style.width  = initW + 'px';
+  wrap.style.height = 'auto';
   if (tedIsLabel) return;
   ted.style.fontSize = (tedEl.fontSize || textFontSize) * vz + 'px';
+  ted.style.height = 'auto';
+  ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
+  wrap.style.height = ted.style.height;
 }
 
 /* Open inline editor for a shape label (dblclick on flowchart block) */
@@ -5474,12 +5504,124 @@ ted.addEventListener('keydown', e => {
   e.stopPropagation();
 });
 ted.addEventListener('input', () => {
-  if (tedEl && !tedIsLabel) {
-    tedEl.text = ted.value;
-    wsSend({ type: 'stroke_update', data: { id: tedEl.id, text: ted.value } });
-    redraw();
+  if (!tedEl) return;
+  if (tedIsLabel) {
+    ted.style.height = 'auto';
+    ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
+    const wrap = document.getElementById('ted-wrap');
+    wrap.style.height = ted.style.height;
+    return;
   }
+  /* measure max line width via mirror span */
+  const mirror = document.getElementById('ted-mirror');
+  mirror.style.font        = ted.style.font || `${ted.style.fontSize} system-ui,sans-serif`;
+  mirror.style.fontSize    = ted.style.fontSize;
+  mirror.style.fontFamily  = ted.style.fontFamily || 'system-ui,sans-serif';
+  mirror.style.letterSpacing = ted.style.letterSpacing;
+  const lines = ted.value.split('\n');
+  let maxW = Math.max((tedEl.w || textBoxW) * vz, 80);
+  lines.forEach(line => {
+    mirror.textContent = line || '\u00a0';
+    maxW = Math.max(maxW, mirror.offsetWidth + 20);
+  });
+  const wrap = document.getElementById('ted-wrap');
+  wrap.style.width = maxW + 'px';
+  ted.style.height = 'auto';
+  ted.style.height = Math.max(ted.scrollHeight, 28) + 'px';
+  wrap.style.height = ted.style.height;
+  tedEl.text = ted.value;
+  tedEl.w = maxW / vz;
+  tedEl.h = ted.scrollHeight / vz;
+  wsSend({ type: 'stroke_update', data: { id: tedEl.id, text: ted.value, w: tedEl.w, h: tedEl.h } });
+  redraw();
 });
+
+// ══════════════════════════════════════════════════════════
+// §13b  ENGLISH TOOLS  (IPA transcription + translation)
+// ══════════════════════════════════════════════════════════
+
+/* IPA — uses Free Dictionary API (dictionaryapi.dev, unlimited, no key) */
+async function ipaTranscribe(el) {
+  if (!el || !el.text) return;
+  const words = el.text.trim().split(/\s+/);
+  const btn = document.getElementById('sbIPA');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  const results = await Promise.all(words.map(async w => {
+    const clean = w.replace(/[^a-zA-Z'-]/g, '');
+    if (!clean) return { word: w, phon: null };
+    try {
+      const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean.toLowerCase())}`);
+      if (!r.ok) return { word: clean, phon: null };
+      const d = await r.json();
+      let phon = d[0]?.phonetics?.find(p => p.text)?.text || d[0]?.phonetic || null;
+      if (phon) phon = phon.replace(/\//g, '').trim();  // strip surrounding slashes
+      return { word: clean, phon };
+    } catch { return { word: clean, phon: null }; }
+  }));
+
+  if (btn) { btn.disabled = false; btn.textContent = 'IPA'; }
+
+  /* One line per word: "word  ·  phonetic" */
+  const ipaText = results
+    .filter(r => r.phon)
+    .map(r => `${r.word}  ·  ${r.phon}`)
+    .join('\n')
+    || results.map(r => r.word).join(' ');
+  const newEl = {
+    id: 'el_' + Date.now(),
+    type: 'text',
+    x: el.x,
+    y: el.y + (el.h || 40) + 8,
+    w: el.w || 200,
+    h: 40,
+    text: ipaText,
+    fontSize: Math.max(10, (el.fontSize || 18) - 4),
+    color: '#4ec9b0',
+    font: el.font || 'system-ui,sans-serif',
+    italic: true
+  };
+  addToUndo();
+  all.push(newEl);
+  wsSend({ type: 'stroke', data: newEl });
+  redraw();
+}
+
+/* Translate — uses MyMemory API (free, no key, 5K chars/day per IP) */
+async function translateEl(el, langPair) {
+  if (!el || !el.text) return;
+  const btn = document.getElementById('sbTranslate');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(el.text)}&langpair=${langPair}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const translated = d?.responseData?.translatedText;
+    if (!translated || d.responseStatus !== 200) throw new Error(d.responseDetails || 'err');
+
+    const newEl = {
+      id: 'el_' + Date.now(),
+      type: 'text',
+      x: el.x,
+      y: el.y + (el.h || 40) + 8,
+      w: el.w || 200,
+      h: 40,
+      text: translated,
+      fontSize: el.fontSize || 18,
+      color: '#f0a050',
+      font: el.font || 'system-ui,sans-serif'
+    };
+    addToUndo();
+    all.push(newEl);
+    wsSend({ type: 'stroke', data: newEl });
+    redraw();
+  } catch (err) {
+    alert('Ошибка перевода: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🌐'; }
+  }
+}
 
 // ══════════════════════════════════════════════════════════
 // §14  POINTER HELPERS
