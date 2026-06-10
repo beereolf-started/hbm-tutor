@@ -31,11 +31,17 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-
-      - name: Show log on failure
-        if: failure()
-        run: tail -n 300 build.log >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          set +e
+          ./gradlew assembleDebug --no-daemon --stacktrace > build.log 2>&1
+          status=$?
+          echo "Exit status: $status" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 300 build.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Output files:" >> "$GITHUB_STEP_SUMMARY"
+          find app/build/outputs -type f >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          exit $status
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
