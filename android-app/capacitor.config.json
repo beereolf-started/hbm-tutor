@@ -1,0 +1,13 @@
+{
+  "appId": "ru.hbmtutor.app",
+  "appName": "HBM Tutor",
+  "webDir": "www",
+  "server": {
+    "url": "https://hbmtutor.ru",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

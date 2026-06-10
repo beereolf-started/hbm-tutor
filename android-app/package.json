@@ -1,0 +1,17 @@
+{
+  "name": "hbm-tutor-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HBM Tutor Android wrapper (Capacitor)",
+  "scripts": {
+    "sync": "cap sync android",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/android": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}
