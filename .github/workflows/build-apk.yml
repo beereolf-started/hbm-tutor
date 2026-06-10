@@ -41,6 +41,12 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "Output files:" >> "$GITHUB_STEP_SUMMARY"
           find app/build/outputs -type f >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          if [ "$status" -ne 0 ]; then
+            grep -E -i "error:|FAILED|Exception|what went wrong|Caused by" build.log | tail -n 20 | while IFS= read -r line; do
+              esc=$(echo "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+              echo "::error::$esc"
+            done
+          fi
           exit $status
 
       - name: Upload APK artifact
