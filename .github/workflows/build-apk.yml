@@ -9,6 +9,9 @@ on:
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -63,3 +66,13 @@ jobs:
         with:
           name: hbm-tutor-debug-apk
           path: android-app/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish APK to repo for direct download
+        run: |
+          mkdir -p ../dist
+          cp app/build/outputs/apk/debug/app-debug.apk ../dist/app-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f ../dist/app-debug.apk
+          git commit -m "ci: publish debug APK [skip ci]" || true
+          git push
