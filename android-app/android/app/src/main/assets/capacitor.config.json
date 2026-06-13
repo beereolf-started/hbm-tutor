@@ -3,7 +3,7 @@
 	"appName": "HBM Tutor",
 	"webDir": "www",
 	"server": {
-		"url": "https://hbmtutor.ru",
+		"url": "https://hbmtutor.ru/login.html",
 		"cleartext": false,
 		"androidScheme": "https"
 	},

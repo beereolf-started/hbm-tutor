@@ -67,11 +67,13 @@ body.light{
 #topbar{
   position:fixed;top:0;left:0;right:0;height:52px;z-index:30;
   background:var(--bg-ui);border-bottom:1px solid var(--sep);
-  display:flex;align-items:center;gap:12px;padding:0 16px 0 68px}
-#topbar .tb-logo{font-weight:700;font-size:1em;color:var(--fg);display:flex;align-items:center;gap:6px}
+  display:flex;align-items:center;gap:12px;padding:0 16px 0 68px;
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#topbar::-webkit-scrollbar{display:none}
+#topbar .tb-logo{font-weight:700;font-size:1em;color:var(--fg);display:flex;align-items:center;gap:6px;flex-shrink:0}
 #topbar .tb-logo svg{width:20px;height:20px;fill:none;stroke:var(--accent)}
-#boardTitle{flex:1;font-size:.9em;color:var(--fg-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#topbar .tb-r{display:flex;align-items:center;gap:8px}
+#boardTitle{flex:1;font-size:.9em;color:var(--fg-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#topbar .tb-r{display:flex;align-items:center;gap:8px;flex-shrink:0}
 #backLink{
   font-size:.82em;text-decoration:none;color:var(--accent);
   background:var(--bg-ui);border:1px solid var(--sep);
@@ -98,14 +100,15 @@ body.light{
 .sb .bdg{position:absolute;bottom:4px;right:4px;font-size:9px;line-height:1;opacity:.75}
 
 /* Tool-wrap + hover submenu */
-.tw{position:relative}
+.tw{position:relative;width:48px}
 .sm{
-  position:absolute;left:52px;top:0;
+  position:absolute;left:50px;top:0;
   display:none;flex-direction:column;gap:4px;
   background:var(--bg-ui);border:1px solid var(--sep);
-  border-radius:9px;padding:6px;z-index:30;min-width:52px;
+  border-radius:9px;padding:6px;z-index:100;min-width:52px;
   box-shadow:0 4px 16px rgba(0,0,0,.35)}
-/* submenu shown/hidden via JS hover (see §19) */
+/* CSS hover: .tw:hover includes mouse over .sm (DOM child) so no gap issue */
+.tw:hover .sm{display:flex}
 .ssb{
   width:42px;height:42px;border:none;border-radius:7px;cursor:pointer;
   background:transparent;color:var(--fg);
@@ -187,8 +190,6 @@ canvas{position:fixed;top:52px;left:56px}
 
 /* ─── Status / Tip ─── */
 #status{position:fixed;bottom:8px;right:12px;font-size:.75em;z-index:10;display:none}
-#tip{position:fixed;bottom:8px;left:64px;font-size:.7em;opacity:.28;z-index:10;pointer-events:none}
-#zoomInd{position:fixed;bottom:8px;right:90px;font-size:.7em;opacity:.45;z-index:10;pointer-events:none;font-variant-numeric:tabular-nums}
 
 /* ─── Draggable panel handle (selBar + csSetPanel) ─── */
 .panel-handle{
@@ -255,7 +256,6 @@ canvas{position:fixed;top:52px;left:56px}
   #selBar.mob-hide,#csSetPanel.mob-hide{
     transform:translateX(110%);pointer-events:none;opacity:0}
   .panel-handle{display:none!important}
-  #tip{display:none}
 }
 
 /* ─── Geo Picker ─── */
@@ -382,7 +382,7 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 
 /* ─── Coordinate system panels ─── */
 #csSetPanel{
-  position:fixed;top:60px;
+  position:fixed;
   background:var(--bg-ui);border:1px solid var(--sep);
   border-radius:12px;padding:12px 14px;
   z-index:24;box-shadow:0 6px 24px var(--shadow);
@@ -539,6 +539,7 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
     <button class="hb hb-secondary" id="btnClear" title="Очистить доску" onclick="doClear()">🗑</button>
     <button class="hb hb-secondary" id="bTheme" title="Оформление доски" onclick="toggleAppearancePanel()">🎨</button>
     <button class="hb hb-secondary" title="Сбросить вид" onclick="resetView()">⊙</button>
+    <button class="hb hb-secondary" title="Скачать архив доски (.hbm)" onclick="exportBoard()" style="font-size:.8em">⬇ Архив</button>
     <a id="backLink" class="hb-secondary" href="/hbm_tutor.html" style="font-size:.82em;text-decoration:none;color:var(--accent);background:var(--bg-ui);border:1px solid var(--sep);border-radius:8px;padding:6px 12px;white-space:nowrap">← Назад</a>
     <button class="hb" id="tbMore" title="Ещё" onclick="toggleTbMore()">⋯</button>
     <a id="backLinkMob" href="/hbm_tutor.html" style="display:none;font-size:.82em;text-decoration:none;color:var(--accent);background:var(--bg-ui);border:1px solid var(--sep);border-radius:8px;padding:5px 10px;white-space:nowrap">←</a>
@@ -566,6 +567,7 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
   <button class="hb" style="width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em" onclick="doClear();toggleTbMore()">🗑 Очистить</button>
   <button class="hb" style="width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em" id="bThemeMob" onclick="toggleAppearancePanel();toggleTbMore()">🎨 Оформление</button>
   <button class="hb" style="width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em" onclick="resetView();toggleTbMore()">⊙ Сбросить вид</button>
+  <button class="hb" style="width:auto;padding:6px 12px;justify-content:flex-start;gap:8px;font-size:.85em" onclick="exportBoard();toggleTbMore()">⬇ Скачать архив</button>
   <a href="/hbm_tutor.html" style="font-size:.85em;text-decoration:none;color:var(--accent);padding:6px 12px">← Назад</a>
 </div>
 
@@ -630,6 +632,11 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
         <button class="ssb" id="sFRound"  title="Начало/конец"       onclick="setTool('flow_rounded')">⬬</button>
         <button class="ssb" id="sFConn"   title="Стрелка-связь"      onclick="setTool('flow_connector')">↗</button>
         <button class="ssb" id="tb_flow_node" title="Узел соединения" onclick="setTool('flow_node')">⬤</button>
+        <button class="ssb" id="sFIopara" title="Ввод/вывод (параллелограмм)" onclick="setTool('flow_iopara')">▱</button>
+        <button class="ssb" id="sFHex"    title="Подготовка (шестиугольник)"   onclick="setTool('flow_hexagon')">⬡</button>
+        <button class="ssb" id="sFCyl"    title="База данных (цилиндр)"        onclick="setTool('flow_cylinder')" style="font-size:.75em;line-height:1">DB</button>
+        <button class="ssb" id="sFDoc"    title="Документ"                      onclick="setTool('flow_document')" style="font-size:.75em;line-height:1">≋</button>
+        <button class="ssb" id="sFSub"    title="Подпроцесс"                   onclick="setTool('flow_subprocess')">⧈</button>
       </div>
     </div>
 
@@ -691,6 +698,11 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
   <div class="fp-item" data-idx="1">◇ Решение <span class="gp-key">D</span></div>
   <div class="fp-item" data-idx="2">⬬ Терминатор <span class="gp-key">O</span></div>
   <div class="fp-item" data-idx="3">↗ Связь <span class="gp-key">C</span></div>
+  <div class="fp-item" data-idx="4">▱ Ввод/Вывод</div>
+  <div class="fp-item" data-idx="5">⬡ Подготовка</div>
+  <div class="fp-item" data-idx="6">⊚ База данных</div>
+  <div class="fp-item" data-idx="7">≋ Документ</div>
+  <div class="fp-item" data-idx="8">⧈ Подпроцесс</div>
 </div>
 
 <!-- ─── Inline text editor ─── -->
@@ -714,8 +726,6 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 <canvas id="c"></canvas>
 <div id="cs-math-overlay" style="position:fixed;top:0;left:0;pointer-events:none;z-index:200;overflow:visible"></div>
 <div id="status">Подключение...</div>
-<div id="zoomInd">100%</div>
-<div id="tip">ПКМ/Space=навигация · Колесо=зум · Del=удалить · Ctrl+Z=отмена · Ctrl+Shift+Z=повтор · Ctrl+C/X/V=копировать · Shift+перо=прямая · G=геометрия · I=картинка · R+←→=поворот · ESC=сброс</div>
 
 <script src="/api.js"></script>
 <script>
@@ -725,8 +735,11 @@ body.light .rto{color:#1f2328;background:rgba(246,248,250,.85)}
 const Q = new URLSearchParams(location.search);
 const SID = Q.get('id');
 const PERSONAL_ID = Q.get('personal'); // personal board id
+const GID = Q.get('group') || null;    // lesson group id
 const IS_PERSONAL = !!PERSONAL_ID;
-if (!SID && !PERSONAL_ID) { location.href = '/hbm_tutor.html'; throw ''; }
+const IS_GROUP = !!GID;
+const INSTANCE_ID = Q.get('instance') || null; // program/course instance for this board
+if (!SID && !PERSONAL_ID && !GID) { location.href = '/hbm_tutor.html'; throw ''; }
 const ROLE = role();
 document.getElementById('backLink').href =
   IS_PERSONAL ? '/workshop.html' :
@@ -937,11 +950,22 @@ const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 let W, H;
 
 function resize() {
-  W = cv.width  = window.innerWidth  - 56;
-  H = cv.height = window.innerHeight - 52;
+  const dpr  = window.devicePixelRatio || 1;
+  const cssW = window.innerWidth  - 56;
+  const cssH = window.innerHeight - 52;
+  cv.style.width  = cssW + 'px';
+  cv.style.height = cssH + 'px';
+  cv.width  = Math.round(cssW * dpr);
+  cv.height = Math.round(cssH * dpr);
+  W = cssW;
+  H = cssH;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   redraw();
 }
 window.addEventListener('resize', resize);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize);
+}
 
 // ══════════════════════════════════════════════════════════
 // §3  VIEW TRANSFORM
@@ -950,6 +974,16 @@ let vx = 0, vy = 0, vz = 1;
 const tw = (sx, sy) => ({ x: (sx - vx) / vz, y: (sy - vy) / vz });
 const ts = (wx, wy) => ({ x: wx * vz + vx,   y: wy * vz + vy   });
 function resetView() { vx = 0; vy = 0; vz = 1; redraw(); }
+
+function exportBoard() {
+  const titleEl = document.getElementById('boardTitle');
+  const title = titleEl ? titleEl.textContent.trim() : 'board';
+  const safe = title.replace(/[^\wЀ-ӿ\s-]/g,'').replace(/\s+/g,'_') || 'board';
+  const blob = new Blob([JSON.stringify({v:1, title, strokes:all})], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = safe + '.hbm'; a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 // ══════════════════════════════════════════════════════════
 // §4  CONSTANTS
@@ -1011,8 +1045,8 @@ let geoPickIdx   = 0;   // 0=line 1=rect 2=triangle 3=parallelogram 4=ellipse
 let geoPicking   = false;
 
 // Flow picker + connector state
-const FLOW_TOOLS   = ['flow_rect', 'flow_diamond', 'flow_rounded', 'flow_connector'];
-const FLOW_SHAPES  = new Set(['rect', 'diamond', 'rounded', 'parallelogram', 'node']); // connectable
+const FLOW_TOOLS   = ['flow_rect', 'flow_diamond', 'flow_rounded', 'flow_connector', 'flow_iopara', 'flow_hexagon', 'flow_cylinder', 'flow_document', 'flow_subprocess'];
+const FLOW_SHAPES  = new Set(['rect', 'diamond', 'rounded', 'parallelogram', 'node', 'iopara', 'hexagon', 'cylinder', 'document', 'subprocess']); // connectable
 let flowPickIdx    = 0;
 let flowPicking    = false;
 let connRouting    = localStorage.getItem('board_conn_routing') || 'ortho'; // 'direct'|'ortho'
@@ -1185,7 +1219,8 @@ function setTool(t) {
                     geo_line:'btnGeo', geo_rect:'btnGeo', geo_triangle:'btnGeo',
                     geo_parallelogram:'btnGeo', geo_ellipse:'btnGeo',
                     flow_rect:'btnFlow', flow_diamond:'btnFlow', flow_rounded:'btnFlow',
-                    flow_connector:'btnFlow',
+                    flow_connector:'btnFlow', flow_iopara:'btnFlow', flow_hexagon:'btnFlow',
+                    flow_cylinder:'btnFlow', flow_document:'btnFlow', flow_subprocess:'btnFlow',
                     text:'btnText', code:'btnCode' };
   document.getElementById(mainMap[t])?.classList.add('act');
 
@@ -1194,7 +1229,8 @@ function setTool(t) {
   const subMap = { pen:'sPen', erase:'sErase', geo_line:'sLine', geo_rect:'sRect',
                    geo_triangle:'sTri', geo_parallelogram:'sPara', geo_ellipse:'sEllipse',
                    flow_rect:'sFRect', flow_diamond:'sFDia', flow_rounded:'sFRound',
-                   flow_connector:'sFConn' };
+                   flow_connector:'sFConn', flow_iopara:'sFIopara', flow_hexagon:'sFHex',
+                   flow_cylinder:'sFCyl', flow_document:'sFDoc', flow_subprocess:'sFSub' };
   if (subMap[t]) document.getElementById(subMap[t])?.classList.add('act');
 
   /* Badges */
@@ -1202,7 +1238,8 @@ function setTool(t) {
   if (drawBadges[t]) document.getElementById('drawBdg').textContent = drawBadges[t];
   const geoBadges  = { geo_line:'—', geo_rect:'▭', geo_triangle:'△', geo_parallelogram:'▱', geo_ellipse:'⬭' };
   if (geoBadges[t])  document.getElementById('geoBdg').textContent  = geoBadges[t];
-  const flowBadges = { flow_rect:'□', flow_diamond:'◇', flow_rounded:'⬬', flow_connector:'↗' };
+  const flowBadges = { flow_rect:'□', flow_diamond:'◇', flow_rounded:'⬬', flow_connector:'↗',
+                       flow_iopara:'▱', flow_hexagon:'⬡', flow_cylinder:'⊚', flow_document:'≋', flow_subprocess:'⧈' };
   if (flowBadges[t]) document.getElementById('flowBdg').textContent = flowBadges[t];
 
   /* Connector routing bar */
@@ -1215,7 +1252,9 @@ function setTool(t) {
                     geo_line:'crosshair', geo_rect:'crosshair', geo_triangle:'crosshair',
                     geo_parallelogram:'crosshair', geo_ellipse:'crosshair',
                     flow_rect:'crosshair', flow_diamond:'crosshair', flow_rounded:'crosshair',
-                    flow_connector:'crosshair', text:'text', code:'crosshair' };
+                    flow_connector:'crosshair', flow_iopara:'crosshair', flow_hexagon:'crosshair',
+                    flow_cylinder:'crosshair', flow_document:'crosshair', flow_subprocess:'crosshair',
+                    text:'text', code:'crosshair' };
   cv.style.cursor = cursors[t] || 'default';
 
   /* Panels */
@@ -1443,7 +1482,7 @@ function doUndo(broadcast, localOnly=false) {
       _inUndoRedo=true;
       toAdd.forEach(el=>wsSend({type:'stroke',data:el}));
       toRemove.forEach(id=>wsSend({type:'erase_stroke',id}));
-      toUpdate.forEach(el=>{wsSend({type:'erase_stroke',id:el.id});setTimeout(()=>wsSend({type:'stroke',data:el}),40);});
+      toUpdate.forEach(el=>{wsSend({type:'stroke_update',data:{...el}});});
       _inUndoRedo=false;
     }
   } else {
@@ -1484,7 +1523,7 @@ function doRedo(broadcast, localOnly=false) {
       _inUndoRedo=true;
       toAdd.forEach(el=>wsSend({type:'stroke',data:el}));
       toRemove.forEach(id=>wsSend({type:'erase_stroke',id}));
-      toUpdate.forEach(el=>{wsSend({type:'erase_stroke',id:el.id});setTimeout(()=>wsSend({type:'stroke',data:el}),40);});
+      toUpdate.forEach(el=>{wsSend({type:'stroke_update',data:{...el}});});
       _inUndoRedo=false;
     }
   } else {
@@ -1584,11 +1623,14 @@ function renderSP() {
   /* ── Geometry ── */
   else if (tool === 'geo_line' || tool === 'geo_rect' ||
            tool === 'geo_triangle' || tool === 'geo_parallelogram' || tool === 'geo_ellipse' ||
-           tool === 'flow_rect' || tool === 'flow_diamond' || tool === 'flow_rounded' || tool === 'flow_connector') {
+           tool === 'flow_rect' || tool === 'flow_diamond' || tool === 'flow_rounded' || tool === 'flow_connector' ||
+           tool === 'flow_iopara' || tool === 'flow_hexagon' || tool === 'flow_cylinder' ||
+           tool === 'flow_document' || tool === 'flow_subprocess') {
     const names = { geo_line:'Линия', geo_rect:'Прямоугольник',
                     geo_triangle:'Треугольник', geo_parallelogram:'Параллелограмм', geo_ellipse:'Эллипс',
                     flow_rect:'Процесс', flow_diamond:'Решение', flow_rounded:'Терминатор',
-                    flow_connector:'Связь' };
+                    flow_connector:'Связь', flow_iopara:'Ввод/Вывод', flow_hexagon:'Подготовка',
+                    flow_cylinder:'База данных', flow_document:'Документ', flow_subprocess:'Подпроцесс' };
     $(`<h4>${names[tool]}</h4><div class="sp-row"><label>Цвет</label></div>`);
     sp.appendChild(mkColorRow(geoColor, c => { geoColor = c; }));
     $(`<div class="sp-row"><label>Толщина</label>
@@ -1851,6 +1893,10 @@ function makeCS(la, lb) {
       el.csScale = Math.max(1, hl / 10);           // default: range of 10 units
     });
   }
+  la.csScaled = true;
+  /* Scaled mode: enforce equal pixel-per-unit on both axes from the start.
+     Use la's scale as reference so la always covers exactly ±10 units. */
+  lb.csScale = la.csScale;
   /* Sync via stroke_update (upsert — no data loss if WS is slow) */
   [la, lb].forEach(el => wsSend({ type:'stroke_update', data:{...el} }));
 }
@@ -1859,7 +1905,8 @@ function makeCS(la, lb) {
 function dissolveCS(la, lb) {
   addToUndo();
   /* Nullify rather than delete so stroke_update can propagate the cleared state */
-  la.csPartner=null; la.csScale=null; la.csTickStep=null; la.csGraphs=null;
+  la.csPartner=null; la.csScale=null; la.csTickStep=null; la.csGraphs=null; la.csScaled=null; la.csParams=null;
+  la.csPanelOpen=null; la.csPanelDx=null; la.csPanelDy=null;
   lb.csPartner=null; lb.csScale=null; lb.csTickStep=null;
   [la, lb].forEach(el => wsSend({ type:'stroke_update', data:{...el} }));
 }
@@ -1896,16 +1943,18 @@ function _preprocess(s) {
   })(s);
   /* Normalize: remove spaces around operators */
   s = s.replace(/\s+/g,' ');
-  /* Known functions (order matters: longer names first) */
+  /* Known functions + constants (order matters: longer names first) */
   const FUNS = ['sqrt','cbrt','sinh','cosh','tanh','asin','acos','atan2','atan',
                 'arcsin','arccos','arctan','arccot','arcsinh','arccosh','arctanh',
+                'erfc','erf','diff','int','sum',
                 'cot','sin','cos','tan','abs','exp','log10',
-                'log2','log','ln','sign','floor','ceil','round','max','min'];
+                'log2','log','ln','sign','floor','ceil','round','max','min','pi'];
   /* Implicit multiplication rules (applied before function → Math.* substitution):
      1) digit immediately before letter or (  →  digit * ...
      2) ) immediately before digit, letter or (  →  ) * ...
-     3) letter (only x or y single-char) before (  →  letter * (
-     But NOT: function-name before (  */
+     3) letter before (  →  letter * (  (unless protected fn)
+     4) letter immediately before letter  →  a*b  (e.g. ax→a*x, bx→b*x)
+     But NOT: function-name or constant (pi is protected above)  */
   /* Step 1: protect function names with a placeholder.
      IMPORTANT: placeholder must contain NO digit characters to avoid
      the implicit-mult rule `(\d)([A-Za-z\x01])` firing inside the placeholder
@@ -1924,7 +1973,8 @@ function _preprocess(s) {
     .replace(/(\))\s*(\()/g, '$1*$2')              // )(
     .replace(/([A-Za-z])\s*(\()/g, (m,a,b) => {   // x( but not protected fn
       return `${a}*${b}`;
-    });
+    })
+    .replace(/([A-Za-z])([A-Za-z])/g, '$1*$2');  // ax→a*x, bx→b*x (param×var)
   /* Step 3: restore placeholders */
   for (const [ph, fn] of Object.entries(placeholders)) {
     s = s.split(ph).join(fn);
@@ -1942,9 +1992,95 @@ function _preprocess(s) {
 const _mathEvalFnCache = new Map();
 /* Cache for graph display-coord paths — avoids 600 mathEval calls on every redraw */
 const _graphPathCache = new Map();
+const _csParamAnimTimers = new Map(); // key: `${laId}_${paramName}` → intervalId
 
-function _compileMathFn(expr) {
-  let fn = _mathEvalFnCache.get(expr);
+/* ── Calculus transformer ────────────────────────────────────────────────────
+   Converts diff(f,v[,n]), int(f,v[,a[,b]]), sum(f,k,a,b) in already-compiled
+   JS code (after ^→** etc.) into inline numerical expressions.
+   Called inside _compileMathFn before new Function(). */
+function _transformCalculus(code) {
+  /* Find closing paren starting at index of '(' */
+  function exBr(s, i) {
+    let d = 0;
+    for (; i < s.length; i++) {
+      if (s[i] === '(') d++;
+      else if (s[i] === ')' && --d === 0) return i;
+    }
+    return s.length - 1;
+  }
+  /* Split top-level comma-separated args */
+  function spArgs(inner) {
+    const a = []; let d = 0, c = '';
+    for (const ch of inner) {
+      if (ch === '(') { d++; c += ch; }
+      else if (ch === ')') { d--; c += ch; }
+      else if (ch === ',' && d === 0) { a.push(c.trim()); c = ''; }
+      else c += ch;
+    }
+    if (c.trim()) a.push(c.trim());
+    return a;
+  }
+  /* Replace standalone variable name v with replacement string */
+  function rnV(expr, v, repl) {
+    const esc = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return expr.replace(new RegExp(`(?<![A-Za-z0-9_])${esc}(?![A-Za-z0-9_])`, 'g'), repl);
+  }
+
+  let out = '', i = 0;
+  while (i < code.length) {
+    const atBound = i === 0 || !/[A-Za-z0-9_]/.test(code[i-1]);
+    if (atBound) {
+      /* ── diff(f, v [, n]) ── numerical derivative of order n */
+      if (code.startsWith('diff(', i)) {
+        const pI = i + 4, end = exBr(code, pI);
+        const args = spArgs(code.slice(pI + 1, end));
+        const f = _transformCalculus(args[0] || '0'); // recurse for nesting
+        const v = (args[1] || 'x').trim();
+        const n = parseInt(args[2]) || 1;
+        if (n === 1) {
+          const fp = rnV(f, v, `(_v0_+1e-7)`), fm = rnV(f, v, `(_v0_-1e-7)`);
+          out += `(((_v0_=${v})=>((${fp})-(${fm}))/(2e-7))())`;
+        } else if (n === 2) {
+          const fp = rnV(f, v, `(_v0_+1e-5)`), fm = rnV(f, v, `(_v0_-1e-5)`);
+          out += `(((_v0_=${v})=>((${fp})-2*(${rnV(f,v,'_v0_')})+(${fm}))/(1e-10))())`;
+        } else { out += 'NaN'; }
+        i = end + 1; continue;
+      }
+      /* ── int(f, v [, a [, b]]) ── numerical integration */
+      if (code.startsWith('int(', i)) {
+        const pI = i + 3, end = exBr(code, pI);
+        const args = spArgs(code.slice(pI + 1, end));
+        const f = _transformCalculus(args[0] || '0');
+        const v = (args[1] || 'x').trim();
+        const fFn = `((_k_)=>(${rnV(f, v, '_k_')}))`;
+        const N = 80;
+        const simp = `(()=>{const _a_=${args[2]||'0'},_b_=${args[3]||v},_N_=${N},_h_=(_b_-_a_)/_N_,_f_=${fFn};let _s_=_f_(_a_)+_f_(_b_);for(let _j_=1;_j_<_N_;_j_++){_s_+=_f_(_a_+_j_*_h_)*(_j_%2?4:2);}return _s_*_h_/3;})()`;
+        out += simp;
+        i = end + 1; continue;
+      }
+      /* ── sum(f, k, a, b) ── numerical sum */
+      if (code.startsWith('sum(', i)) {
+        const pI = i + 3, end = exBr(code, pI);
+        const args = spArgs(code.slice(pI + 1, end));
+        const f = _transformCalculus(args[0] || '0');
+        const v = (args[1] || 'k').trim();
+        const aE = args[2] || '1';
+        const bRaw = args[3] || '10';
+        const bE = (bRaw === 'Infinity' || bRaw === 'inf') ? '(_sa_+999)' : bRaw;
+        const fFn = `((_k_)=>(${rnV(f, v, '_k_')}))`;
+        out += `(()=>{const _sa_=Math.round(${aE}),_sb_=Math.min(Math.round(${bE}),_sa_+10000),_f_=${fFn};let _ss_=0;for(let _k_=_sa_;_k_<=_sb_;_k_++){_ss_+=_f_(_k_);}return _ss_;})()`;
+        i = end + 1; continue;
+      }
+    }
+    out += code[i++];
+  }
+  return out;
+}
+
+function _compileMathFn(expr, paramNames) {
+  const pKey = (paramNames && paramNames.length) ? '|p:'+paramNames.slice().sort().join(',') : '';
+  const key = expr + pKey;
+  let fn = _mathEvalFnCache.get(key);
   if (fn) return fn;
   try {
     let code = _preprocess(expr);
@@ -1976,43 +2112,102 @@ function _compileMathFn(expr) {
       .replace(/\bmin\b/g,   'Math.min')
       .replace(/\bpi\b/gi,   'Math.PI')
       .replace(/(?<![A-Za-z_\d\.])e(?![A-Za-z_0-9])/g, 'Math.E');
+    /* Transform diff/int/sum into numerical inline expressions */
+    code = _transformCalculus(code);
+    const extraArgs = (paramNames && paramNames.length) ? paramNames.slice().sort() : [];
     // eslint-disable-next-line no-new-func
-    fn = new Function('x','y', '"use strict";'+
+    fn = new Function('x','y', ...extraArgs, '"use strict";'+
       'const cot=v=>1/Math.tan(v),arccot=v=>Math.PI/2-Math.atan(v),acot=arccot;'+
       'const arcsinh=Math.asinh,arccosh=Math.acosh,arctanh=Math.atanh;'+
+      /* erf: Abramowitz & Stegun 7.1.26, max error 1.5e-7 */
+      'const erf=(_u_)=>{const _t_=1/(1+.3275911*Math.abs(_u_));return Math.sign(_u_||1)*(1-((((1.061405429*_t_-1.453152027)*_t_+1.421413741)*_t_-.284496736)*_t_+.254829592)*_t_*Math.exp(-_u_*_u_));};'+
+      'const erfc=(_u_)=>1-erf(_u_);'+
       'return (' + code + ');');
-    _mathEvalFnCache.set(expr, fn);
+    _mathEvalFnCache.set(key, fn);
     return fn;
   } catch { return null; }
 }
 
-function mathEval(expr, xVal, yVal) {
+function mathEval(expr, xVal, yVal, params) {
   try {
-    const fn = _compileMathFn(expr);
+    const paramNames = params ? Object.keys(params).sort() : [];
+    const fn = _compileMathFn(expr, paramNames);
     if (!fn) return NaN;
+    if (paramNames.length) return fn(xVal, yVal, ...paramNames.map(n => params[n] ?? 1));
     return fn(xVal, yVal);
   } catch { return NaN; }
 }
 
-/* Parse equation string — WolframAlpha-style.
-   Accepts: "y=x^2", "x^2+y^2=1", "x^2=y", "sin(x)" (no = → y=expr) */
+/* Extract parameter names from equations: single or multi-letter identifiers that
+   are not x, y, math constants/functions */
+const _MATH_RESERVED = new Set([
+  'x','y','pi','e','inf','nan',
+  'sin','cos','tan','asin','acos','atan','atan2','sinh','cosh','tanh',
+  'asinh','acosh','atanh','cot','arccot','acot','sqrt','cbrt','abs','exp',
+  'log','log2','log10','ln','sign','floor','ceil','round','max','min','pow',
+  'arcsin','arccos','arctan','arcctg','arctg','sh','ch','th','tg','ctg','lg',
+  'erf','erfc','diff','int','sum',
+  'mod','true','false','null','undefined','math','return','const','let','var'
+]);
+function detectParamNames(equations) {
+  const names = new Set();
+  for (const eq of (equations || [])) {
+    if (!eq) continue;
+    /* Preprocess to expand implicit multiplication (ax→a*x) before tokenising,
+       so 'ax' is not mistaken for a single parameter named 'ax'. */
+    const pre = _preprocess(eq + '');
+    const matches = pre.matchAll(/\b([a-z_]\w*)\b(?!\s*\()/gi);
+    for (const m of matches) {
+      const name = m[1].toLowerCase();
+      if (!_MATH_RESERVED.has(name)) names.add(name);
+    }
+  }
+  return [...names].sort();
+}
+
+function syncCSParams(la) {
+  const eqs = (la.csGraphs || []).map(g => g.eq);
+  const names = detectParamNames(eqs);
+  if (!la.csParams) la.csParams = [];
+  /* Add newly detected params */
+  for (const name of names) {
+    if (!la.csParams.find(p => p.name === name)) {
+      la.csParams.push({name, value:1, min:-5, max:5, step:0.1, animDir:1});
+    }
+  }
+}
+
+/* Parse equation/inequality string — WolframAlpha-style.
+   Accepts: "y=x^2", "y<x^2", "y>=x^2", "x^2+y^2=1", "sin(x)" (no op → y=expr)
+   Returns parsed object with optional .ineq: 'lt'|'gt'|'lte'|'gte' */
 function parseEqn(raw) {
   raw = raw.trim();
+  /* ── detect inequality (2-char ops before 1-char to avoid misparse) ── */
+  let ineq = null;
+  const _flipIneq = {lt:'gt',gt:'lt',lte:'gte',gte:'lte'};
+  for (const [re, op] of [[/<=|≤/,'lte'],[/>=|≥/,'gte'],[/<(?!=)/,'lt'],[/>(?!=)/,'gt']]) {
+    const m = re.exec(raw);
+    if (m) { ineq = op; raw = raw.slice(0, m.index) + '=' + raw.slice(m.index + m[0].length); break; }
+  }
+  /* ── parse as equation ── */
   const eqIdx = raw.indexOf('=');
-  /* No equals sign: treat as y = expr */
-  if (eqIdx < 0) return { mode:'yfx', rhs: raw };
+  if (eqIdx < 0) return Object.assign({mode:'yfx', rhs:raw}, ineq ? {ineq} : {});
   const lhs = raw.slice(0, eqIdx).trim();
   const rhs = raw.slice(eqIdx + 1).trim();
-  if (lhs === 'y') return { mode:'yfx', rhs };
-  if (lhs === 'x') return { mode:'xfy', rhs };
-  if (rhs === 'y') return { mode:'yfx', rhs: lhs };
-  if (rhs === 'x') return { mode:'xfy', rhs: lhs };
-  /* Check if lhs contains only x (no y) → explicit y=f(x) form with expr on left */
-  const lhsHasY = /\by\b/.test(lhs), rhsHasY = /\by\b/.test(rhs);
-  const lhsHasX = /\bx\b/.test(lhs), rhsHasX = /\bx\b/.test(rhs);
-  if (!lhsHasY && !rhsHasX && rhsHasY) return { mode:'xfy', rhs: lhs }; // f(y)=x
-  if (!lhsHasX && !rhsHasY && rhsHasX) return { mode:'yfx', rhs: lhs }; // ambiguous fallback
-  return { mode:'implicit', lhs, rhs };
+  let result, flipped = false;
+  if (lhs === 'y') result = { mode:'yfx', rhs };
+  else if (lhs === 'x') result = { mode:'xfy', rhs };
+  else if (rhs === 'y') { result = { mode:'yfx', rhs:lhs }; flipped = true; }
+  else if (rhs === 'x') { result = { mode:'xfy', rhs:lhs }; flipped = true; }
+  else {
+    const lhsHasY=/\by\b/.test(lhs), rhsHasY=/\by\b/.test(rhs);
+    const lhsHasX=/\bx\b/.test(lhs), rhsHasX=/\bx\b/.test(rhs);
+    if (!lhsHasY && !rhsHasX && rhsHasY) { result = { mode:'xfy', rhs:lhs }; flipped = true; }
+    else if (!lhsHasX && !rhsHasY && rhsHasX) { result = { mode:'yfx', rhs:lhs }; flipped = true; }
+    else result = { mode:'implicit', lhs, rhs };
+  }
+  if (ineq) result.ineq = flipped ? _flipIneq[ineq] : ineq;
+  return result;
 }
 
 /* Returns {la, lb} if world point (wx,wy) is inside any CS parallelogram, else null.
@@ -2053,11 +2248,14 @@ function csParallelogramAt(wx, wy) {
 /* Convert plain formula text to LaTeX for preview rendering */
 function _eqToLatex(raw) {
   if (!raw) return '';
-  let s = raw.replace(/π/g,'pi').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+  let s = raw.replace(/<=|≤/g,'\\leq ').replace(/>=|≥/g,'\\geq ').replace(/</g,'<').replace(/>/g,'>');
+  s = s.replace(/π/g,'pi').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
   s = s.replace(/\barcctg\b/g,'arccot').replace(/\barctg\b/g,'arctan')
        .replace(/\bctg\b/g,'cot').replace(/\btg\b/g,'tan')
        .replace(/\blg\b/g,'log10');
   function exBr(str,i){let d=0,j=i;while(j<str.length){if(str[j]==='(')d++;else if(str[j]===')')if(--d===0)return j;j++;}return str.length-1;}
+  /* Split comma-separated args respecting paren depth */
+  function _spA(inner){const aa=[];let dd=0,cc='';for(const c of inner){if(c==='('){dd++;cc+=c;}else if(c===')'){dd--;cc+=c;}else if(c===','&&dd===0){aa.push(cc.trim());cc='';}else cc+=c;}if(cc.trim())aa.push(cc.trim());return aa;}
   const FUNS=[
     ['log10',  a=>`\\log_{10}\\!\\left(${cv(a)}\\right)`],
     ['log2',   a=>`\\log_{2}\\!\\left(${cv(a)}\\right)`],
@@ -2087,12 +2285,39 @@ function _eqToLatex(raw) {
     ['sign',   a=>`\\operatorname{sign}\\!\\left(${cv(a)}\\right)`],
     ['max',    a=>`\\max\\!\\left(${cv(a)}\\right)`],
     ['min',    a=>`\\min\\!\\left(${cv(a)}\\right)`],
+    ['erfc',   a=>`\\operatorname{erfc}\\!\\left(${cv(a)}\\right)`],
+    ['erf',    a=>`\\operatorname{erf}\\!\\left(${cv(a)}\\right)`],
     /* log_(base)(arg) */
     ['log_',   null], // handled specially below
   ];
   function cv(s){
     let r='',i=0;
     while(i<s.length){
+      /* calculus: diff(f,x[,n]) | int(f,x[,a,b]) | sum(f,k,a,b) */
+      if(i===0||!/[a-zA-Z0-9_]/.test(s[i-1])){
+        if(s.startsWith('diff(',i)){
+          let _d=0,_j=i+4;while(_j<s.length){if(s[_j]==='(')_d++;else if(s[_j]===')')if(--_d===0)break;_j++;}
+          const _a=_spA(s.slice(i+5,_j)),_v=(_a[1]||'x').trim(),_n=_a[2]?parseInt(_a[2]):1,_fL=cv(_a[0]||'');
+          r+=_n>1?`\\frac{d^{${_n}}}{d${_v}^{${_n}}}\\!\\left(${_fL}\\right)`:`\\frac{d}{d${_v}}\\!\\left(${_fL}\\right)`;
+          i=_j+1;continue;
+        }
+        if(s.startsWith('int(',i)){
+          let _d=0,_j=i+3;while(_j<s.length){if(s[_j]==='(')_d++;else if(s[_j]===')')if(--_d===0)break;_j++;}
+          const _a=_spA(s.slice(i+4,_j)),_v=(_a[1]||'x').trim(),_fL=cv(_a[0]||'');
+          const _cvLim=l=>{const lt=l.trim();return(lt==='inf'||lt==='Infinity')?'\\infty':(lt==='-inf'||lt==='-Infinity')?'-\\infty':cv(lt);};
+          if(_a.length===2){r+=`\\int ${_fL}\\,d${_v}`;}
+          else if(_a.length>=4){r+=`\\int_{${_cvLim(_a[2])}}^{${_cvLim(_a[3])}} ${_fL}\\,d${_v}`;}
+          i=_j+1;continue;
+        }
+        if(s.startsWith('sum(',i)){
+          let _d=0,_j=i+3;while(_j<s.length){if(s[_j]==='(')_d++;else if(s[_j]===')')if(--_d===0)break;_j++;}
+          const _a=_spA(s.slice(i+4,_j)),_v=(_a[1]||'k').trim(),_fL=cv(_a[0]||'');
+          const _lo=cv((_a[2]||'1').trim()),_hiR=(_a[3]||'').trim();
+          const _hi=(_hiR==='inf'||_hiR==='Infinity')?'\\infty':cv(_hiR);
+          r+=`\\sum_{${_v}=${_lo}}^{${_hi}} ${_fL}`;
+          i=_j+1;continue;
+        }
+      }
       /* log_(base)( */
       if(s.startsWith('log_(',i)){
         const bi=i+5; const bEnd=exBr(s,i+4);
@@ -2238,7 +2463,8 @@ function buildMathKb(inp) {
           mkBH('<b>□</b><sup style="font-size:.6em">n</sup>','^()', 'kb-tpl'),
           mkBH('<b>□</b><sub style="font-size:.6em">n</sub>','_()', 'kb-tpl'),
           mkBH('∛<b>□</b>','cbrt(', 'kb-fn kb-tpl'),
-          mkBH('|<b>□</b>|','abs(', 'kb-fn kb-tpl'))
+          mkBH('|<b>□</b>|','abs(', 'kb-fn kb-tpl')),
+        row(mkB('<','<','kb-op'),mkB('>','>','kb-op'),mkB('≤','<=','kb-op'),mkB('≥','>=','kb-op'))
       );
     }},
     { label: 'Trig', render() {
@@ -2266,9 +2492,46 @@ function buildMathKb(inp) {
       );
     }},
     { label: '∫', render() {
-      const m = document.createElement('div'); m.className = 'math-kb-msg';
-      m.textContent = 'Матанализ — скоро'; content.appendChild(m);
-    }, disabled: true }
+      /* Cursor marker | — ins() will place caret there and strip it */
+      const mkTpl = (label, tpl, cls='') => {
+        const b = document.createElement('button');
+        b.className = 'math-kb-btn' + (cls ? ' '+cls : '');
+        b.innerHTML = label; b.type = 'button';
+        b.onmousedown = e => {
+          e.preventDefault();
+          const st = inp.selectionStart ?? inp.value.length;
+          const en = inp.selectionEnd ?? st;
+          const sel = inp.value.slice(st, en);
+          const ci = tpl.indexOf('|');
+          const txt = ci >= 0 ? tpl.replace('|', sel) : tpl + sel;
+          const cur = ci >= 0 ? st + ci : st + txt.length;
+          inp.value = inp.value.slice(0, st) + txt + inp.value.slice(en);
+          inp.selectionStart = inp.selectionEnd = cur;
+          inp.focus(); inp.dispatchEvent(new Event('input'));
+        };
+        return b;
+      };
+      content.append(
+        /* Differentiation: d/dx inserts diff(|,x), d²/dx² inserts diff(|,x,2), ∂/∂y inserts diff(|,y) */
+        row(mkTpl('d/dx','diff(|,x)','kb-fn'),
+            mkTpl('d²/dx²','diff(|,x,2)','kb-fn'),
+            mkTpl('∂/∂y','diff(|,y)','kb-fn')),
+        /* Integration: ∫dx = antiderivative, ∫ₐᵇdx = definite, erf */
+        row(mkTpl('∫□dx','int(|,x)','kb-fn'),
+            mkTpl('∫ₐᵇ□dx','int(|,x,a,b)','kb-fn'),
+            mkTpl('erf','erf(','kb-fn')),
+        /* Sum */
+        row(mkTpl('Σₐᵇ','sum(|,k,1,10)','kb-fn'),
+            mkTpl('Σₐ∞','sum(|,k,1,Infinity)','kb-fn'),
+            mkBack())
+      );
+      const h=document.createElement('div');
+      h.style.cssText='font-size:.7em;color:var(--fg2);padding:6px 4px 2px;line-height:1.85;border-top:1px solid var(--sep);margin-top:4px';
+      h.innerHTML='<b>diff(</b>f, x<b>)</b> — df/dx &nbsp;·&nbsp; <b>diff(</b>f, x, 2<b>)</b> — d²f/dx²<br>'
+        +'<b>int(</b>f, x<b>)</b> — ∫₀ˣ &nbsp;·&nbsp; <b>int(</b>f, x, a, b<b>)</b> — ∫ₐᵇ<br>'
+        +'<b>sum(</b>f, k, 1, 10<b>)</b> — Σ₁¹⁰ &nbsp;·&nbsp; <b>erf(</b>x<b>)</b> — функция ошибок';
+      content.appendChild(h);
+    }}
   ];
 
   let curTab = 0;
@@ -2290,10 +2553,29 @@ function buildMathKb(inp) {
   return kb;
 }
 
+/* Position CS panel anchored to the CS origin in world space.
+   csPanelDx/Dy are offsets from O in world coordinates — they follow pan & zoom. */
+function _positionCSPanel(la, lb) {
+  const panel = document.getElementById('csSetPanel');
+  if (!panel.classList.contains('open') || !la || !lb) return;
+  const O = lineIntersection(la, lb);
+  if (!O) return;
+  const dx = la.csPanelDx ?? 80, dy = la.csPanelDy ?? -80;
+  const sp = ts(O.x + dx, O.y + dy);
+  panel.style.left            = (sp.x + 56) + 'px';
+  panel.style.top             = (sp.y + 52) + 'px';
+  panel.style.right           = 'auto';
+  panel.style.bottom          = 'auto';
+  panel.style.transform       = `scale(${vz})`;
+  panel.style.transformOrigin = 'top left';
+}
+
 function updateCSPanels(la, lb) {
   const panel = document.getElementById('csSetPanel');
 
-  if (!la || !lb) { panel.classList.remove('open'); csPanelLaId = null; csPanelLbId = null; updateMobTabs(); return; }
+  if (!la || !lb) {
+    panel.classList.remove('open'); csPanelLaId = null; csPanelLbId = null; updateMobTabs(); return;
+  }
   /* Auto-switch to CS tab on mobile so formula input is immediately visible */
   if (window.innerWidth <= 600) { _mobTab = 'cs'; _mobCollapsed = false; }
 
@@ -2309,30 +2591,66 @@ function updateCSPanels(la, lb) {
   const inView = O && csIntersectionInView(O);
   const GRAPH_COLORS = ['#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#22c55e'];
 
-  /* ── Position: desktop only (mobile handled by updateMobTabs) ── */
-  const positionPanel = () => {
-    if (window.innerWidth <= 600) { updateMobTabs(); return; }
-    const sbr = document.getElementById('selBar').getBoundingClientRect();
-    const left = Math.min(Math.max(sbr.left, 60), window.innerWidth - 330);
-    panel.style.top    = (sbr.bottom > 60 ? sbr.bottom + 6 : 60) + 'px';
-    panel.style.left   = left + 'px';
-    panel.style.right  = 'auto'; panel.style.bottom = 'auto';
-  };
-  requestAnimationFrame(positionPanel);
+  /* ─── Mark panel open on the element (synced to all users) ─── */
+  if (!la.csPanelOpen) {
+    la.csPanelOpen = true;
+    wsSend({type:'stroke_update', data:{...la}});
+  }
+  /* Initialise default anchor: 80 world px right + 80 px above origin */
+  if (la.csPanelDx === undefined || la.csPanelDx === null) la.csPanelDx = 80;
+  if (la.csPanelDy === undefined || la.csPanelDy === null) la.csPanelDy = -80;
 
   /* ─── Build content ─── */
   panel.innerHTML = '';
   panel.classList.add('open');
+
+  /* ── Position anchored to CS origin ── */
+  if (window.innerWidth <= 600) { updateMobTabs(); }
+  else { _positionCSPanel(la, lb); }
 
   /* ── Drag handle + close button ── */
   const _ph = document.createElement('div'); _ph.className = 'panel-handle';
   const _pg = document.createElement('div'); _pg.className = 'panel-grip';
   const _pc = document.createElement('button'); _pc.className = 'panel-close';
   _pc.title = 'Закрыть'; _pc.textContent = '×';
-  _pc.onclick = () => updateCSPanels(null, null);
+  _pc.onclick = () => {
+    const _closeLa = getLa();
+    if (_closeLa) { _closeLa.csPanelOpen = false; wsSend({type:'stroke_update', data:{..._closeLa}}); }
+    updateCSPanels(null, null);
+  };
   _ph.appendChild(_pg); _ph.appendChild(_pc);
   panel.appendChild(_ph);
-  initPanelDrag(_ph, panel, () => updateCSPanels(null, null));
+
+  /* Custom drag: saves position as world-coord offset from O (synced via WS) */
+  { let _ox=0, _oy=0;
+    _ph.addEventListener('mousedown', e => {
+      if (window.innerWidth<=600 || e.button!==0) return;
+      e.preventDefault();
+      const r = panel.getBoundingClientRect(); _ox=e.clientX-r.left; _oy=e.clientY-r.top;
+      const onM = e2 => {
+        const nx=e2.clientX-_ox;
+        const ny=e2.clientY-_oy;
+        panel.style.left=nx+'px'; panel.style.top=ny+'px';
+        panel.style.right='auto'; panel.style.bottom='auto';
+      };
+      const onU = e2 => {
+        document.removeEventListener('mousemove',onM);
+        const _la=getLa(), _lb=getLb();
+        const Oi=lineIntersection(_la,_lb);
+        if (Oi) {
+          const w=tw(parseInt(panel.style.left)-56, parseInt(panel.style.top)-52);
+          _la.csPanelDx=w.x-Oi.x; _la.csPanelDy=w.y-Oi.y;
+          wsSend({type:'stroke_update',data:{..._la}});
+        }
+      };
+      document.addEventListener('mousemove',onM);
+      document.addEventListener('mouseup',onU,{once:true});
+    });
+    /* Mobile swipe-down to close */
+    let _ty=0;
+    _ph.addEventListener('touchstart',e=>{_ty=e.touches[0].clientY;},{passive:true});
+    _ph.addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-_ty>50)updateCSPanels(null,null);},{passive:true});
+  }
 
   const colorA = la.color || '#22c55e', colorB = lb.color || '#10b981';
 
@@ -2369,6 +2687,7 @@ function updateCSPanels(la, lb) {
     /* ── Range row (диапазон: единицы от центра до конца) ── */
     const rangeRow = document.createElement('div'); rangeRow.className = 'cs-row';
     const rangeInp = mkInp();
+    rangeInp.classList.add('cs-range-inp');
     const hl0 = halfLen(axEl);
     rangeInp.value = parseFloat((hl0 / (axEl.csScale || 50)).toPrecision(4));
     rangeInp.title = 'Количество единиц от центра до конца оси';
@@ -2378,13 +2697,21 @@ function updateCSPanels(la, lb) {
         const liveEl = all.find(e => e.id === axEl.id) || axEl;
         const hl = halfLen(liveEl);
         liveEl.csScale = axEl.csScale = hl / r;
+        if (getLa().csScaled !== false) {
+          const otherEl = idx === 0 ? getLb() : getLa();
+          otherEl.csScale = liveEl.csScale;
+        }
         redraw();
+        /* Update range inputs to reflect synced values */
+        panel.querySelectorAll('.cs-range-inp').forEach((inp, j) => {
+          const el2 = j === 0 ? getLa() : getLb();
+          inp.value = parseFloat((halfLen(el2) / (el2.csScale || 50)).toPrecision(4));
+        });
       }
     };
     rangeInp.onchange = () => {
       const liveEl = all.find(e => e.id === axEl.id) || axEl;
-      wsSend({type:'erase_stroke',id:liveEl.id});
-      setTimeout(()=>wsSend({type:'stroke',data:liveEl}),40);
+      wsSend({type:'stroke_update',data:{...liveEl}});
     };
     const rangeLabel = document.createElement('label'); rangeLabel.textContent='Диапазон';
     const rangeUnit  = document.createElement('span');  rangeUnit.className='cs-unit'; rangeUnit.textContent='ед';
@@ -2413,8 +2740,7 @@ function updateCSPanels(la, lb) {
     };
     sizeInp.onchange = () => {
       const liveEl = all.find(e => e.id === axEl.id) || axEl;
-      wsSend({type:'erase_stroke',id:liveEl.id});
-      setTimeout(()=>wsSend({type:'stroke',data:liveEl}),40);
+      wsSend({type:'stroke_update',data:{...liveEl}});
     };
     const sizeLabel = document.createElement('label'); sizeLabel.textContent='Размер';
     const sizeUnit  = document.createElement('span');  sizeUnit.className='cs-unit'; sizeUnit.textContent='px';
@@ -2432,8 +2758,7 @@ function updateCSPanels(la, lb) {
     };
     tickInp.onchange = () => {
       const liveEl = all.find(e => e.id === axEl.id) || axEl;
-      wsSend({type:'erase_stroke',id:liveEl.id});
-      setTimeout(()=>wsSend({type:'stroke',data:liveEl}),40); };
+      wsSend({type:'stroke_update',data:{...liveEl}}); };
     const tickLabel = document.createElement('label'); tickLabel.textContent='Шаг';
     const tickUnit  = document.createElement('span');  tickUnit.className='cs-unit'; tickUnit.textContent='ед';
     tickRow.append(tickLabel, tickInp, tickUnit);
@@ -2455,8 +2780,7 @@ function updateCSPanels(la, lb) {
         const liveEl = getLa();
         liveEl[offKey] = val;
         redraw();
-        wsSend({ type:'erase_stroke', id:liveEl.id });
-        setTimeout(() => wsSend({ type:'stroke', data:liveEl }), 40);
+        wsSend({ type:'stroke_update', data:{...liveEl} });
       }
     };
     offInp.oninput  = () => { const v = parseFloat(offInp.value); if (!isNaN(v)) { getLa()[offKey] = v; redraw(); } };
@@ -2472,8 +2796,7 @@ function updateCSPanels(la, lb) {
         getLa()[offKey] = nv;
         offInp.value = parseFloat(nv.toPrecision(6));
         redraw();
-        wsSend({ type:'erase_stroke', id:getLa().id });
-        setTimeout(() => wsSend({ type:'stroke', data:getLa() }), 40);
+        wsSend({ type:'stroke_update', data:{...getLa()} });
       };
       return btn;
     };
@@ -2481,7 +2804,7 @@ function updateCSPanels(la, lb) {
     offBtnReset.className = 'cs-btn'; offBtnReset.textContent = '0';
     offBtnReset.title = 'Сбросить смещение'; offBtnReset.style.cssText = 'padding:1px 5px;font-size:.82em;min-width:22px';
     offBtnReset.onclick = () => { getLa()[offKey] = 0; offInp.value = '0'; redraw();
-      wsSend({ type:'erase_stroke', id:getLa().id }); setTimeout(() => wsSend({ type:'stroke', data:getLa() }), 40); };
+      wsSend({ type:'stroke_update', data:{...getLa()} }); };
     const offLabel = document.createElement('label'); offLabel.textContent = 'Центр';
     const offUnit  = document.createElement('span');  offUnit.className='cs-unit'; offUnit.textContent='ед';
     offRow.append(offLabel, mkOffBtn(-1), offInp, mkOffBtn(1), offBtnReset, offUnit);
@@ -2489,6 +2812,66 @@ function updateCSPanels(la, lb) {
 
     panel.appendChild(block);
   });
+
+  /* ── Scaled toggle (equal unit size on both axes) ── */
+  const scaledRow = document.createElement('div'); scaledRow.className = 'cs-row';
+  scaledRow.style.cssText = 'margin-top:2px;justify-content:center;gap:6px';
+  const scaledBtn = document.createElement('button');
+  const isScaled = getLa().csScaled !== false;
+  scaledBtn.className = 'cs-btn' + (isScaled ? ' act' : '');
+  scaledBtn.textContent = '🔗 Пропорционально';
+  scaledBtn.title = 'Одинаковый масштаб по обеим осям';
+  scaledBtn.style.cssText = 'padding:3px 10px;font-size:.8em;width:auto';
+  scaledBtn.onclick = () => {
+    const _la = getLa();
+    _la.csScaled = !(_la.csScaled !== false);
+    scaledBtn.classList.toggle('act', _la.csScaled !== false);
+    if (_la.csScaled !== false) {
+      /* sync lb to la's scale */
+      const _lb = getLb();
+      _lb.csScale = _la.csScale;
+      wsSend({type:'stroke_update',data:{..._lb}});
+    }
+    wsSend({type:'stroke_update',data:{..._la}});
+    updateCSPanels(getLa(), getLb());
+  };
+  scaledRow.appendChild(scaledBtn);
+
+  /* ── Normalize button: snap la→horizontal, lb→vertical ── */
+  const normalizeBtn = document.createElement('button');
+  normalizeBtn.className = 'cs-btn';
+  normalizeBtn.textContent = '⊞ По осям';
+  normalizeBtn.title = 'Выровнять оси: X горизонтально, Y вертикально';
+  normalizeBtn.style.cssText = 'padding:3px 10px;font-size:.8em;width:auto';
+  normalizeBtn.onclick = () => {
+    const _la = getLa(), _lb = getLb();
+    const Oi = lineIntersection(_la, _lb);
+    if (!Oi) return;
+    addToUndo();
+    const vpA = getVisualPts(_la), vpB = getVisualPts(_lb);
+    const hlA = Math.hypot(vpA.p2.x-vpA.p1.x, vpA.p2.y-vpA.p1.y) / 2;
+    const hlB = Math.hypot(vpB.p2.x-vpB.p1.x, vpB.p2.y-vpB.p1.y) / 2;
+    const dirA = csPositiveDir(_la), dirB = csPositiveDir(_lb);
+    /* xSign: which horizontal side is the positive (arrow) end of la */
+    const xSign = dirA.x >= 0 ? 1 : -1;
+    /* ySign: which vertical side is the positive end of lb */
+    const ySign = dirB.y >= 0 ? 1 : -1;
+    /* For 'start' arrow p1 is arrowhead, otherwise p2 */
+    const laStart = _la.arrow === 'start', lbStart = _lb.arrow === 'start';
+    setVisualLine(_la,
+      laStart ? Oi.x+xSign*hlA : Oi.x-xSign*hlA, Oi.y,
+      laStart ? Oi.x-xSign*hlA : Oi.x+xSign*hlA, Oi.y);
+    setVisualLine(_lb,
+      Oi.x, lbStart ? Oi.y+ySign*hlB : Oi.y-ySign*hlB,
+      Oi.x, lbStart ? Oi.y-ySign*hlB : Oi.y+ySign*hlB);
+    redraw();
+    wsSend({type:'stroke_update', data:{..._la}});
+    wsSend({type:'stroke_update', data:{..._lb}});
+    updateCSPanels(getLa(), getLb());
+  };
+  scaledRow.appendChild(normalizeBtn);
+
+  panel.appendChild(scaledRow);
 
   /* Intersection info */
   const sep1 = document.createElement('div'); sep1.className='cs-sep'; panel.appendChild(sep1);
@@ -2538,23 +2921,38 @@ function updateCSPanels(la, lb) {
 
     const eq=document.createElement('span'); eq.className='csg-eq';
     eq.title='Нажмите для редактирования';
-    function _renderEq(eqEl, eqStr) {
+    function _renderEq(eqEl, eqStr, graph) {
+      if (graph && graph.resolving) { eqEl.textContent = '⏳ ' + eqStr; return; }
+      let latexStr = _eqToLatex(eqStr);
+      if (graph && graph.resultLatex) latexStr += ' = ' + graph.resultLatex;
+      else if (graph && graph.calcError) latexStr += '\\ \\color{\\#ef4444}{!}';
       if (typeof katex !== 'undefined') {
-        try { katex.render(_eqToLatex(eqStr), eqEl, {throwOnError:false,displayMode:false}); return; }
+        try { katex.render(latexStr, eqEl, {throwOnError:false,displayMode:false}); return; }
         catch(e) {}
       }
-      eqEl.textContent = eqStr;
+      eqEl.textContent = eqStr + (graph?.resultLatex ? ' = …' : '');
     }
-    _renderEq(eq, g.eq);
+    _renderEq(eq, g.eq, g);
     eq.onclick=()=>{
       const curEq = liveG().eq || g.eq;
       const nw=prompt('Уравнение:',curEq);
       if (nw!==null && nw.trim()) {
         const lg=liveG(); const p=parseEqn(nw.trim());
         lg.eq=g.eq=nw.trim(); if(p){ lg.mode=g.mode=p.mode; }
-        _renderEq(eq, lg.eq);
+        lg.resolvedEq=g.resolvedEq=null; lg.resultLatex=g.resultLatex=null; lg.calcError=g.calcError=null;
+        _renderEq(eq, lg.eq, lg);
         const _la=getLa(),_lb=getLb();
-        redraw(); wsSend({type:'stroke_update',data:{..._la}}); updateCSPanels(_la,_lb); }
+        syncCSParams(_la);
+        redraw(); wsSend({type:'stroke_update',data:{..._la}}); updateCSPanels(_la,_lb);
+        if(_hasCalcOp(nw.trim())){
+          _resolveCalcGraph(lg,getLa()).then(()=>{
+            _renderEq(eq,lg.eq,lg);
+            const __la=getLa(),__lb=getLb();
+            _graphPathCache.clear();redraw();
+            wsSend({type:'stroke_update',data:{...__la}});updateCSPanels(__la,__lb);
+          });
+        }
+      }
     };
 
     const rm=document.createElement('button'); rm.className='csg-rm'; rm.textContent='×'; rm.title='Удалить';
@@ -2606,6 +3004,136 @@ function updateCSPanels(la, lb) {
     panel.appendChild(ctrl);
   });
 
+  /* ── Parameters section ── */
+  syncCSParams(la); // auto-detect params from current equations
+  if (la.csParams && la.csParams.length > 0) {
+    const sepP = document.createElement('div'); sepP.className = 'cs-sep'; panel.appendChild(sepP);
+    const phdr = document.createElement('div'); phdr.className = 'cs-hdr';
+    phdr.textContent = '⊞ Параметры'; panel.appendChild(phdr);
+
+    la.csParams.forEach((p, pi) => {
+      const pRow = document.createElement('div');
+      pRow.style.cssText = 'display:flex;flex-direction:column;gap:3px;padding:3px 0';
+
+      /* Main slider row */
+      const mainRow = document.createElement('div');
+      mainRow.style.cssText = 'display:flex;align-items:center;gap:4px';
+
+      const nameLbl = document.createElement('span');
+      nameLbl.textContent = p.name;
+      nameLbl.style.cssText = 'font-weight:600;font-size:.85em;min-width:16px;color:var(--accent)';
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.id = `csp-slider-${p.name}`;
+      slider.min = p.min ?? -5; slider.max = p.max ?? 5;
+      slider.step = p.step ?? 0.1; slider.value = p.value ?? 1;
+      slider.style.cssText = 'flex:1;min-width:80px;cursor:pointer;accent-color:var(--accent)';
+
+      const valInp = document.createElement('input');
+      valInp.type = 'number'; valInp.id = `csp-val-${p.name}`;
+      valInp.value = Number((p.value ?? 1).toPrecision(4));
+      valInp.step = p.step ?? 0.1;
+      valInp.style.cssText = 'width:54px;padding:2px 4px;border-radius:5px;border:1px solid var(--sep);background:var(--input);color:var(--fg);font-size:.8em;text-align:right';
+
+      const updateParam = (v) => {
+        v = Math.max(p.min??-5, Math.min(p.max??5, v));
+        const liveP = (getLa().csParams || [])[pi];
+        if (liveP) liveP.value = v;
+        p.value = v;
+        slider.value = v;
+        valInp.value = Number(v.toPrecision(4));
+        _graphPathCache.clear();
+        redraw();
+        /* Live intersection update — recompute numerically without SymPy */
+        if (csIntersections) {
+          const _la=getLa(),_lb=getLb();
+          if (csKey(_la.id,_lb.id)===csKey(csIntersections.la.id,csIntersections.lb.id)) {
+            const _r=_computeISectNumericalSync(_la,_lb);
+            if (_r) { csIntersections=_r; updateMathOverlay(); redraw(); }
+          }
+        }
+      };
+
+      slider.oninput = () => updateParam(parseFloat(slider.value));
+      /* Sync on slider release so other clients see the final value */
+      slider.onchange = () => { const _la=getLa(); wsSend({type:'stroke_update',data:{..._la}}); };
+      valInp.oninput = () => { const v = parseFloat(valInp.value); if (!isNaN(v)) updateParam(v); };
+      valInp.onchange = () => { const _la=getLa(); wsSend({type:'stroke_update',data:{..._la}}); };
+
+      /* Animate button */
+      const animKey = `${la.id}_${p.name}`;
+      const animBtn = document.createElement('button');
+      animBtn.className = 'cs-btn';
+      const isAnim = _csParamAnimTimers.has(animKey);
+      animBtn.textContent = isAnim ? '⏸' : '▶';
+      animBtn.title = isAnim ? 'Остановить анимацию' : 'Анимировать';
+      animBtn.style.cssText = 'padding:1px 6px;font-size:.85em;min-width:26px';
+      animBtn.onclick = () => {
+        if (_csParamAnimTimers.has(animKey)) {
+          clearInterval(_csParamAnimTimers.get(animKey));
+          _csParamAnimTimers.delete(animKey);
+          animBtn.textContent = '▶'; animBtn.title = 'Анимировать';
+        } else {
+          if (!p.animDir) p.animDir = 1;
+          let _animTick = 0;
+          const timer = setInterval(() => {
+            const liveP = (getLa().csParams || []).find(x => x.name === p.name);
+            if (!liveP) { clearInterval(timer); _csParamAnimTimers.delete(animKey); return; }
+            liveP.value = (liveP.value ?? 1) + (liveP.step ?? 0.1) * (liveP.animDir ?? 1);
+            if (liveP.value >= (liveP.max ?? 5)) { liveP.value = liveP.max ?? 5; liveP.animDir = -1; }
+            if (liveP.value <= (liveP.min ?? -5)) { liveP.value = liveP.min ?? -5; liveP.animDir = 1; }
+            const sl = document.getElementById(`csp-slider-${liveP.name}`);
+            if (sl) sl.value = liveP.value;
+            const vi = document.getElementById(`csp-val-${liveP.name}`);
+            if (vi) vi.value = Number(liveP.value.toPrecision(4));
+            _graphPathCache.clear();
+            /* Broadcast every 3rd tick (~150ms) so all clients stay in sync */
+            if (++_animTick % 3 === 0) wsSend({type:'stroke_update', data:{...getLa()}});
+            redraw();
+          }, 50);
+          _csParamAnimTimers.set(animKey, timer);
+          animBtn.textContent = '⏸'; animBtn.title = 'Остановить';
+        }
+      };
+
+      /* Remove param button */
+      const rmBtn = document.createElement('button');
+      rmBtn.className = 'cs-btn'; rmBtn.textContent = '×'; rmBtn.title = 'Удалить параметр';
+      rmBtn.style.cssText = 'padding:1px 5px;font-size:.85em;min-width:22px';
+      rmBtn.onclick = () => {
+        if (_csParamAnimTimers.has(animKey)) { clearInterval(_csParamAnimTimers.get(animKey)); _csParamAnimTimers.delete(animKey); }
+        const _la = getLa();
+        if (_la.csParams) _la.csParams.splice(pi, 1);
+        wsSend({type:'stroke_update',data:{..._la}});
+        updateCSPanels(_la, getLb());
+      };
+
+      mainRow.append(nameLbl, slider, valInp, animBtn, rmBtn);
+      pRow.appendChild(mainRow);
+
+      /* Range config row (min/max/step) */
+      const cfgRow = document.createElement('div');
+      cfgRow.style.cssText = 'display:flex;align-items:center;gap:3px;padding-left:20px;font-size:.75em;color:var(--fg-dim)';
+      const mkSmInp = (label, val, onChange) => {
+        const wrap = document.createElement('span');
+        const lbl = document.createElement('span'); lbl.textContent = label + ':';
+        lbl.style.marginRight = '1px';
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.value = val; inp.step = 'any';
+        inp.style.cssText = 'width:42px;padding:1px 3px;border-radius:4px;border:1px solid var(--sep);background:var(--input);color:var(--fg);font-size:1em;text-align:center';
+        inp.onchange = () => { const v = parseFloat(inp.value); if (!isNaN(v)) { onChange(v); const lp=(getLa().csParams||[])[pi]; if(lp){slider.min=lp.min??-5;slider.max=lp.max??5;slider.step=lp.step??0.1;valInp.step=lp.step??0.1;} wsSend({type:'stroke_update',data:{...getLa()}}); } };
+        wrap.append(lbl, inp); return wrap;
+      };
+      cfgRow.appendChild(mkSmInp('min', p.min??-5, v => { const lp=(getLa().csParams||[])[pi]; if(lp) lp.min=v; p.min=v; }));
+      cfgRow.appendChild(mkSmInp('max', p.max??5, v => { const lp=(getLa().csParams||[])[pi]; if(lp) lp.max=v; p.max=v; }));
+      cfgRow.appendChild(mkSmInp('шаг', p.step??0.1, v => { const lp=(getLa().csParams||[])[pi]; if(lp) lp.step=v; p.step=v; }));
+      pRow.appendChild(cfgRow);
+
+      panel.appendChild(pRow);
+    });
+  }
+
   /* Add graph row */
   const sep3=document.createElement('div'); sep3.className='cs-sep'; panel.appendChild(sep3);
   const addRow=document.createElement('div'); addRow.className='csg-add';
@@ -2629,19 +3157,54 @@ function updateCSPanels(la, lb) {
     eqInp.style.outline='';
     const _la=getLa(), _lb=getLb();
     if(!_la.csGraphs) _la.csGraphs=[];
-    _la.csGraphs.push({eq:raw,mode:parsed.mode,color:nextColor,dash:'solid',width:2});
+    const _g={eq:raw,mode:parsed.mode,color:nextColor,dash:'solid',width:2};
+    _la.csGraphs.push(_g);
+    syncCSParams(_la);
     redraw(); wsSend({type:'stroke_update',data:{..._la}});
-    eqInp.value=''; updateCSPanels(_la,_lb); };
+    eqInp.value=''; updateCSPanels(_la,_lb);
+    if(_hasCalcOp(raw)){
+      _resolveCalcGraph(_g,getLa()).then(()=>{
+        const __la=getLa(),__lb=getLb();
+        _graphPathCache.clear();redraw();
+        wsSend({type:'stroke_update',data:{...__la}});updateCSPanels(__la,__lb);
+      });
+    }
+  };
   eqInp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addBtn.click();}});
 
-  addRow.append(colorDot,colorPick,eqInp,addBtn); panel.appendChild(addRow);
+  /* Help button */
+  const helpBtn=document.createElement('button'); helpBtn.className='cs-btn';
+  helpBtn.textContent='?'; helpBtn.title='Справка по командам';
+  helpBtn.style.cssText='min-width:22px;font-weight:bold;color:var(--accent);flex-shrink:0';
+  helpBtn.onclick=()=>{
+    let hp=panel.querySelector('.cs-calc-help');
+    if(hp){hp.remove();return;}
+    hp=document.createElement('div'); hp.className='cs-calc-help';
+    hp.style.cssText='font-size:.72em;padding:8px 10px;background:var(--bg-ui);border:1px solid var(--sep);border-radius:8px;line-height:2;margin:2px 0 4px';
+    hp.innerHTML='<b>Команды матанализа</b><br>'
+      +'<code>diff(f, x)</code> &mdash; df/dx<br>'
+      +'<code>diff(f, x, n)</code> &mdash; d<sup>n</sup>f/dx<sup>n</sup><br>'
+      +'<code>int(f, x)</code> &mdash; неопр. интеграл<br>'
+      +'<code>int(f, x, a, b)</code> &mdash; опред. интеграл<br>'
+      +'<code>int(f, x, a, inf)</code> &mdash; несобств. интеграл<br>'
+      +'<code>sum(f, k, a, b)</code> &mdash; конечная сумма<br>'
+      +'<code>sum(f, k, a, inf)</code> &mdash; бесконечный ряд<br>'
+      +'<hr style="border-color:var(--sep);margin:4px 0">'
+      +'<b>Примеры:</b><br>'
+      +'<code>diff(x^3, x)</code> → 3x²<br>'
+      +'<code>int(x^2, x, 0, 1)</code> → ⅓<br>'
+      +'<code>sum(1/k^2, k, 1, inf)</code> → π²/6';
+    addRow.insertAdjacentElement('afterend', hp);
+  };
+
+  addRow.append(colorDot,colorPick,eqInp,addBtn,helpBtn); panel.appendChild(addRow);
   panel.appendChild(buildMathKb(eqInp));
 }
 
 function updateSelBar() {
   const bar = document.getElementById('selBar');
   bar.innerHTML = '';
-  updateCSPanels(null, null);   // reset CS panels; will re-open below if 2 CS lines selected
+  /* CS panel is now board-anchored and persistent — no longer tied to selection */
   if (!selected.size || tool !== 'select') { bar.classList.remove('open'); updateMobTabs(); return; }
 
   const selEls  = all.filter(e => selected.has(e.id));
@@ -2690,7 +3253,7 @@ function updateSelBar() {
       addToUndo();
       textEls.forEach(el => el.color = c);
       redraw();
-      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+      textEls.forEach(el => { wsSend({ type:'stroke_update', data:{...el} }); });
     }));
 
     /* Font size */
@@ -2704,7 +3267,7 @@ function updateSelBar() {
       textEls.forEach(el => el.fontSize = v); redraw();
     };
     fsRow.querySelector('#sbTFs').onchange = () => {
-      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+      textEls.forEach(el => { wsSend({ type:'stroke_update', data:{...el} }); });
     };
     bar.appendChild(fsRow);
 
@@ -2718,7 +3281,7 @@ function updateSelBar() {
     fontRow.querySelector('#sbTFont').onchange = e => {
       addToUndo();
       textEls.forEach(el => el.font = e.target.value); redraw();
-      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+      textEls.forEach(el => { wsSend({ type:'stroke_update', data:{...el} }); });
     };
     bar.appendChild(fontRow);
 
@@ -2734,7 +3297,7 @@ function updateSelBar() {
       const nv = !textEls[0][prop];
       textEls.forEach(el => el[prop] = nv);
       btn.classList.toggle('act', nv); redraw();
-      textEls.forEach(el => { wsSend({ type:'erase_stroke', id:el.id }); setTimeout(() => wsSend({ type:'stroke', data:el }), 40); });
+      textEls.forEach(el => { wsSend({ type:'stroke_update', data:{...el} }); });
     };
     styRow.querySelector('#sbTB').onclick = e => togTxt('bold',      e.currentTarget);
     styRow.querySelector('#sbTI').onclick = e => togTxt('italic',    e.currentTarget);
@@ -2771,10 +3334,7 @@ function updateSelBar() {
       if (!colorUndoAdded) { addToUndo(); colorUndoAdded = true; }
       editable.forEach(el => el.color = c);
       redraw();
-      editable.forEach(el => {
-        wsSend({ type: 'erase_stroke', id: el.id });
-        setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
-      });
+      editable.forEach(el => { wsSend({ type: 'stroke_update', data:{...el} }); });
     }));
 
     /* Thickness slider */
@@ -2790,10 +3350,7 @@ function updateSelBar() {
       redraw();
     };
     rRow.querySelector('#sbSz').onchange = () => {
-      editable.forEach(el => {
-        wsSend({ type: 'erase_stroke', id: el.id });
-        setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
-      });
+      editable.forEach(el => { wsSend({ type: 'stroke_update', data:{...el} }); });
     };
     bar.appendChild(rRow);
 
@@ -2813,10 +3370,7 @@ function updateSelBar() {
         addToUndo();
         lineEls.forEach(el => { el.arrow = v; });
         redraw();
-        lineEls.forEach(el => {
-          wsSend({ type: 'erase_stroke', id: el.id });
-          setTimeout(() => wsSend({ type: 'stroke', data: el }), 40);
-        });
+        lineEls.forEach(el => { wsSend({ type: 'stroke_update', data:{...el} }); });
         updateSelBar();
       };
       arRow.querySelector('#sbArN').onclick = () => setArrow('none');
@@ -2840,7 +3394,7 @@ function updateSelBar() {
         addToUndo();
         fillEls.forEach(el => { el.fill = v || null; });
         redraw();
-        fillEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+        fillEls.forEach(el => { wsSend({type:'stroke_update',data:{...el}}); });
         updateSelBar();
       };
       fillRow.querySelector('#sbFillNo').onclick  = () => setFill(null);
@@ -2850,7 +3404,7 @@ function updateSelBar() {
         bar.appendChild(mkColorRow(fillEls[0].fill, c => {
           addToUndo();
           fillEls.forEach(el => el.fill = c); redraw();
-          fillEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+          fillEls.forEach(el => { wsSend({type:'stroke_update',data:{...el}}); });
         }));
         const foRow = document.createElement('div'); foRow.className = 'sp-row';
         const foV = Math.round((fillEls[0].fillOpacity??0.35)*100);
@@ -2863,7 +3417,7 @@ function updateSelBar() {
           fillEls.forEach(el => el.fillOpacity = v); redraw();
         };
         foRow.querySelector('#sbFO').onchange = () => {
-          fillEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+          fillEls.forEach(el => { wsSend({type:'stroke_update',data:{...el}}); });
         };
         bar.appendChild(foRow);
       }
@@ -2889,7 +3443,7 @@ function updateSelBar() {
       };
       lsRow.querySelector('#sbLblSz').onchange = () => {
         addToUndo();
-        labelEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+        labelEls.forEach(el => { wsSend({type:'stroke_update',data:{...el}}); });
       };
       bar.appendChild(lsRow);
 
@@ -2904,7 +3458,7 @@ function updateSelBar() {
       };
       lcRow.querySelector('#sbLblClr').onchange = () => {
         addToUndo();
-        labelEls.forEach(el => { wsSend({type:'erase_stroke',id:el.id}); setTimeout(()=>wsSend({type:'stroke',data:el}),40); });
+        labelEls.forEach(el => { wsSend({type:'stroke_update',data:{...el}}); });
       };
       bar.appendChild(lcRow);
     }
@@ -2949,8 +3503,7 @@ function updateSelBar() {
         const anchor = getVisualPts(la)[sbSnapHA];
         moveLineTo(lb, sbSnapHB, anchor.x, anchor.y);
         redraw();
-        wsSend({ type:'erase_stroke', id:lb.id });
-        setTimeout(() => wsSend({ type:'stroke', data:lb }), 40);
+        wsSend({ type:'stroke_update', data:{...lb} });
         updateSelBar();
       };
       posDiv.appendChild(snapRow);
@@ -2976,8 +3529,7 @@ function updateSelBar() {
         const center = getVisualPts(lb)[sbRotCenter];
         rotateLineAround(lb, center.x, center.y, da);
         redraw();
-        wsSend({ type:'erase_stroke', id:lb.id });
-        setTimeout(() => wsSend({ type:'stroke', data:lb }), 40);
+        wsSend({ type:'stroke_update', data:{...lb} });
         updateSelBar();
       };
       posDiv.appendChild(angRow);
@@ -3313,6 +3865,100 @@ function drawShape(s) {
     if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
     ctx.stroke();
   }
+  /* ── New flowchart shapes ── */
+  else if (s.shape === 'iopara') {
+    /* Input/Output: parallelogram with fixed horizontal skew */
+    const lx=Math.min(s1.x,s2.x), ly=Math.min(s1.y,s2.y);
+    const rw=Math.abs(s2.x-s1.x), rh=Math.abs(s2.y-s1.y);
+    const sk = Math.min(rw * 0.18, rh * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(lx+sk,   ly);
+    ctx.lineTo(lx+rw,   ly);
+    ctx.lineTo(lx+rw-sk, ly+rh);
+    ctx.lineTo(lx,       ly+rh);
+    ctx.closePath();
+    if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
+    ctx.stroke();
+  }
+  else if (s.shape === 'hexagon') {
+    /* Preparation: horizontal hexagon (indent on left/right) */
+    const lx=Math.min(s1.x,s2.x), ly=Math.min(s1.y,s2.y);
+    const rw=Math.abs(s2.x-s1.x), rh=Math.abs(s2.y-s1.y);
+    const cx=lx+rw/2, cy=ly+rh/2;
+    const ind = Math.min(rw*0.2, rh*0.5);
+    ctx.beginPath();
+    ctx.moveTo(lx+ind,    ly);
+    ctx.lineTo(lx+rw-ind, ly);
+    ctx.lineTo(lx+rw,     cy);
+    ctx.lineTo(lx+rw-ind, ly+rh);
+    ctx.lineTo(lx+ind,    ly+rh);
+    ctx.lineTo(lx,        cy);
+    ctx.closePath();
+    if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
+    ctx.stroke();
+  }
+  else if (s.shape === 'cylinder') {
+    /* Database: cylinder shape */
+    const lx=Math.min(s1.x,s2.x), ly=Math.min(s1.y,s2.y);
+    const rw=Math.abs(s2.x-s1.x), rh=Math.abs(s2.y-s1.y);
+    const er = Math.min(rw/2, rh*0.2); // y-radius of ellipses
+    const cx = lx+rw/2;
+    if (s.fill) {
+      ctx.beginPath();
+      ctx.rect(lx, ly+er, rw, rh-2*er);
+      ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx, ly+er, rw/2, er, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx, ly+rh-er, rw/2, er, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // Side lines
+    ctx.beginPath();
+    ctx.moveTo(lx,    ly+er); ctx.lineTo(lx,    ly+rh-er);
+    ctx.moveTo(lx+rw, ly+er); ctx.lineTo(lx+rw, ly+rh-er);
+    ctx.stroke();
+    // Bottom ellipse
+    ctx.beginPath();
+    ctx.ellipse(cx, ly+rh-er, rw/2, er, 0, 0, Math.PI*2);
+    ctx.stroke();
+    // Top ellipse (fully visible cap)
+    ctx.beginPath();
+    ctx.ellipse(cx, ly+er, rw/2, er, 0, 0, Math.PI*2);
+    ctx.stroke();
+  }
+  else if (s.shape === 'document') {
+    /* Document: rect with wavy bottom */
+    const lx=Math.min(s1.x,s2.x), ly=Math.min(s1.y,s2.y);
+    const rw=Math.abs(s2.x-s1.x), rh=Math.abs(s2.y-s1.y);
+    const waveH = Math.min(rh*0.15, 12*vz);
+    const bly = ly+rh-waveH; // baseline y for wave start
+    ctx.beginPath();
+    ctx.moveTo(lx, ly);
+    ctx.lineTo(lx+rw, ly);
+    ctx.lineTo(lx+rw, bly);
+    // two-hump wave across the bottom
+    ctx.bezierCurveTo(lx+rw*0.75, bly, lx+rw*0.75, ly+rh, lx+rw*0.5, ly+rh);
+    ctx.bezierCurveTo(lx+rw*0.25, ly+rh, lx+rw*0.25, bly, lx, bly);
+    ctx.closePath();
+    if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
+    ctx.stroke();
+  }
+  else if (s.shape === 'subprocess') {
+    /* Predefined Process: rect with inner vertical double-bar */
+    const lx=Math.min(s1.x,s2.x), ly=Math.min(s1.y,s2.y);
+    const rw=Math.abs(s2.x-s1.x), rh=Math.abs(s2.y-s1.y);
+    ctx.beginPath();
+    ctx.rect(lx, ly, rw, rh);
+    if (s.fill) { ctx.fillStyle=hexFill(s.fill,s.fillOpacity); ctx.fill(); }
+    ctx.stroke();
+    const mg = Math.min(rw*0.1, 16*vz);
+    ctx.beginPath();
+    ctx.moveTo(lx+mg, ly); ctx.lineTo(lx+mg, ly+rh);
+    ctx.moveTo(lx+rw-mg, ly); ctx.lineTo(lx+rw-mg, ly+rh);
+    ctx.stroke();
+  }
   else if (s.shape === 'connector') {
     ctx.restore(); // we draw it separately
     drawConnector(s);
@@ -3348,11 +3994,11 @@ function getFlowAnchors(el) {
   const bb = elemBBox(el);
   if (!bb) return [];
   const {x, y, w, h} = bb, cx=x+w/2, cy=y+h/2;
-  if (el.shape === 'diamond')
+  if (el.shape === 'diamond' || el.shape === 'hexagon')
     return [{x:cx,y,dir:'up'},{x:x+w,y:cy,dir:'right'},{x:cx,y:y+h,dir:'down'},{x,y:cy,dir:'left'}];
-  if (el.shape === 'node')
+  if (el.shape === 'node' || el.shape === 'cylinder')
     return [{x:cx,y,dir:'up'},{x:x+w,y:cy,dir:'right'},{x:cx,y:y+h,dir:'down'},{x,y:cy,dir:'left'}];
-  // rect, rounded, parallelogram (approximate)
+  // rect, rounded, parallelogram, iopara, document, subprocess (8-anchor bounding box)
   return [
     {x:cx,   y,      dir:'up'},
     {x:x+w,  y:cy,   dir:'right'},
@@ -3555,9 +4201,11 @@ function drawText(t) {
   if (t.rotation) { const cx=sp.x+sw/2,cy=sp.y+sh/2; ctx.translate(cx,cy); ctx.rotate(t.rotation); ctx.translate(-cx,-cy); }
   ctx.font = `${t.italic?'italic ':''}${t.bold?'bold ':''}${fs}px ${t.font||'system-ui,sans-serif'}`;
   ctx.fillStyle = t.color || '#e2e8f0';
+  ctx.beginPath(); ctx.rect(sp.x, sp.y, sw, sh); ctx.clip();
   const lines = wrapText(t.text, sw - 10);
   let ly = sp.y + fs;
   for (const line of lines) {
+    if (ly - fs > sp.y + sh) break;
     ctx.fillText(line, sp.x + 5, ly);
     if (t.underline) {
       const mw = ctx.measureText(line).width;
@@ -3570,6 +4218,9 @@ function drawText(t) {
 }
 
 function drawSelHighlight(el) {
+  /* Don't draw selection rect while the inline text editor is open — the
+     dashed textarea border already shows the editing boundary */
+  if (tedEl && el.id === tedEl.id && !tedIsLabel) return;
   /* Connectors get a special path-glow highlight instead of a bounding rect */
   if (el.type==='shape' && el.shape==='connector') { _drawConnSelHighlight(el); return; }
   const bb = elemBBox(el); if (!bb) return;
@@ -3799,9 +4450,13 @@ function marchingSquares(fn, ra, rb, toWorld, GRID) {
 }
 
 /* Plot one graph equation in CS space, clipped to the parallelogram */
-function drawCSGraph(O, uA, uB, scaleA, scaleB, graph, offA, offB) {
+function drawCSGraph(O, uA, uB, scaleA, scaleB, graph, offA, offB, params) {
   const ao = offA || 0, bo = offB || 0;
-  const parsed = parseEqn(graph.eq);
+  /* For calculus expressions use the resolved equation; skip if still computing */
+  if (graph.resolving) return;
+  if (graph.plottable === false) return;
+  const _plotEq = graph.resolvedEq || graph.eq;
+  const parsed = parseEqn(_plotEq);
   if (!parsed) return;
   const color = graph.color || '#ef4444';
   const lw    = Math.max(1, (graph.width||2) * vz);
@@ -3835,17 +4490,76 @@ function drawCSGraph(O, uA, uB, scaleA, scaleB, graph, offA, offB) {
   ctx.strokeStyle = color;
   ctx.lineWidth   = lw;
   ctx.lineJoin    = 'round'; ctx.lineCap = 'round';
-  /* apply dash style */
-  if (dash==='dashed')      ctx.setLineDash([8*vz, 6*vz]);
-  else if (dash==='dotted') ctx.setLineDash([2*vz, 5*vz]);
-  else                      ctx.setLineDash([]);
 
   const { mode } = parsed;
+  const _isIneq  = !!parsed.ineq;
+  const _isStrict = parsed.ineq === 'lt' || parsed.ineq === 'gt';
+
+  /* ── helper: draw semi-transparent fill for explicit (yfx/xfy) inequality ── */
+  const _drawIneqFill = (path) => {
+    const _fillLow = parsed.ineq === 'lt' || parsed.ineq === 'lte';
+    const _EDGE = (rangeA + rangeB) * 12;
+    /* Split path into continuous segments (gaps are NaN breaks) */
+    const _segs = []; let _cur = [];
+    for (const pt of path) {
+      if (!pt) { if (_cur.length) { _segs.push(_cur); _cur = []; } } else _cur.push(pt);
+    }
+    if (_cur.length) _segs.push(_cur);
+    ctx.save();
+    ctx.globalAlpha *= 0.22;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (const _seg of _segs) {
+      if (_seg.length < 2) continue;
+      if (mode === 'yfx') {
+        const _eB = _fillLow ? -_EDGE : _EDGE;
+        const _w0 = toWorld(_seg[0].a, _eB), _s0 = ts(_w0.x, _w0.y);
+        ctx.moveTo(_s0.x, _s0.y);
+        for (const pt of _seg) { const _w=toWorld(pt.a,pt.b),_s=ts(_w.x,_w.y); ctx.lineTo(_s.x,_s.y); }
+        const _wn = toWorld(_seg[_seg.length-1].a, _eB), _sn = ts(_wn.x, _wn.y);
+        ctx.lineTo(_sn.x, _sn.y);
+      } else {
+        const _eA = _fillLow ? -_EDGE : _EDGE;
+        const _w0 = toWorld(_eA, _seg[0].b), _s0 = ts(_w0.x, _w0.y);
+        ctx.moveTo(_s0.x, _s0.y);
+        for (const pt of _seg) { const _w=toWorld(pt.a,pt.b),_s=ts(_w.x,_w.y); ctx.lineTo(_s.x,_s.y); }
+        const _wn = toWorld(_eA, _seg[_seg.length-1].b), _sn = ts(_wn.x, _wn.y);
+        ctx.lineTo(_sn.x, _sn.y);
+      }
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.restore();
+  };
 
   if (mode==='implicit') {
     /* ── marching squares: evaluate F(a+ao, b+bo) - G(a+ao, b+bo) = 0 ── */
-    const fn = (a, b) => mathEval(parsed.lhs, a+ao, b+bo) - mathEval(parsed.rhs, a+ao, b+bo);
+    const fn = (a, b) => mathEval(parsed.lhs, a+ao, b+bo, params) - mathEval(parsed.rhs, a+ao, b+bo, params);
     const GRID = Math.min(120, Math.max(60, Math.round(Math.max(rangeA,rangeB)*4)));
+    /* ── inequality fill: sample grid, paint cells on correct side ── */
+    if (_isIneq) {
+      const _fillNeg = parsed.ineq === 'lt' || parsed.ineq === 'lte';
+      const _FG = 50, _sa = 2*rangeA/_FG, _sb = 2*rangeB/_FG;
+      ctx.save(); ctx.globalAlpha *= 0.22; ctx.fillStyle = color; ctx.beginPath();
+      for (let _i=0; _i<_FG; _i++) for (let _j=0; _j<_FG; _j++) {
+        const _a=-rangeA+(_i+.5)*_sa, _b=-rangeB+(_j+.5)*_sb;
+        const _v = fn(_a, _b);
+        if (!isFinite(_v)) continue;
+        if (_fillNeg ? _v<0 : _v>0) {
+          const _c = [[-rangeA+_i*_sa,-rangeB+_j*_sb],[-rangeA+(_i+1)*_sa,-rangeB+_j*_sb],
+                      [-rangeA+(_i+1)*_sa,-rangeB+(_j+1)*_sb],[-rangeA+_i*_sa,-rangeB+(_j+1)*_sb]]
+            .map(([_a2,_b2])=>{ const _w=toWorld(_a2,_b2); return ts(_w.x,_w.y); });
+          ctx.moveTo(_c[0].x,_c[0].y); ctx.lineTo(_c[1].x,_c[1].y);
+          ctx.lineTo(_c[2].x,_c[2].y); ctx.lineTo(_c[3].x,_c[3].y); ctx.closePath();
+        }
+      }
+      ctx.fill(); ctx.restore();
+    }
+    /* boundary line: dashed if strict inequality, else use graph dash setting */
+    if (_isIneq && _isStrict) ctx.setLineDash([6*vz, 5*vz]);
+    else if (dash==='dashed') ctx.setLineDash([8*vz, 6*vz]);
+    else if (dash==='dotted') ctx.setLineDash([2*vz, 5*vz]);
+    else ctx.setLineDash([]);
     marchingSquares(fn, rangeA, rangeB, toWorld, GRID);
   } else {
     /* ── parametric plot: sweep display coords, evaluate at shifted CS values ──
@@ -3853,22 +4567,25 @@ function drawCSGraph(O, uA, uB, scaleA, scaleB, graph, offA, offB) {
        where only vz/pan changed (world coords are stable, only screen mapping changes) */
     const STEPS = 600;
     const independent = (mode==='yfx') ? rangeA : rangeB;
-    const cacheKey = `${graph.eq}|${mode}|${ao}|${bo}|${scaleA}|${scaleB}|${independent.toFixed(4)}`;
+    const paramsKey = params ? Object.keys(params).sort().map(k=>`${k}=${params[k]}`).join('&') : '';
+    const cacheKey = `${graph.eq}|${mode}|${ao}|${bo}|${scaleA}|${scaleB}|${independent.toFixed(4)}|${paramsKey}`;
     let path = _graphPathCache.get(cacheKey);
     if (!path) {
       /* Compute and cache the path in display (a,b) coords — vz-independent */
       path = [];
       const step = 2*independent/STEPS;
-      const evalFn = _compileMathFn(parsed.rhs);
+      const paramNames = params ? Object.keys(params).sort() : [];
+      const evalFn = _compileMathFn(parsed.rhs, paramNames);
+      const evalArgs = paramNames.map(n => params ? (params[n] ?? 1) : 1);
       for (let i = 0; i <= STEPS; i++) {
         const v = -independent + i*step;
         let a, b;
         if (mode==='yfx') {
           a = v;
-          try { b = (evalFn ? evalFn(a+ao, 0) : mathEval(parsed.rhs, a+ao, 0)) - bo; } catch { b = NaN; }
+          try { b = (evalFn ? evalFn(a+ao, 0, ...evalArgs) : mathEval(parsed.rhs, a+ao, 0, params)) - bo; } catch { b = NaN; }
         } else {
           b = v;
-          try { a = (evalFn ? evalFn(0, b+bo) : mathEval(parsed.rhs, 0, b+bo)) - ao; } catch { a = NaN; }
+          try { a = (evalFn ? evalFn(0, b+bo, ...evalArgs) : mathEval(parsed.rhs, 0, b+bo, params)) - ao; } catch { a = NaN; }
         }
         path.push(isFinite(a)&&isFinite(b)&&Math.abs(b)<=rangeB*50&&Math.abs(a)<=rangeA*50 ? {a,b} : null);
       }
@@ -3876,6 +4593,13 @@ function drawCSGraph(O, uA, uB, scaleA, scaleB, graph, offA, offB) {
       if (_graphPathCache.size > 200) _graphPathCache.clear();
       _graphPathCache.set(cacheKey, path);
     }
+    /* fill inequality region before drawing boundary line */
+    if (_isIneq) _drawIneqFill(path);
+    /* boundary line: dashed if strict inequality, else use graph dash setting */
+    if (_isIneq && _isStrict) ctx.setLineDash([6*vz, 5*vz]);
+    else if (dash==='dashed') ctx.setLineDash([8*vz, 6*vz]);
+    else if (dash==='dotted') ctx.setLineDash([2*vz, 5*vz]);
+    else ctx.setLineDash([]);
     ctx.beginPath();
     let penDown = false;
     for (const pt of path) {
@@ -4119,22 +4843,22 @@ function solveQuadExact(A,B,C){
 }
 
 /* ── Polynomial degree detection ──────────────────────────── */
-function detectLinear(rhs){
-  const ys=[1,2,3].map(x=>mathEval(rhs,x,0));
+function detectLinear(rhs,params){
+  const ys=[1,2,3].map(x=>mathEval(rhs,x,0,params));
   if(ys.some(y=>!isFinite(y)))return null;
   if(Math.abs(ys[0]-2*ys[1]+ys[2])>1e-6)return null;
   const slope=ys[1]-ys[0];return{slope,intercept:ys[0]-slope};
 }
-function detectQuadratic(rhs){
-  const ys=[1,2,3,4].map(x=>mathEval(rhs,x,0));
+function detectQuadratic(rhs,params){
+  const ys=[1,2,3,4].map(x=>mathEval(rhs,x,0,params));
   if(ys.some(y=>!isFinite(y)))return null;
   const d2a=ys[0]-2*ys[1]+ys[2],d2b=ys[1]-2*ys[2]+ys[3];
   if(Math.abs(d2a-d2b)>1e-6||Math.abs(d2a)<1e-9)return null;
   const A=d2a/2,B=ys[1]-ys[0]-3*A,C=ys[0]-A-B;return{A,B,C};
 }
-function detectCubic(rhs){
+function detectCubic(rhs,params){
   const xs=[1,2,3,4,5].map(i=>i);
-  const ys=xs.map(x=>mathEval(rhs,x,0));
+  const ys=xs.map(x=>mathEval(rhs,x,0,params));
   if(ys.some(y=>!isFinite(y)))return null;
   /* 3rd-order finite diff should be constant */
   const d3=[[0,1,2,3],[1,2,3,4]].map(([a,b,c,d])=>ys[d]-3*ys[c]+3*ys[b]-ys[a]);
@@ -4153,12 +4877,12 @@ function _evalExact(ev){
   return ev.v;
 }
 
-function algebraicIntersect(g1,g2){
+function algebraicIntersect(g1,g2,params){
   const p1=parseEqn(g1.eq),p2=parseEqn(g2.eq);
   if(!p1||!p2||p1.mode!=='yfx'||p2.mode!=='yfx')return null;
-  const l1=detectLinear(p1.rhs),l2=detectLinear(p2.rhs);
-  const q1=!l1?detectQuadratic(p1.rhs):null;
-  const q2=!l2?detectQuadratic(p2.rhs):null;
+  const l1=detectLinear(p1.rhs,params),l2=detectLinear(p2.rhs,params);
+  const q1=!l1?detectQuadratic(p1.rhs,params):null;
+  const q2=!l2?detectQuadratic(p2.rhs,params):null;
 
   /* line × line */
   if(l1&&l2){
@@ -4199,10 +4923,10 @@ function algebraicIntersect(g1,g2){
   return null; /* fall through to numerical */
 }
 
-function numericalIntersect(g1,g2,rangeA,rangeB,offA,offB){
+function numericalIntersect(g1,g2,rangeA,rangeB,offA,offB,params){
   const p1=parseEqn(g1.eq),p2=parseEqn(g2.eq);if(!p1||!p2)return[];
-  const F1=(x,y)=>p1.mode==='yfx'?y-mathEval(p1.rhs,x,0):p1.mode==='xfy'?x-mathEval(p1.rhs,0,y):mathEval(p1.lhs,x,y)-mathEval(p1.rhs,x,y);
-  const F2=(x,y)=>p2.mode==='yfx'?y-mathEval(p2.rhs,x,0):p2.mode==='xfy'?x-mathEval(p2.rhs,0,y):mathEval(p2.lhs,x,y)-mathEval(p2.rhs,x,y);
+  const F1=(x,y)=>p1.mode==='yfx'?y-mathEval(p1.rhs,x,0,params):p1.mode==='xfy'?x-mathEval(p1.rhs,0,y,params):mathEval(p1.lhs,x,y,params)-mathEval(p1.rhs,x,y,params);
+  const F2=(x,y)=>p2.mode==='yfx'?y-mathEval(p2.rhs,x,0,params):p2.mode==='xfy'?x-mathEval(p2.rhs,0,y,params):mathEval(p2.lhs,x,y,params)-mathEval(p2.rhs,x,y,params);
   const pts=[],seen=new Set();
   const hh=Math.min(rangeA,rangeB)*0.002;
   function refine(x0,y0){
@@ -4224,8 +4948,8 @@ function numericalIntersect(g1,g2,rangeA,rangeB,offA,offB){
     const N=300;let prev=null;
     for(let i=0;i<=N;i++){
       const x=offA-rangeA+2*rangeA*i/N;
-      const y1=mathEval(p1.rhs,x,0),y2=mathEval(p2.rhs,x,0),d=y1-y2;
-      if(isFinite(d)){if(prev){if(Math.abs(d)<1e-9){const yi=mathEval(p1.rhs,x,0);if(isFinite(yi))add({mathX:x,mathY:yi});}else if(prev.s!==0&&Math.sign(d)!==0&&Math.sign(d)!==prev.s){let xa=prev.x,xb=x,fa=prev.d;for(let j=0;j<40;j++){const xm=(xa+xb)/2;const fm=mathEval(p1.rhs,xm,0)-mathEval(p2.rhs,xm,0);if(!isFinite(fm)||Math.abs(fm)<1e-12){xa=xm;break;}if(Math.sign(fm)===Math.sign(fa)){xa=xm;fa=fm;}else xb=xm;}const yi=mathEval(p1.rhs,xa,0);if(isFinite(yi))add({mathX:xa,mathY:yi});}}prev={x,d,s:Math.sign(d)||prev?.s||0};}else prev=null;
+      const y1=mathEval(p1.rhs,x,0,params),y2=mathEval(p2.rhs,x,0,params),d=y1-y2;
+      if(isFinite(d)){if(prev){if(Math.abs(d)<1e-9){const yi=mathEval(p1.rhs,x,0,params);if(isFinite(yi))add({mathX:x,mathY:yi});}else if(prev.s!==0&&Math.sign(d)!==0&&Math.sign(d)!==prev.s){let xa=prev.x,xb=x,fa=prev.d;for(let j=0;j<40;j++){const xm=(xa+xb)/2;const fm=mathEval(p1.rhs,xm,0,params)-mathEval(p2.rhs,xm,0,params);if(!isFinite(fm)||Math.abs(fm)<1e-12){xa=xm;break;}if(Math.sign(fm)===Math.sign(fa)){xa=xm;fa=fm;}else xb=xm;}const yi=mathEval(p1.rhs,xa,0,params);if(isFinite(yi))add({mathX:xa,mathY:yi});}}prev={x,d,s:Math.sign(d)||prev?.s||0};}else prev=null;
     }
   } else {
     const NX=60,NY=60,dx=2*rangeA/NX,dy=2*rangeB/NY;
@@ -4282,19 +5006,26 @@ async function computeAllIntersections(la,lb){
   const rangeA=lenA/scaleA,rangeB=lenB/scaleB;
   const nA={x:uApos.x/lenA,y:uApos.y/lenA},nB={x:uBpos.x/lenB,y:uBpos.y/lenB};
   const graphs=la.csGraphs||[];if(graphs.length<2)return null;
+  /* Collect current parameter values */
+  const _params={};for(const p of(la.csParams||[]))_params[p.name]=p.value??1;
+  /* Substitute param values into equation string for SymPy */
+  const _subP=eq=>{let s=eq;for(const[k,v]of Object.entries(_params))s=s.replace(new RegExp('\\b'+k+'\\b','g'),'('+v+')');return s;};
+  /* For inequalities always intersect with the boundary curve, not the region */
+  const _bndEq = eq => eq.replace(/<=|≤/g,'=').replace(/>=|≥/g,'=').replace(/</g,'=').replace(/>/g,'=');
+  const _bnd = g => g.ineq ? {...g, eq:_bndEq(g.eq)} : g;
   const rawPts=[];
   for(let i=0;i<graphs.length;i++) for(let j=i+1;j<graphs.length;j++){
-    const g1=graphs[i],g2=graphs[j];
+    const g1=_bnd(graphs[i]),g2=_bnd(graphs[j]);
     /* Always compute numerical/algebraic baseline — guaranteed complete */
-    let numPts=algebraicIntersect(g1,g2);
-    if(!numPts) numPts=numericalIntersect(g1,g2,rangeA,rangeB,offA,offB);
+    let numPts=algebraicIntersect(g1,g2,_params);
+    if(!numPts) numPts=numericalIntersect(g1,g2,rangeA,rangeB,offA,offB,_params);
 
     /* Try SymPy for exact labels */
     let symPts=null;
     try{
       const r=await fetch('/api/cs/solve',{method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('token')},
-        body:JSON.stringify({eq1:g1.eq,eq2:g2.eq})});
+        body:JSON.stringify({eq1:_subP(g1.eq),eq2:_subP(g2.eq)})});
       if(r.ok){const d=await r.json(); if(d.ok)symPts=d.solutions;}
     }catch{}
 
@@ -4336,6 +5067,59 @@ async function computeAllIntersections(la,lb){
     } else {
       rawPts.push(...numPts);
     }
+  }
+  return _buildISectResult(la,lb,rawPts,O,scaleA,scaleB,offA,offB,nA,nB,rangeA,rangeB);
+}
+
+/* ── Calculus expression helpers ──────────────────────────── */
+function _hasCalcOp(s){return /\b(diff|int|sum)\s*\(/.test(s);}
+
+async function _callCalcAPI(eq,csParams){
+  const params={};for(const p of(csParams||[]))params[p.name]=p.value??1;
+  try{
+    const r=await fetch('/api/cs/calc',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('token')},
+      body:JSON.stringify({expr:eq,params})});
+    if(r.ok)return await r.json();
+  }catch{}
+  return null;
+}
+
+async function _resolveCalcGraph(graph,la){
+  graph.resolving=true;
+  const res=await _callCalcAPI(graph.eq,la.csParams);
+  graph.resolving=false;
+  if(res&&res.ok&&res.resultExpr){
+    graph.resolvedEq='y = '+res.resultExpr;
+    graph.resultLatex=res.resultLatex;
+    graph.plottable=res.plottable!==false;
+  }else{
+    graph.resolvedEq=null;graph.resultLatex=null;
+    graph.calcError=(res&&res.error)||'Ошибка вычисления';
+  }
+}
+
+/* Fast synchronous intersection (no SymPy) — used for live param slider updates */
+function _computeISectNumericalSync(la,lb){
+  const O=lineIntersection(la,lb);if(!O)return null;
+  const dirA=csPositiveDir(la),dirB=csPositiveDir(lb);
+  const uApos={x:dirA.posEnd.x-O.x,y:dirA.posEnd.y-O.y};
+  const uBpos={x:dirB.posEnd.x-O.x,y:dirB.posEnd.y-O.y};
+  const scaleA=la.csScale||50,scaleB=lb.csScale||50;
+  const offA=la.csOriginA||0,offB=la.csOriginB||0;
+  const lenA=Math.hypot(uApos.x,uApos.y),lenB=Math.hypot(uBpos.x,uBpos.y);
+  const rangeA=lenA/scaleA,rangeB=lenB/scaleB;
+  const nA={x:uApos.x/lenA,y:uApos.y/lenA},nB={x:uBpos.x/lenB,y:uBpos.y/lenB};
+  const graphs=la.csGraphs||[];if(graphs.length<2)return null;
+  const _params={};for(const p of(la.csParams||[]))_params[p.name]=p.value??1;
+  const _bndEq=eq=>eq.replace(/<=|≤/g,'=').replace(/>=|≥/g,'=').replace(/</g,'=').replace(/>/g,'=');
+  const _bnd=g=>g.ineq?{...g,eq:_bndEq(g.eq)}:g;
+  const rawPts=[];
+  for(let i=0;i<graphs.length;i++)for(let j=i+1;j<graphs.length;j++){
+    const g1=_bnd(graphs[i]),g2=_bnd(graphs[j]);
+    let pts=algebraicIntersect(g1,g2,_params);
+    if(!pts)pts=numericalIntersect(g1,g2,rangeA,rangeB,offA,offB,_params);
+    rawPts.push(...pts);
   }
   return _buildISectResult(la,lb,rawPts,O,scaleA,scaleB,offA,offB,nA,nB,rangeA,rangeB);
 }
@@ -4564,8 +5348,10 @@ function drawAllCS() {
     const hasDirection = la.arrow && la.arrow !== 'none' &&
                          lb.arrow && lb.arrow !== 'none';
     if (hasDirection && csIntersectionInView(O) && la.csGraphs) {
+      const _params = {};
+      for (const p of (la.csParams || [])) _params[p.name] = p.value ?? 1;
       for (const graph of la.csGraphs) {
-        drawCSGraph(O, uApos, uBpos, scaleA, scaleB, graph, offA, offB);
+        drawCSGraph(O, uApos, uBpos, scaleA, scaleB, graph, offA, offB, _params);
       }
       /* ── Hover dot ── */
       const _myKey = csKey(la.id, lb.id);
@@ -4787,7 +5573,9 @@ function drawElem(el) {
 
 function redraw() {
   _validateCsIntersections();
-  if (tedEl && document.getElementById('ted-wrap').style.display !== 'none') { _positionTedWrap(); }
+  if (tedEl && document.getElementById('ted-wrap').style.display !== 'none') {
+    _positionTedWrap(); updateTedStyle(); _sizeTedToContent();
+  }
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = (BOARD_THEMES[boardTheme] || BOARD_THEMES['dark-blue']).bg;
   ctx.fillRect(0, 0, W, H);
@@ -4818,13 +5606,18 @@ function redraw() {
   updateCodeWidgets();
   /* KaTeX math labels overlay */
   updateMathOverlay();
-  /* Bug #5: Auto-restore CS panel if it closed unexpectedly (e.g. after WS round-trip) */
+  /* CS panel: reposition to follow pan/zoom, and auto-open if another user opened it */
   const _csPanel = document.getElementById('csSetPanel');
-  if (!_csPanel.classList.contains('open') && csPanelLaId && csPanelLbId && tool === 'select') {
+  if (_csPanel.classList.contains('open') && csPanelLaId) {
     const _cla = all.find(e => e.id === csPanelLaId);
-    const _clb = all.find(e => e.id === csPanelLbId);
-    if (_cla && _clb && selected.has(_cla.id) && selected.has(_clb.id)) {
-      updateCSPanels(_cla, _clb);
+    const _clb = _cla && all.find(e => e.id === _cla.csPartner);
+    if (_cla && _clb) _positionCSPanel(_cla, _clb);
+  } else if (!_csPanel.classList.contains('open')) {
+    /* Auto-open panel if a CS element has csPanelOpen=true (set by another user or ourselves) */
+    const _cla = all.find(e => e.csPartner && e.csPanelOpen);
+    if (_cla) {
+      const _clb = all.find(e => e.id === _cla.csPartner);
+      if (_clb && csPanelLaId !== _cla.id) updateCSPanels(_cla, _clb);
     }
   }
   /* ── peer cursors ── */
@@ -4866,12 +5659,17 @@ function redraw() {
       ? Math.max(penSize * vz / 2, 2)
       : Math.max(penSize + 6, 4);
     ctx.save();
-    ctx.strokeStyle = tool === 'erase'
-      ? 'rgba(255,80,80,0.85)'
-      : dark ? 'rgba(255,255,255,0.75)' : 'rgba(0,30,10,0.55)';
-    ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    ctx.setLineDash([]);
+    // Dark shadow ring — always visible on any background (white images, light boards)
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = tool === 'erase' ? 'rgba(160,0,0,0.65)' : 'rgba(0,0,0,0.5)';
+    ctx.beginPath(); ctx.arc(cursorPos.x, cursorPos.y, r, 0, Math.PI * 2); ctx.stroke();
+    // Bright inner ring on top
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = tool === 'erase' ? 'rgba(255,80,80,0.95)' : 'rgba(255,255,255,0.9)';
     ctx.beginPath(); ctx.arc(cursorPos.x, cursorPos.y, r, 0, Math.PI * 2); ctx.stroke();
     if (tool === 'erase') {
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(cursorPos.x-4,cursorPos.y-4); ctx.lineTo(cursorPos.x+4,cursorPos.y+4);
       ctx.moveTo(cursorPos.x+4,cursorPos.y-4); ctx.lineTo(cursorPos.x-4,cursorPos.y+4);
@@ -4929,9 +5727,6 @@ function redraw() {
       }
     }
   }
-  /* ── zoom indicator ── */
-  const _zi = document.getElementById('zoomInd');
-  if (_zi) _zi.textContent = Math.round(vz * 100) + '%';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -5247,7 +6042,8 @@ function applyResizeLine(wx, wy) {
   }
 }
 
-/* Snap text box height to exactly fit its content at current fontSize + width */
+/* Snap text box height to exactly fit its content at current fontSize + width.
+   Uses 1.4 line-height to match the textarea CSS so canvas and editor are consistent. */
 function autoFitTextHeight(el) {
   if (el.type !== 'text' || !el.text) return;
   const fs = (el.fontSize || 18) * vz;
@@ -5255,7 +6051,26 @@ function autoFitTextHeight(el) {
   ctx.font = `${el.italic?'italic ':''}${el.bold?'bold ':''}${fs}px ${el.font||'system-ui,sans-serif'}`;
   const lines = wrapText(el.text, (el.w || 200) * vz - 10);
   ctx.restore();
-  el.h = Math.ceil(lines.length * fs * 1.35 / vz) + 10;
+  /* line-height 1.4 to match textarea CSS + 8px vertical padding equivalent */
+  el.h = Math.ceil(lines.length * (el.fontSize || 18) * 1.4) + 8;
+}
+
+/* Find the largest fontSize where wrapped text fits within el.w × el.h.
+   Called during and after resize so text always fills the box without overflow. */
+function fitFontSize(el) {
+  if (!el.text || !el.w || !el.h) return;
+  const maxW = el.w * vz - 10;
+  const bold = el.bold ? 'bold ' : '';
+  const italic = el.italic ? 'italic ' : '';
+  const fontFace = el.font || 'system-ui,sans-serif';
+  let lo = 6, hi = 200;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    ctx.font = `${italic}${bold}${mid * vz}px ${fontFace}`;
+    const lines = wrapText(el.text, maxW);
+    if (lines.length * mid * 1.4 + 8 <= el.h) lo = mid; else hi = mid;
+  }
+  el.fontSize = lo;
 }
 
 function applyResize(wx, wy) {
@@ -5297,9 +6112,10 @@ function applyResize(wx, wy) {
       else if (h.includes('b') || h.includes('t')) { const newW = Math.max(20, ht * ratio); if (h.includes('l')) x = s.x + s.w - newW; w = newW; }
     }
     el.x=x; el.y=y; el.w=w; el.h=ht;
-    /* Scale font size proportionally with height change */
-    if (el.type === 'text' && s.h > 0 && s.fontSize) {
-      el.fontSize = Math.max(8, Math.round(s.fontSize * ht / s.h));
+    if (el.type === 'text') {
+      if (h.includes('l') || h.includes('r')) el._wLocked = true;
+      /* height handle: fit font into box; width-only: no font change (autoFitTextHeight on release) */
+      if (h.includes('b') || h.includes('t')) fitFontSize(el);
     }
   } else if (el.type === 'stroke') {
     const bb = {x:s.x, y:s.y, w:s.w, h:s.h};
@@ -5318,15 +6134,57 @@ function applyResize(wx, wy) {
   }
 }
 
-function hitTest(el, wx, wy) {
+function _ptInPoly(pts, lx, ly, r) {
+  /* Within r of any edge */
+  for (let i = 0; i < pts.length; i++) {
+    const a=pts[i], b=pts[(i+1)%pts.length];
+    const dx=b.x-a.x, dy=b.y-a.y, l2=dx*dx+dy*dy;
+    if (l2===0) { if(Math.hypot(lx-a.x,ly-a.y)<r) return true; continue; }
+    const t=Math.max(0,Math.min(1,((lx-a.x)*dx+(ly-a.y)*dy)/l2));
+    if (Math.hypot(lx-a.x-t*dx,ly-a.y-t*dy)<r) return true;
+  }
+  /* Ray-cast inside test */
+  let inside=false;
+  for (let i=0,j=pts.length-1; i<pts.length; j=i++) {
+    const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
+    if (((yi>ly)!==(yj>ly))&&(lx<(xj-xi)*(ly-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function _polyEdge(pts, lx, ly, r) {
+  for (let i = 0; i < pts.length; i++) {
+    const a=pts[i], b=pts[(i+1)%pts.length];
+    const dx=b.x-a.x, dy=b.y-a.y, l2=dx*dx+dy*dy;
+    if (l2===0) { if(Math.hypot(lx-a.x,ly-a.y)<r) return true; continue; }
+    const t=Math.max(0,Math.min(1,((lx-a.x)*dx+(ly-a.y)*dy)/l2));
+    if (Math.hypot(lx-a.x-t*dx,ly-a.y-t*dy)<r) return true;
+  }
+  return false;
+}
+function hitTest(el, wx, wy, borderOnly) {
   const r = Math.max(6, 8) / vz;
-  /* Un-rotate the test point into the element's local space */
   const lp = localPoint(wx, wy, el);
   const lx = lp.x, ly = lp.y;
+
   if (el.type === 'stroke') {
     if (!el.pts) return false;
-    return el.pts.some(p => p.x != null && isFinite(p.x) && Math.hypot(p.x - lx, p.y - ly) < r + (el.size||3)/2);
+    const _spts = el.pts.filter(p => p.x != null && isFinite(p.x));
+    if (_spts.length === 0) return false;
+    const _thr = r + (el.size||3)/2;
+    for (let _i = 0; _i < _spts.length; _i++) {
+      if (Math.hypot(_spts[_i].x-lx, _spts[_i].y-ly) < _thr) return true;
+      if (_i < _spts.length-1) {
+        const _ax=_spts[_i].x,_ay=_spts[_i].y,_bx=_spts[_i+1].x,_by=_spts[_i+1].y;
+        const _dx=_bx-_ax,_dy=_by-_ay,_l2=_dx*_dx+_dy*_dy;
+        if (_l2>0) {
+          const _t=Math.max(0,Math.min(1,((lx-_ax)*_dx+(ly-_ay)*_dy)/_l2));
+          if (Math.hypot(lx-_ax-_t*_dx,ly-_ay-_t*_dy)<_thr) return true;
+        }
+      }
+    }
+    return false;
   }
+
   if (el.type === 'shape') {
     if (el.shape === 'line') {
       const dx=el.x2-el.x1, dy=el.y2-el.y1, len=Math.hypot(dx,dy);
@@ -5334,8 +6192,20 @@ function hitTest(el, wx, wy) {
       const t = Math.max(0, Math.min(1, ((lx-el.x1)*dx + (ly-el.y1)*dy) / (len*len)));
       return Math.hypot(lx-el.x1-t*dx, ly-el.y1-t*dy) < r + (el.size||2);
     }
+    if (el.shape === 'connector') {
+      const _cpts = resolveConnector(el);
+      if (!_cpts || _cpts.length < 2) return false;
+      const _hw = r + (el.size||2);
+      for (let _i = 0; _i < _cpts.length-1; _i++) {
+        const _ax=_cpts[_i].x,_ay=_cpts[_i].y,_bx=_cpts[_i+1].x,_by=_cpts[_i+1].y;
+        const _dx=_bx-_ax,_dy=_by-_ay,_l2=_dx*_dx+_dy*_dy;
+        if (_l2===0){if(Math.hypot(lx-_ax,ly-_ay)<_hw)return true;continue;}
+        const _t=Math.max(0,Math.min(1,((lx-_ax)*_dx+(ly-_ay)*_dy)/_l2));
+        if (Math.hypot(lx-_ax-_t*_dx,ly-_ay-_t*_dy)<_hw) return true;
+      }
+      return false;
+    }
     if (el.shape === 'triangle') {
-      /* Hit: inside triangle OR within r of any edge */
       const [ax,ay,bx,by,cx,cy] = [el.x1,el.y1,el.x2,el.y2,el.x3,el.y3];
       const segDist = (px,py,x1,y1,x2,y2) => {
         const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy;
@@ -5344,36 +6214,69 @@ function hitTest(el, wx, wy) {
         return Math.hypot(px-x1-t*dx,py-y1-t*dy);
       };
       if (segDist(lx,ly,ax,ay,bx,by)<r || segDist(lx,ly,bx,by,cx,cy)<r || segDist(lx,ly,cx,cy,ax,ay)<r) return true;
-      /* Point-in-triangle */
+      if (borderOnly) return false;
       const d1=(lx-bx)*(ay-by)-(ax-bx)*(ly-by);
       const d2=(lx-cx)*(by-cy)-(bx-cx)*(ly-cy);
       const d3=(lx-ax)*(cy-ay)-(cx-ax)*(ly-ay);
       return !((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0));
     }
     if (el.shape === 'parallelogram') {
-      /* A=(x1,y1) B=(x2,y2) C=(x3,y3) D=A+C-B */
-      const pts=[{x:el.x1,y:el.y1},{x:el.x2,y:el.y2},{x:el.x3,y:el.y3},{x:el.x1+el.x3-el.x2,y:el.y1+el.y3-el.y2}];
-      let inside = true;
-      const firstSign = Math.sign((pts[1].x-pts[0].x)*(ly-pts[0].y)-(pts[1].y-pts[0].y)*(lx-pts[0].x));
-      for (let i=0;i<4;i++) {
-        const a=pts[i],b=pts[(i+1)%4];
+      const _ppts=[{x:el.x1,y:el.y1},{x:el.x2,y:el.y2},{x:el.x3,y:el.y3},{x:el.x1+el.x3-el.x2,y:el.y1+el.y3-el.y2}];
+      if (_polyEdge(_ppts,lx,ly,r)) return true;
+      if (borderOnly) return false;
+      let _ins=true;
+      const _fs=Math.sign((_ppts[1].x-_ppts[0].x)*(ly-_ppts[0].y)-(_ppts[1].y-_ppts[0].y)*(lx-_ppts[0].x));
+      for (let i=0;i<4;i++){
+        const a=_ppts[i],b=_ppts[(i+1)%4];
         const cross=(b.x-a.x)*(ly-a.y)-(b.y-a.y)*(lx-a.x);
-        if (Math.sign(cross) !== firstSign && cross !== 0) { inside=false; break; }
+        if(Math.sign(cross)!==_fs&&cross!==0){_ins=false;break;}
       }
-      if (inside) return true;
-      /* Edge tolerance */
-      for (let i=0;i<4;i++) {
-        const a=pts[i],b=pts[(i+1)%4];
-        const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
-        if(l2===0) continue;
-        const t=Math.max(0,Math.min(1,((lx-a.x)*dx+(ly-a.y)*dy)/l2));
-        if (Math.hypot(lx-a.x-t*dx,ly-a.y-t*dy) < r) return true;
-      }
-      return false;
+      return _ins;
     }
+    if (el.shape === 'ellipse' || el.shape === 'node') {
+      const _cx=(el.x1+el.x2)/2,_cy=(el.y1+el.y2)/2;
+      const _rx=Math.abs(el.x2-el.x1)/2,_ry=Math.abs(el.y2-el.y1)/2;
+      if (_rx<1||_ry<1) return false;
+      if (borderOnly) {
+        const _d=Math.sqrt((lx-_cx)*(lx-_cx)/(_rx*_rx)+(ly-_cy)*(ly-_cy)/(_ry*_ry));
+        return Math.abs(_d-1)*Math.min(_rx,_ry)<r;
+      }
+      return (lx-_cx)*(lx-_cx)/((_rx+r)*(_rx+r))+(ly-_cy)*(ly-_cy)/((_ry+r)*(_ry+r))<=1;
+    }
+    if (el.shape === 'diamond') {
+      const _bx=Math.min(el.x1,el.x2),_by=Math.min(el.y1,el.y2);
+      const _rw=Math.abs(el.x2-el.x1),_rh=Math.abs(el.y2-el.y1);
+      const _cx=_bx+_rw/2,_cy=_by+_rh/2;
+      const _dp=[{x:_cx,y:_by},{x:_bx+_rw,y:_cy},{x:_cx,y:_by+_rh},{x:_bx,y:_cy}];
+      return borderOnly ? _polyEdge(_dp,lx,ly,r) : _ptInPoly(_dp,lx,ly,r);
+    }
+    if (el.shape === 'iopara') {
+      const _bx=Math.min(el.x1,el.x2),_by=Math.min(el.y1,el.y2);
+      const _rw=Math.abs(el.x2-el.x1),_rh=Math.abs(el.y2-el.y1);
+      const _sk=Math.min(_rw*0.18,_rh*0.6);
+      const _ip=[{x:_bx+_sk,y:_by},{x:_bx+_rw,y:_by},{x:_bx+_rw-_sk,y:_by+_rh},{x:_bx,y:_by+_rh}];
+      return borderOnly ? _polyEdge(_ip,lx,ly,r) : _ptInPoly(_ip,lx,ly,r);
+    }
+    if (el.shape === 'hexagon') {
+      const _bx=Math.min(el.x1,el.x2),_by=Math.min(el.y1,el.y2);
+      const _rw=Math.abs(el.x2-el.x1),_rh=Math.abs(el.y2-el.y1);
+      const _cx=_bx+_rw/2,_cy=_by+_rh/2,_ind=Math.min(_rw*0.2,_rh*0.5);
+      const _hp=[{x:_bx+_ind,y:_by},{x:_bx+_rw-_ind,y:_by},{x:_bx+_rw,y:_cy},
+                 {x:_bx+_rw-_ind,y:_by+_rh},{x:_bx+_ind,y:_by+_rh},{x:_bx,y:_cy}];
+      return borderOnly ? _polyEdge(_hp,lx,ly,r) : _ptInPoly(_hp,lx,ly,r);
+    }
+    /* rect / rounded / subprocess / cylinder / document */
     const bb = elemBBox(el);
-    return bb && lx >= bb.x && ly >= bb.y && lx <= bb.x+bb.w && ly <= bb.y+bb.h;
+    if (!bb) return false;
+    if (borderOnly) {
+      const inX = lx>=bb.x-r && lx<=bb.x+bb.w+r;
+      const inY = ly>=bb.y-r && ly<=bb.y+bb.h+r;
+      return (inX && (Math.abs(ly-bb.y)<r || Math.abs(ly-bb.y-bb.h)<r)) ||
+             (inY && (Math.abs(lx-bb.x)<r || Math.abs(lx-bb.x-bb.w)<r));
+    }
+    return lx >= bb.x-r && ly >= bb.y-r && lx <= bb.x+bb.w+r && ly <= bb.y+bb.h+r;
   }
+
   if (el.type === 'text' || el.type === 'image' || el.type === 'richtext' || el.type === 'code' || el.type === 'docfile') {
     const bb = elemBBox(el);
     return bb && lx >= bb.x && ly >= bb.y && lx <= bb.x+bb.w && ly <= bb.y+bb.h;
@@ -5435,30 +6338,51 @@ function _positionTedWrap() {
   wrap.style.top  = (sp.y + 52) + 'px';
 }
 
-/* Size the wrap + textarea to exactly fit the current text content */
+/* Size the wrap + textarea to exactly fit the current text content.
+   Two modes:
+   - _wLocked=true  → width fixed (user manually resized it); only height auto-fits
+   - _wLocked=false → width expands right to fit widest line; no browser wrap */
 function _sizeTedToContent() {
   if (!tedEl || tedIsLabel) return;
-  const mirror = document.getElementById('ted-mirror');
-  mirror.style.fontSize      = ted.style.fontSize;
-  mirror.style.fontFamily    = ted.style.fontFamily    || 'system-ui,sans-serif';
-  mirror.style.fontWeight    = ted.style.fontWeight    || 'normal';
-  mirror.style.fontStyle     = ted.style.fontStyle     || 'normal';
-  mirror.style.letterSpacing = ted.style.letterSpacing || '';
-  const lines = ted.value.split('\n');
-  let maxW = 60;
-  lines.forEach(line => {
-    mirror.textContent = line || '\u00a0';
-    maxW = Math.max(maxW, mirror.offsetWidth + 20); // 20 = padding 4+6 each side
-  });
-  const lineH = parseFloat(ted.style.fontSize) * 1.4;
-  const h = Math.max(28, lines.length * lineH + 10);
   const wrap = document.getElementById('ted-wrap');
-  wrap.style.width  = maxW + 'px';
-  wrap.style.height = h + 'px';
-  ted.style.width   = maxW + 'px';
-  ted.style.height  = h + 'px';
-  tedEl.w = maxW / vz;
-  tedEl.h = h / vz;
+
+  if (tedEl._wLocked) {
+    /* Fixed-width: let textarea wrap, measure height via scrollHeight */
+    const fw = Math.max(40, tedEl.w * vz);
+    ted.style.whiteSpace = 'pre-wrap';
+    ted.style.width  = fw + 'px';
+    wrap.style.width = fw + 'px';
+    ted.style.height = '1px';               // reset so scrollHeight is accurate
+    const h = Math.max(28, ted.scrollHeight);
+    ted.style.height  = h + 'px';
+    wrap.style.height = h + 'px';
+    tedEl.h = h / vz;
+    /* tedEl.w intentionally not changed — it's locked */
+  } else {
+    /* Auto-width: expand right, no browser wrap */
+    ted.style.whiteSpace = 'pre';
+    const mirror = document.getElementById('ted-mirror');
+    mirror.style.fontSize      = ted.style.fontSize;
+    mirror.style.fontFamily    = ted.style.fontFamily    || 'system-ui,sans-serif';
+    mirror.style.fontWeight    = ted.style.fontWeight    || 'normal';
+    mirror.style.fontStyle     = ted.style.fontStyle     || 'normal';
+    mirror.style.letterSpacing = ted.style.letterSpacing || '';
+    const lines = ted.value.split('\n');
+    /* For empty text keep the drag-defined box width; for typed text start from 60px */
+    let maxW = ted.value ? 60 : Math.max(60, (tedEl.w || 0) * vz);
+    lines.forEach(line => {
+      mirror.textContent = line || '\u00a0';
+      maxW = Math.max(maxW, mirror.offsetWidth + 4); // +4px cursor buffer only
+    });
+    ted.style.width  = maxW + 'px';
+    wrap.style.width = maxW + 'px';
+    ted.style.height = '1px';
+    const h = Math.max(28, ted.scrollHeight);
+    ted.style.height  = h + 'px';
+    wrap.style.height = h + 'px';
+    tedEl.w = maxW / vz;
+    tedEl.h = h / vz;
+  }
 }
 
 /* Open inline editor for a shape label (dblclick on flowchart block) */
@@ -5539,90 +6463,154 @@ ted.addEventListener('input', () => {
 // §13b  ENGLISH TOOLS  (IPA transcription + translation)
 // ══════════════════════════════════════════════════════════
 
-/* IPA — uses Free Dictionary API (dictionaryapi.dev, unlimited, no key) */
+/* ── Russian rule-based phonetic transcription ──────────────────────────
+   Supports: yotation (е/ё/ю/я), softness mark ('), hard sign (ъ),
+   soft sign (ь), final devoicing, always-hard (ж/ш/ц), always-soft (ч/щ) */
+function ruPhonetic(text) {
+  const VOWELS    = new Set([...'аеёиоуыэюя']);
+  const A_HARD    = new Set([...'жшц']);          // всегда твёрдые
+  const A_SOFT    = new Set([...'чщ']);           // всегда мягкие
+  const CONS      = new Set([...'бвгджзклмнпрстфхцчшщ']);
+  const DEVOICE   = {б:'п',в:'ф',г:'к',д:'т',ж:'ш',з:'с'};
+
+  function isVowel(c) { return VOWELS.has(c); }
+  function isCons(c)  { return CONS.has(c); }
+
+  return text.replace(/[а-яё]+/gi, word => {
+    const w = [...word.toLowerCase()];
+    const phs = []; // [{ch, soft}]
+
+    const softPrev = () => {
+      if (!phs.length) return;
+      const last = phs[phs.length - 1];
+      if (isCons(last.ch) && !A_HARD.has(last.ch) && last.ch !== 'й') last.soft = true;
+    };
+
+    for (let i = 0; i < w.length; i++) {
+      const c = w[i], prev = w[i-1] || '';
+      // Yotification: beginning of word, after vowel, after ъ or ь
+      const yotPos = i === 0 || isVowel(prev) || prev === 'ъ' || prev === 'ь';
+
+      if      (c === 'е') { if (yotPos) { phs.push({ch:'й'}); phs.push({ch:'э'}); } else { softPrev(); phs.push({ch:'э'}); } }
+      else if (c === 'ё') { if (yotPos) { phs.push({ch:'й'}); phs.push({ch:'о'}); } else { softPrev(); phs.push({ch:'о'}); } }
+      else if (c === 'ю') { if (yotPos) { phs.push({ch:'й'}); phs.push({ch:'у'}); } else { softPrev(); phs.push({ch:'у'}); } }
+      else if (c === 'я') { if (yotPos) { phs.push({ch:'й'}); phs.push({ch:'а'}); } else { softPrev(); phs.push({ch:'а'}); } }
+      else if (c === 'и') { softPrev(); phs.push({ch:'и'}); }
+      else if (c === 'ь') { softPrev(); }           // мягкость, без звука
+      else if (c === 'ъ') { /* разделитель, без звука */ }
+      else if (A_SOFT.has(c)) { phs.push({ch:c, soft:true}); }
+      else if (c === 'й') { phs.push({ch:'й'}); }
+      else { phs.push({ch:c, soft:false}); }
+    }
+
+    // Конечное оглушение
+    if (phs.length) {
+      const last = phs[phs.length - 1];
+      if (DEVOICE[last.ch]) last.ch = DEVOICE[last.ch];
+    }
+
+    const out = phs.map(p => {
+      const up = p.ch.toUpperCase();
+      return (p.soft && isCons(p.ch) && p.ch !== 'й') ? up + "'" : up;
+    }).join('');
+    return '[' + out + ']';
+  });
+}
+
+/* IPA — English: dictionaryapi.dev (unlimited); Russian: rule-based ruPhonetic */
 async function ipaTranscribe(el) {
   if (!el || !el.text) return;
-  const words = el.text.trim().split(/\s+/);
   const btn = document.getElementById('sbIPA');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
 
-  const results = await Promise.all(words.map(async w => {
-    const clean = w.replace(/[^a-zA-Z'-]/g, '');
-    if (!clean) return { word: w, phon: null };
-    try {
-      const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean.toLowerCase())}`);
-      if (!r.ok) return { word: clean, phon: null };
-      const d = await r.json();
-      let phon = d[0]?.phonetics?.find(p => p.text)?.text || d[0]?.phonetic || null;
-      if (phon) phon = phon.replace(/\//g, '').trim();  // strip surrounding slashes
-      return { word: clean, phon };
-    } catch { return { word: clean, phon: null }; }
-  }));
+  const isRussian = /[а-яёА-ЯЁ]/.test(el.text);
+  let ipaText;
+
+  if (isRussian) {
+    ipaText = ruPhonetic(el.text);
+  } else {
+    /* English: split on spaces AND hyphens so "rock-and-roll" works */
+    const tokens = el.text.trim().split(/(\s+|-)/);
+    const results = await Promise.all(tokens.map(async tok => {
+      if (/^\s+$/.test(tok) || tok === '-') return tok;
+      const clean = tok.replace(/[^a-zA-Z']/g, '');
+      if (!clean) return tok;
+      try {
+        const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean.toLowerCase())}`);
+        if (!r.ok) return clean;
+        const d = await r.json();
+        let phon = d[0]?.phonetics?.find(p => p.text)?.text || d[0]?.phonetic || null;
+        if (phon) phon = phon.replace(/\//g, '').trim();
+        return phon ? `${clean}  ${phon}` : clean;
+      } catch { return clean; }
+    }));
+    /* words with phonetics get their own line, separators become spaces */
+    ipaText = results.reduce((acc, tok) => {
+      if (/^\s+$/.test(tok) || tok === '-') return acc + ' ';
+      return acc + (acc ? '\n' : '') + tok;
+    }, '').trim();
+  }
 
   if (btn) { btn.disabled = false; btn.textContent = 'IPA'; }
 
-  /* Format: each word on its own line — "word  /phon/" */
-  const withPhon = results.filter(r => r.phon);
-  const ipaText = withPhon.length
-    ? withPhon.map(r => `${r.word}   ${r.phon}`).join('\n')
-    : results.map(r => r.word).join(' ');
   const ipaFs = Math.max(10, (el.fontSize || 18) - 2);
   const ipaLines = ipaText.split('\n').length;
   const newEl = {
-    id: 'el_' + Date.now(),
-    type: 'text',
-    x: el.x,
-    y: el.y + (el.h || 40) + 8,
-    w: el.w || 200,
+    id: 'el_' + Date.now(), type: 'text',
+    x: el.x, y: el.y + (el.h || 40) + 8,
+    w: Math.max(el.w || 200, 200),
     h: Math.ceil(ipaLines * ipaFs * 1.4 + 10),
-    text: ipaText,
-    fontSize: ipaFs,
-    color: '#4ec9b0',
-    font: el.font || 'system-ui,sans-serif',
-    italic: true
+    text: ipaText, fontSize: ipaFs,
+    color: '#4ec9b0', font: el.font || 'system-ui,sans-serif', italic: true
   };
-  addToUndo();
-  all.push(newEl);
-  wsSend({ type: 'stroke', data: newEl });
-  redraw();
+  addToUndo(); all.push(newEl);
+  wsSend({ type: 'stroke', data: newEl }); redraw();
 }
 
-/* Translate — uses MyMemory API (free, no key, 5K chars/day per IP) */
+/* Translate — MyMemory (5K chars/day) → fallback: Google Translate (unofficial) */
 async function translateEl(el, langPair) {
   if (!el || !el.text) return;
   const btn = document.getElementById('sbTranslate');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
 
-  try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(el.text)}&langpair=${langPair}`;
-    const r = await fetch(url);
-    const d = await r.json();
-    const translated = d?.responseData?.translatedText;
-    if (!translated || d.responseStatus !== 200) throw new Error(d.responseDetails || 'err');
+  const [sl, tl] = langPair.split('|');
+  let translated = null;
 
-    const trLines = translated.split('\n').length;
-    const trFs = el.fontSize || 18;
-    const newEl = {
-      id: 'el_' + Date.now(),
-      type: 'text',
-      x: el.x,
-      y: el.y + (el.h || 40) + 8,
-      w: el.w || 200,
-      h: Math.ceil(trLines * trFs * 1.4 + 10),
-      text: translated,
-      fontSize: trFs,
-      color: '#f0a050',
-      font: el.font || 'system-ui,sans-serif'
-    };
-    addToUndo();
-    all.push(newEl);
-    wsSend({ type: 'stroke', data: newEl });
-    redraw();
-  } catch (err) {
-    alert('Ошибка перевода: ' + err.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🌐'; }
+  try {
+    /* 1. MyMemory */
+    const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(el.text)}&langpair=${langPair}`);
+    const d = await r.json();
+    if (d?.responseData?.translatedText && d.responseStatus === 200
+        && d.responseData.translatedText.toLowerCase() !== el.text.toLowerCase()) {
+      translated = d.responseData.translatedText;
+    } else {
+      throw new Error('limit or unchanged');
+    }
+  } catch {
+    try {
+      /* 2. Fallback: unofficial Google Translate (client=gtx, no key) */
+      const r2 = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(el.text)}`);
+      const d2 = await r2.json();
+      translated = Array.isArray(d2[0]) ? d2[0].map(x => x[0]).join('') : null;
+    } catch { translated = null; }
   }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🌐'; }
+
+  if (!translated) { alert('Ошибка перевода: оба сервиса недоступны'); return; }
+
+  const trFs = el.fontSize || 18;
+  const trLines = translated.split('\n').length;
+  const newEl = {
+    id: 'el_' + Date.now(), type: 'text',
+    x: el.x, y: el.y + (el.h || 40) + 8,
+    w: el.w || 200,
+    h: Math.ceil(trLines * trFs * 1.4 + 10),
+    text: translated, fontSize: trFs,
+    color: '#f0a050', font: el.font || 'system-ui,sans-serif'
+  };
+  addToUndo(); all.push(newEl);
+  wsSend({ type: 'stroke', data: newEl }); redraw();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -5639,6 +6627,16 @@ function gp(e) {
 // ══════════════════════════════════════════════════════════
 // §15  MOUSE / TOUCH EVENTS
 // ══════════════════════════════════════════════════════════
+function resetCursor() {
+  const cursors = { select:'default', pen:'none', erase:'none',
+    geo_line:'crosshair', geo_rect:'crosshair', geo_triangle:'crosshair',
+    geo_parallelogram:'crosshair', geo_ellipse:'crosshair',
+    flow_rect:'crosshair', flow_diamond:'crosshair', flow_rounded:'crosshair',
+    flow_connector:'crosshair', flow_iopara:'crosshair', flow_hexagon:'crosshair',
+    flow_cylinder:'crosshair', flow_document:'crosshair', flow_subprocess:'crosshair',
+    text:'text', code:'crosshair' };
+  cv.style.cursor = cursors[tool] || 'default';
+}
 let drawing = false, panning = false, panSt = null, spDown = false;
 
 function onDown(e) {
@@ -5841,6 +6839,18 @@ function onDown(e) {
             x1: w.x, y1: w.y, x2: w.x, y2: w.y };
     return;
   }
+  if (tool === 'flow_iopara' || tool === 'flow_hexagon' || tool === 'flow_cylinder' ||
+      tool === 'flow_document' || tool === 'flow_subprocess') {
+    const shapeMap = { flow_iopara:'iopara', flow_hexagon:'hexagon',
+                       flow_cylinder:'cylinder', flow_document:'document', flow_subprocess:'subprocess' };
+    addToUndo(); drawing = true;
+    cur = { id: gid(), type: 'shape', user_id: myId,
+            shape: shapeMap[tool],
+            color: geoColor, size: geoSize, dash: geoDash,
+            fill: geoFill, fillOpacity: geoFillOpacity,
+            x1: w.x, y1: w.y, x2: w.x, y2: w.y };
+    return;
+  }
   /* ── Flow node ── */
   if (tool === 'flow_node') {
     addToUndo();
@@ -5917,7 +6927,7 @@ function onMove(e) {
     if (resizing)  { resizing  = false; resizeEl = null; resizeHandle = null; resizeSnap = null; }
     cv.style.cursor = 'default'; redraw(); return;
   }
-  if (!isTouch && !(e.buttons & 2) && panning) { panning = false; panSt = null; cv.style.cursor = 'default'; }
+  if (!isTouch && !(e.buttons & 2) && panning) { panning = false; panSt = null; resetCursor(); }
   const p = gp(e), w = tw(p.x, p.y);
   if (_connEndDrag) _connEndDragLastW = w;
   if (tool === 'pen' || tool === 'erase') { cursorPos = p; if (!drawing && !panning) { redraw(); return; } }
@@ -6051,8 +7061,10 @@ function onMove(e) {
     cur.x3 = w.x + shear; cur.y3 = w.y;   // C: mouse + shear
     redraw();
   }
-  /* rect / diamond / rounded — same drag logic: x2,y2 = mouse; Shift = square */
-  if ((tool==='geo_rect'||tool==='flow_rect'||tool==='flow_diamond'||tool==='flow_rounded') && cur) {
+  /* rect / diamond / rounded / new flow shapes — same drag logic: x2,y2 = mouse; Shift = square */
+  if ((tool==='geo_rect'||tool==='flow_rect'||tool==='flow_diamond'||tool==='flow_rounded'||
+       tool==='flow_iopara'||tool==='flow_hexagon'||tool==='flow_cylinder'||
+       tool==='flow_document'||tool==='flow_subprocess') && cur) {
     cur.x2=w.x; cur.y2=w.y;
     if (e.shiftKey) {
       const dx=cur.x2-cur.x1, dy=cur.y2-cur.y1;
@@ -6080,7 +7092,7 @@ function onMove(e) {
 function onUp(e) {
   if (panning) {
     panning = false; panSt = null;
-    cv.style.cursor = tool === 'select' ? 'default' : 'crosshair'; return;
+    resetCursor(); return;
   }
 
   if (tool === 'select') {
@@ -6140,8 +7152,11 @@ function onUp(e) {
         undoStack.pop(); // click = toggle lock, not a real resize
         lineLockedHandles.has(_h) ? lineLockedHandles.delete(_h) : lineLockedHandles.add(_h);
       } else {
-        /* Snap text box height to content after resize */
-        if (_resEl.type === 'text') autoFitTextHeight(_resEl);
+        /* After resize: snap height to content (l/r-only); b/t keeps user-set height */
+        if (_resEl.type === 'text') {
+          if (!_h.includes('b') && !_h.includes('t')) autoFitTextHeight(_resEl);
+          updateSelBar();
+        }
         /* code widgets: update-in-place so DOM overlay is preserved */
         if (_resEl.type === 'code') { wsSend({ type: 'stroke_update', data: { ..._resEl } }); }
         else {
@@ -6181,8 +7196,10 @@ function onUp(e) {
   if (tool === 'text' && cur?._drag) {
     addToUndo(); // snapshot before adding text element
     delete cur._drag;
+    const wasDragged = cur.w >= 40;
     if (cur.w < 40) cur.w = textBoxW;
     if (cur.h < 30) cur.h = 60;
+    if (wasDragged) cur._wLocked = true; // lock width to dragged box → editor matches board
     all.push(cur);
     openTextEditor(cur, true);
     cur = null; return;
@@ -6208,7 +7225,9 @@ function onUp(e) {
       all.push(cur); wsSend({ type: 'stroke', data: cur });
     }
   }
-  if ((tool==='geo_rect'||tool==='flow_rect'||tool==='flow_diamond'||tool==='flow_rounded') && cur) {
+  if ((tool==='geo_rect'||tool==='flow_rect'||tool==='flow_diamond'||tool==='flow_rounded'||
+       tool==='flow_iopara'||tool==='flow_hexagon'||tool==='flow_cylinder'||
+       tool==='flow_document'||tool==='flow_subprocess') && cur) {
     if (Math.abs(cur.x2-cur.x1)>2||Math.abs(cur.y2-cur.y1)>2) {
       all.push(cur); wsSend({type:'stroke',data:cur});
     }
@@ -6222,8 +7241,22 @@ function eraseAt(sx, sy) {
   for (let i = all.length - 1; i >= 0; i--) {
     const el = all[i];
     if (el.type === 'image') continue;  // ластик не стирает картинки
-    const hit = hitTest(el, w.x, w.y) ||
-                (el.type === 'stroke' && el.pts?.some(p => Math.hypot(p.x-w.x, p.y-w.y) < r));
+    let hit = hitTest(el, w.x, w.y, true);
+    /* Also test strokes with eraser-brush radius (segment distance) */
+    if (!hit && el.type === 'stroke' && el.pts) {
+      const _ep = el.pts.filter(p => p.x != null && isFinite(p.x));
+      for (let _i = 0; _i < _ep.length && !hit; _i++) {
+        if (Math.hypot(_ep[_i].x-w.x, _ep[_i].y-w.y) < r) { hit=true; break; }
+        if (_i < _ep.length-1) {
+          const _ax=_ep[_i].x,_ay=_ep[_i].y,_bx=_ep[_i+1].x,_by=_ep[_i+1].y;
+          const _dx=_bx-_ax,_dy=_by-_ay,_l2=_dx*_dx+_dy*_dy;
+          if (_l2>0) {
+            const _t=Math.max(0,Math.min(1,((w.x-_ax)*_dx+(w.y-_ay)*_dy)/_l2));
+            if (Math.hypot(w.x-_ax-_t*_dx,w.y-_ay-_t*_dy)<r) hit=true;
+          }
+        }
+      }
+    }
     if (hit) {
       /* If this is a CS axis, orphan the partner so it renders as plain line */
       if (el.csPartner) {
@@ -6462,6 +7495,13 @@ cv.addEventListener('wheel', e => {
 // ══════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
   if (e.target === ted) return;
+  // Ctrl+Z/Redo pass through even when a board UI input has focus
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') {
+    if (e.shiftKey && e.altKey) { e.preventDefault(); doRedo(true,false); return; }
+    if (e.shiftKey)             { e.preventDefault(); doRedo(true,true);  return; }
+    if (e.altKey)               { e.preventDefault(); doUndo(true,false); return; }
+    e.preventDefault(); doUndo(true,true); return;
+  }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
   if (e.code === 'Space') { e.preventDefault(); spDown = true; if (!drawing) cv.style.cursor = 'grab'; return; }
@@ -6471,6 +7511,7 @@ document.addEventListener('keydown', e => {
   /* ESC — выйти из слежки / закрыть пикер / сбросить выделение */
   if (k === 'escape') {
     e.preventDefault();
+    if (_openSm) { _closeSm(); return; }
     if (followTarget) { stopFollow(); return; }
     if (geoPicking) { hideGeoPicker(); return; }
     if (flowPicking) { hideFlowPicker(); return; }
@@ -6587,7 +7628,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => {
   if (e.code === 'Space') {
     spDown = false;
-    if (!panning) cv.style.cursor = tool === 'select' ? 'default' : 'crosshair';
+    if (!panning) resetCursor();
   }
   const k = e.key.toLowerCase();
   if (k === 'r' || k === 'к') rKeyDown = false;
@@ -6770,21 +7811,28 @@ const tok   = localStorage.getItem('token');
 let ws = null, rc = 0;
 /* Буфер сообщений: накапливает stroke/erase_stroke/stroke_update пока WS не готов */
 let _wsBuf = [];
+/* При реконнекте сюда переносится _wsBuf — будет реально отправлен и применён
+   локально поверх свежего состояния с сервера (см. обработку 'strokes') */
+let _pendingReplay = null;
 
 function connect() {
   const wsUrl = IS_PERSONAL
     ? `${proto}//${location.host}/ws/personal-board/${PERSONAL_ID}?token=${tok}`
-    : `${proto}//${location.host}/ws/board/${SID}?token=${tok}`;
+    : GID
+    ? `${proto}//${location.host}/ws/board/group/${GID}?token=${tok}&instance_id=${INSTANCE_ID||''}`
+    : `${proto}//${location.host}/ws/board/${SID}?token=${tok}${INSTANCE_ID?'&instance_id='+INSTANCE_ID:''}`;
   ws = new WebSocket(wsUrl);
   ws.onopen  = () => {
     const _s=document.getElementById('status'); _s.style.display='none'; _s.textContent=''; rc = 0;
     /* При реконнекте запрашиваем полное состояние — это решает рассинхрон */
     ws.send(JSON.stringify({ type: 'load' }));
-    /* После получения strokes сервер сам пришлёт актуальное состояние;
-       буферизованные изменения больше не нужны — они уже в БД */
+    /* Изменения, накопленные пока связи не было, ещё не сохранены на сервере —
+       перенесём их на повторную отправку после получения свежего 'strokes' */
+    _pendingReplay = _wsBuf;
     _wsBuf = [];
   };
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
+    if (ev.code === 4001) { localStorage.removeItem('token'); location.href='/login.html'; return; }
     const _s=document.getElementById('status'); _s.style.display='block'; _s.style.color='#f87171'; _s.textContent='⚠ нет связи — переподключение...';
     setTimeout(() => { rc++; if (rc < 60) connect(); }, 1000 * Math.min(rc+1, 5));
   };
@@ -6820,8 +7868,28 @@ function connect() {
         /* Non-follow: no redraw needed (stored view is only used on follow activation) */
       }
     }
-    else if (m.type === 'strokes')      { all = m.data || []; redraw(); /* initial load — immediate */ }
-    else if (m.type === 'stroke')       { if (!all.find(s => s.id === m.data.id)) all.push(m.data); scheduleRedraw(); }
+    else if (m.type === 'strokes') {
+      all = m.data || [];
+      /* Применяем локальные изменения, накопленные во время разрыва связи,
+         поверх свежего состояния — и отправляем их на сервер, чтобы не потерять */
+      if (_pendingReplay && _pendingReplay.length) {
+        for (const bm of _pendingReplay) {
+          if (bm.type === 'stroke') {
+            const i = all.findIndex(s => s.id === bm.data.id);
+            if (i >= 0) all[i] = bm.data; else all.push(bm.data);
+          } else if (bm.type === 'erase_stroke') {
+            all = all.filter(s => s.id !== bm.id);
+          } else if (bm.type === 'stroke_update') {
+            const i = all.findIndex(s => s.id === bm.data.id);
+            if (i >= 0) Object.assign(all[i], bm.data); else all.push(bm.data);
+          }
+          if (ws && ws.readyState === 1) ws.send(JSON.stringify(bm));
+        }
+        _pendingReplay = null;
+      }
+      redraw(); /* initial load — immediate */
+    }
+    else if (m.type === 'stroke')       { const _si=all.findIndex(s=>s.id===m.data.id); if(_si>=0) all[_si]=m.data; else all.push(m.data); scheduleRedraw(); }
     else if (m.type === 'stroke_update') {
       const idx = all.findIndex(s => s.id === m.data.id);
       if (idx >= 0) { Object.assign(all[idx], m.data); } else { all.push(m.data); }
@@ -6923,13 +7991,7 @@ setTool('select');
 // Initialize connector routing UI
 setConnRouting(connRouting);
 
-/* selBar: auto-hide on mouse leave with 600ms lag */
-(function() {
-  const bar = document.getElementById('selBar');
-  let t;
-  bar.addEventListener('mouseenter', () => clearTimeout(t));
-  bar.addEventListener('mouseleave', () => { t = setTimeout(() => bar.classList.remove('open'), 600); });
-})();
+
 
 /* ── Media: open file picker ── */
 function openMediaPicker() { document.getElementById('mediaInput').click(); }
@@ -7101,17 +8163,9 @@ document.addEventListener('paste', e => {
   document.addEventListener('mouseup', () => { tdrag = false; });
 })();
 
-/* JS-based submenu hover — reliable across gap + overlapping panels */
-document.querySelectorAll('.tw').forEach(tw => {
-  const sm = tw.querySelector('.sm');
-  let hideTimer;
-  const show = () => { clearTimeout(hideTimer); sm.style.display = 'flex'; };
-  const hide = () => { hideTimer = setTimeout(() => { sm.style.display = ''; }, 250); };
-  tw.addEventListener('mouseenter', show);
-  tw.addEventListener('mouseleave', hide);
-  sm.addEventListener('mouseenter', show);
-  sm.addEventListener('mouseleave', hide);
-});
+/* Submenus open via CSS :hover (.tw:hover .sm{display:flex}).
+   ESC-close is handled in the keydown handler above via _closeSm(). */
+function _closeSm() {}   /* stub kept for ESC handler reference */
 </script>
 </body>
 </html>

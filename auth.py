@@ -7,7 +7,7 @@ from models import User
 
 SECRET_KEY = os.environ.get("HBM_JWT_SECRET", "hbm-secret-change-me-in-production")
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_HOURS = 72
+TOKEN_EXPIRE_HOURS = 24 * 30  # 30 дней — не разлогинивать пользователя на каждый запуск
 
 def hash_password(pw): return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 def verify_password(pw, h): return bcrypt.checkpw(pw.encode(), h.encode())
