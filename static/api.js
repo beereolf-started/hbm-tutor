@@ -13,3 +13,32 @@ async function upload(url,file){
 function role(){return localStorage.getItem('role')}
 function logout(){localStorage.clear();location.href='/login.html'}
 function requireAuth(allowed){if(!localStorage.getItem('token')){location.href='/login.html';return false}if(allowed&&!allowed.includes(role())){location.href='/login.html';return false}return true}
+
+// Push-уведомления (Capacitor/Android)
+function initPush(){
+    try{
+        if(!window.Capacitor||!Capacitor.isNativePlatform())return;
+        if(!localStorage.getItem('token'))return;
+        const {PushNotifications}=Capacitor.Plugins;
+        if(!PushNotifications)return;
+        PushNotifications.checkPermissions().then(p=>{
+            if(p.receive==='granted')return Promise.resolve(p);
+            return PushNotifications.requestPermissions();
+        }).then(p=>{
+            if(p.receive!=='granted')return;
+            PushNotifications.register();
+        });
+        PushNotifications.addListener('registration',token=>{
+            post('/api/push/register',{token:token.value,platform:'android'}).catch(()=>{});
+        });
+        PushNotifications.addListener('registrationError',err=>{
+            console.error('Push registration error',err);
+        });
+        PushNotifications.addListener('pushNotificationActionPerformed',()=>{
+            const r=role();
+            const home=r==='student'?'/student_lk.html':r==='parent'?'/parent_lk.html':'/hbm_tutor.html';
+            if(location.pathname!==home) location.href=home;
+        });
+    }catch(e){console.error('initPush failed',e)}
+}
+if(window.Capacitor&&Capacitor.isNativePlatform())document.addEventListener('DOMContentLoaded',initPush);
